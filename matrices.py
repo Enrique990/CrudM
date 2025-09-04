@@ -172,7 +172,7 @@ if __name__ == "__main__":
     try:
         # Ejemplo de uso
         datos = [
-            [2, -1, 1, 0], [1, 3, 7, 2], [1, -1, 2, 1]
+            [1, 0, -5, 1],[0,1,1,4],[0,0,0,0]
         ]
         m = Matriz(datos)
         m.gauss()
