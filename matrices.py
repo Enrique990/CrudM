@@ -113,7 +113,8 @@ class Matriz:
         else:
             # No hay variables libres: solución única
             sol = [0.0] * (self.m-1)
-            for i in range(self.n-1, -1, -1):
+            # Solo recorrer las filas que corresponden a incógnitas
+            for i in range(self.m-2, -1, -1):
                 suma = sum(self.A[i][j] * sol[j] for j in range(i+1, self.m-1))
                 sol[i] = (self.A[i][-1] - suma) / self.A[i][i] if abs(self.A[i][i]) > 1e-10 else 0.0
             print("Solución única:")
@@ -125,7 +126,7 @@ class Matriz:
 if __name__ == "__main__":
     # Ejemplo de uso
     datos = [
-        [1, 2, 3], [2, 4, 8]
+        [2, -1, 1, 0], [1, 3, 2, 12], [1, -1, 2, 1]
     ]
 
     m = Matriz(datos)
