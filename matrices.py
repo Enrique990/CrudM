@@ -2,31 +2,40 @@
 
 class Matriz:
     def __init__(self, datos):
+        # Validaciones básicas
+        # - Datos no vacíos
         if not datos or not all(datos):
             raise ValueError("La matriz no puede estar vacía.")
         cols = len(datos[0])
+
+        # - Todas las filas, igual cantidad de columnas
         for fila in datos:
             if len(fila) != cols:
                 raise ValueError("Todas las filas deben tener la misma cantidad de columnas")
-        if cols <= len(datos):
-            raise ValueError("La matriz debe tener más columnas que filas")
+        
+        # Guardo mi matriz(A), numero de filas y columnas tambn
         self.A = [row[:] for row in datos]
         self.n = len(datos)
         self.m = cols
+        
+        # Me crea el nombre de las variables x1, x2, ..., x(m-1)
         self.variables = [f"x{i+1}" for i in range(self.m-1)]
 
+    """ Si es un numero entero, asi se muestra. Si tiene decimales, se muestra con 4 decimales"""
     def _format_number(self, x):
         if abs(x - int(x)) < 1e-10:
             return str(int(x))
         else:
             return f"{x:.4f}"
-
+    # utiliza la funcion de arriba, pero la aplica a toda la matriz
     def _mat_str(self, mat):
         return [[self._format_number(x) for x in row] for row in mat]
+    
+    
 
-    # -------------------- MÉTODO GAUSS-JORDAN --------------------
+    """ -------------------- MÉTODO GAUSS-JORDAN -------------------- """
     def gauss_jordan(self):
-        A = [row[:] for row in self.A]  # trabajar sobre copia
+        A = [row[:] for row in self.A]  # trabajar sobre copia (para hacer distintas operaciones)
         n, m = self.n, self.m
         pasos = []
         pivotes = {}
