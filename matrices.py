@@ -34,13 +34,15 @@ class Matriz:
             if len(fila) != cols:
                 msg = f"Error: La fila {idx+1} tiene {len(fila)} columnas, pero se esperaban {cols}. Todas las filas deben tener la misma longitud."
                 print(msg)
-                
                 return
         print("Matriz inicial:")
         self.print_matrix()
+        pasos = []
+        pasos.append("Matriz inicial:")
+        pasos.append([str(int(x)) if x == int(x) else "{:.3f}".format(x) for x in row] for row in self.A)
 
         for i in range(self.n):
-            print(f"\n--- Paso {i+1} ---")
+            operaciones = []
             # Buscar pivote no cero
             pivot_row = None
             for r in range(i, self.n):
@@ -48,31 +50,49 @@ class Matriz:
                     pivot_row = r
                     break
             if pivot_row is None:
-                print(f"Columna {i+1}: pivote cero, variable libre")
+                operaciones.append(f"Columna {i+1}: pivote cero, variable libre")
+                if operaciones:
+                    print(f"\n--- Paso {i+1} ---")
+                    for op in operaciones:
+                        print(op)
                 continue  # posible variable libre
             if pivot_row != i:
                 self.A[i], self.A[pivot_row] = self.A[pivot_row], self.A[i]
-                print(f"Intercambio: F{i+1} <-> F{pivot_row+1}")
-                self.print_matrix()
+                operaciones.append(f"Intercambio: F{i+1} <-> F{pivot_row+1}")
+                operaciones.append([str(int(x)) if x == int(x) else "{:.3f}".format(x) for x in row] for row in self.A)
 
             pivot = self.A[i][i]
             if pivot == int(pivot):
                 pivote_str = str(int(pivot))
             else:
                 pivote_str = f"{pivot:.3f}"
-            print(f"Pivote en F{i+1}: {pivote_str}")
+            operaciones.append(f"Pivote en F{i+1}: {pivote_str}")
+            hubo_operacion = False
             for j in range(i+1, self.n):
                 if abs(self.A[j][i]) > 1e-10:
                     factor = self.A[j][i] / pivot
-                    print(f"F{j+1} -> F{j+1} - ({factor:.3f})*F{i+1}")
+                    operaciones.append(f"F{j+1} -> F{j+1} - ({factor:.3f})*F{i+1}")
                     for k in range(self.m):
                         self.A[j][k] -= factor * self.A[i][k]
-                    self.print_matrix()
-            print(f"Fin del paso {i+1}:")
-            self.print_matrix()
+                    operaciones.append([str(int(x)) if x == int(x) else "{:.3f}".format(x) for x in self.A[j]])
+                    hubo_operacion = True
+            if operaciones:
+                print(f"\n--- Paso {i+1} ---")
+                for op in operaciones:
+                    print(op)
+                pasos.append(f"--- Paso {i+1} ---")
+                pasos.extend(operaciones)
+            if hubo_operacion:
+                print(f"Fin del paso {i+1}:")
+                self.print_matrix()
+                pasos.append("Fin del paso {i+1}:")
+                pasos.append([str(int(x)) if x == int(x) else "{:.3f}".format(x) for x in row] for row in self.A)
 
         print("\nMatriz final en forma triangular superior:")
         self.print_matrix()
+        pasos.append("Matriz final en forma triangular superior:")
+        pasos.append([str(int(x)) if x == int(x) else "{:.3f}".format(x) for x in row] for row in self.A)
+        self.pasos = pasos
         self.sustitucion_adelante()
 
     def sustitucion_adelante(self):
