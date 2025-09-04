@@ -8,8 +8,7 @@ class Matriz:
         for fila in datos:
             if len(fila) != cols:
                 raise ValueError("Todas las filas deben tener la misma cantidad de columnas")
-        if cols <= len(datos):
-            raise ValueError("La matriz debe tener más columnas que filas")
+        
         self.A = [row[:] for row in datos]
         self.n = len(datos)
         self.m = cols
