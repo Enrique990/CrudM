@@ -221,23 +221,3 @@ class Matriz:
         return solucion
 
             
-
-# -------------------- EJEMPLO --------------------
-import json
-from matrices import Matriz
-
-datos = [
-    [2, -1, 1, 0], [1, 3, 2, 12], [1, -1, 2, 1]
-]
-
-m = Matriz(datos)
-
-resultado_gj = m.gauss_jordan()
-resultado_g = m.gauss()
-
-if __name__ == "__main__":
-    print("=== Gauss-Jordan ===")
-    print(json.dumps(resultado_gj, indent=4, ensure_ascii=False))
-
-    print("\n=== Gauss ===")
-    print(json.dumps(resultado_g, indent=4, ensure_ascii=False))
