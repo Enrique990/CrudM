@@ -1,8 +1,25 @@
 class Matriz:
     def __init__(self, datos):
+        # Validación: matriz no vacía
+        if not datos or not all(datos):
+            raise ValueError("La matriz no puede estar vacía.")
+        # Validación: todas las filas de igual longitud
+        cols = len(datos[0])
+        for idx, fila in enumerate(datos):
+            if len(fila) != cols:
+                raise ValueError(f"La fila {idx+1} tiene {len(fila)} columnas, pero se esperaban {cols}.")
+        # Validación: todos los datos numéricos
+        for idx, fila in enumerate(datos):
+            for jdx, val in enumerate(fila):
+                if not isinstance(val, (int, float)):
+                    raise ValueError(f"El valor en la fila {idx+1}, columna {jdx+1} ('{val}') no es numérico.")
+        # Validación: matriz aumentada n x (n+1)
+        n = len(datos)
+        if cols != n + 1:
+            raise ValueError(f"La matriz debe ser aumentada: {n} filas y {n+1} columnas.")
         self.A = [row[:] for row in datos]  # copia de la matriz
-        self.n = len(datos)
-        self.m = len(datos[0])
+        self.n = n
+        self.m = cols
         self.variables = [f"x{i+1}" for i in range(self.m-1)]
 
     def print_matrix(self):
@@ -11,6 +28,14 @@ class Matriz:
         print()
 
     def gauss(self):
+        # Validar que todas las filas tengan la misma longitud
+        cols = len(self.A[0])
+        for idx, fila in enumerate(self.A):
+            if len(fila) != cols:
+                msg = f"Error: La fila {idx+1} tiene {len(fila)} columnas, pero se esperaban {cols}. Todas las filas deben tener la misma longitud."
+                print(msg)
+                
+                return
         print("Matriz inicial:")
         self.print_matrix()
 
@@ -124,10 +149,17 @@ class Matriz:
                 else:
                     print(f"{self.variables[idx]} = {val:.3f}")
 if __name__ == "__main__":
-    # Ejemplo de uso
-    datos = [
-        [2, -1, 1, 0], [1, 3, 2, 12], [1, -1, 2, 1]
-    ]
-
-    m = Matriz(datos)
-    m.gauss()
+    try:
+        # Ejemplo de uso
+        datos = [
+            [2, -1, 1, 0], [1, 3, 7, 2], [1, -1, 2, 1]
+        ]
+        m = Matriz(datos)
+        m.gauss()
+    except NameError as e:
+        print(f"Error: Hay una variable no definida en la matriz de entrada. {e}")
+    except TypeError as e:
+        print(f"Error: Hay un dato no numérico en la matriz de entrada. {e}")
+    except ValueError as e:
+        print(f"Error al inicializar la matriz: {e}")
+        
