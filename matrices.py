@@ -1,3 +1,5 @@
+# matrices.py
+
 class Matriz:
     def __init__(self, datos):
         if not datos or not all(datos):
@@ -22,22 +24,16 @@ class Matriz:
     def _mat_str(self, mat):
         return [[self._format_number(x) for x in row] for row in mat]
 
-    def print_matrix(self, mat=None):
-        if mat is None:
-            mat = self.A
-        for row in self._mat_str(mat):
-            print(row)
-        print()
-
+    # -------------------- MÉTODO GAUSS-JORDAN --------------------
     def gauss_jordan(self):
-        A = self.A
+        A = [row[:] for row in self.A]  # trabajar sobre copia
         n, m = self.n, self.m
         pasos = []
         pivotes = {}
         libres = set()
         fila = 0
 
-        pasos.append(("Inicial:", [row[:] for row in A]))
+        pasos.append({"descripcion": "Matriz inicial", "matriz": self._mat_str(A)})
 
         for col in range(m-1):
             pivot_row = None
@@ -47,48 +43,45 @@ class Matriz:
                     break
             if pivot_row is None:
                 libres.add(col)
-                pasos.append((f"Columna {col+1}: variable libre", [row[:] for row in A]))
+                pasos.append({"descripcion": f"Columna {col+1}: variable libre", "matriz": self._mat_str(A)})
                 continue
 
             if pivot_row != fila:
                 A[fila], A[pivot_row] = A[pivot_row], A[fila]
-                pasos.append((f"F{fila+1} ↔ F{pivot_row+1}", [row[:] for row in A]))
+                pasos.append({"descripcion": f"F{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(A)})
 
             pivot = A[fila][col]
             if abs(pivot - 1) > 1e-10:
                 A[fila] = [x/pivot for x in A[fila]]
-                pasos.append((f"F{fila+1} → F{fila+1} / {self._format_number(pivot)}", [row[:] for row in A]))
+                pasos.append({"descripcion": f"F{fila+1} → F{fila+1} / {self._format_number(pivot)}", "matriz": self._mat_str(A)})
 
             for r in range(n):
                 if r != fila and abs(A[r][col]) > 1e-10:
                     factor = A[r][col]
                     A[r] = [A[r][k] - factor*A[fila][k] for k in range(m)]
-                    pasos.append((f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", [row[:] for row in A]))
+                    pasos.append({"descripcion": f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(A)})
 
             pivotes[col] = fila
             fila += 1
             if fila >= n:
                 break
 
+        # Detectar inconsistencia
         for r in range(n):
             if all(abs(A[r][c]) < 1e-10 for c in range(m-1)) and abs(A[r][-1]) > 1e-10:
-                print("Sistema sin solución: fila", r+1, "da 0 =", self._format_number(A[r][-1]))
-                return
+                return {"pasos": pasos, "solucion": "Sin solución"}
 
+        # Variables libres
         for col in range(m-1):
             if col not in pivotes:
                 libres.add(col)
 
-        for desc, mat in pasos:
-            print(desc)
-            self.print_matrix(mat)
-
-        print("Solución:")
+        # Construir solución
+        solucion = {}
         if libres:
-            print("Variables libres:", [self.variables[i] for i in sorted(libres)])
             for i in range(m-1):
                 if i in libres:
-                    print(f"{self.variables[i]} = libre")
+                    solucion[self.variables[i]] = "libre"
                 else:
                     fila = pivotes[i]
                     expr = self._format_number(A[fila][-1])
@@ -96,19 +89,22 @@ class Matriz:
                         coef = -A[fila][j]
                         if abs(coef) > 1e-10:
                             expr += f" + ({self._format_number(coef)})*{self.variables[j]}"
-                    print(f"{self.variables[i]} = {expr}")
+                    solucion[self.variables[i]] = expr
         else:
             for i in range(m-1):
                 val = A[pivotes[i]][-1]
-                print(f"{self.variables[i]} = {self._format_number(val)}")
+                solucion[self.variables[i]] = self._format_number(val)
 
+        return {"pasos": pasos, "solucion": solucion}
+
+    # -------------------- MÉTODO GAUSS --------------------
     def gauss(self):
-        A = self.A
+        A = [row[:] for row in self.A]  # trabajar sobre copia
         n, m = self.n, self.m
         pasos = []
         fila = 0
 
-        pasos.append(("Matriz inicial:", [row[:] for row in A]))
+        pasos.append({"descripcion": "Matriz inicial", "matriz": self._mat_str(A)})
 
         for col in range(min(n, m-1)):
             pivot_row = None
@@ -117,108 +113,131 @@ class Matriz:
                     pivot_row = r
                     break
             if pivot_row is None:
-                pasos.append((f"Columna {col+1}: variable libre", [row[:] for row in A]))
+                pasos.append({"descripcion": f"Columna {col+1}: variable libre", "matriz": self._mat_str(A)})
                 continue
 
             if pivot_row != fila:
                 A[fila], A[pivot_row] = A[pivot_row], A[fila]
-                pasos.append((f"F{fila+1} ↔ F{pivot_row+1}", [row[:] for row in A]))
+                pasos.append({"descripcion": f"F{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(A)})
 
             pivot = A[fila][col]
-
-            # Normalizar pivote
             if abs(pivot-1) > 1e-10:
                 A[fila] = [x/pivot for x in A[fila]]
-                pasos.append((f"F{fila+1} → F{fila+1} / {self._format_number(pivot)}", [row[:] for row in A]))
+                pasos.append({"descripcion": f"F{fila+1} → F{fila+1} / {self._format_number(pivot)}", "matriz": self._mat_str(A)})
 
-            # Eliminación hacia adelante
             for r in range(fila+1, n):
                 if abs(A[r][col]) > 1e-10:
                     factor = A[r][col]
                     A[r] = [A[r][k] - factor*A[fila][k] for k in range(m)]
-                    pasos.append((f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", [row[:] for row in A]))
+                    pasos.append({"descripcion": f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(A)})
 
             fila += 1
             if fila >= n:
                 break
 
-        # Imprimir todos los pasos
-        for desc, mat in pasos:
-            print(desc)
-            self.print_matrix(mat)
+        return {"pasos": pasos, "solucion": self._resolver_sustitucion(A)}
 
-        # Sustitución hacia atrás
-        self.sustitucion_adelante()
+    def _resolver_sustitucion(self, A):
+        eps = 1e-10
+        n_vars = self.m - 1
+        n_rows = self.n
 
-
-    def sustitucion_adelante(self):
-        n_vars = self.m-1
-        sol = [0]*n_vars
+        # 1) Detectar incompatibilidad y pivotes (columna -> fila)
         pivotes = {}
-        libres = set(range(n_vars))
-        incompatible = False
-
-        # Detectar incompatibilidad y pivotes
-        for i, fila in enumerate(self.A):
-            if all(abs(c) < 1e-10 for c in fila[:-1]) and abs(fila[-1]) > 1e-10:
-                incompatible = True
-                break
+        for i in range(n_rows):
+            fila = A[i]
+            if all(abs(c) < eps for c in fila[:n_vars]) and abs(fila[-1]) > eps:
+                return "Sistema incompatible, no tiene solución."
+            # primer no-cero de la fila = pivote
             for j in range(n_vars):
-                if abs(fila[j]) > 1e-10:
+                if abs(fila[j]) > eps:
                     pivotes[j] = i
-                    libres.discard(j)
                     break
 
-        if incompatible:
-            print("Sistema incompatible, no tiene solución.")
-            return
+        pivot_cols = sorted(pivotes.keys())
+        free_cols = [j for j in range(n_vars) if j not in pivotes]
 
-        if libres:
-            # Solución paramétrica
-            sol_dict = {f"x{idx+1}": f"x{idx+1}" for idx in libres}
-            for col in reversed(range(n_vars)):
-                if col in libres: continue
-                i = pivotes[col]
-                expr = f"{self.A[i][-1]}"
-                for j in range(col+1, n_vars):
-                    if abs(self.A[i][j]) > 1e-10:
-                        coef = -self.A[i][j]
-                        if j in libres:
-                            expr += f" + ({coef})*x{j+1}"
-                        else:
-                            expr += f" + ({coef})*({sol_dict[f'x{j+1}']})"
-                expr = f"({expr}) / {self.A[i][col]}"
-                sol_dict[f"x{col+1}"] = expr
-            print("Solución general:")
-            for var in sorted(sol_dict.keys()):
-                print(f"{var} = {sol_dict[var]}")
-        else:
-            # Solución única
-            for i in reversed(range(n_vars)):
-                suma = sum(self.A[i][j]*sol[j] for j in range(i+1, n_vars))
-                sol[i] = (self.A[i][-1]-suma)/self.A[i][i]
-            print("Solución única:")
-            for idx, val in enumerate(sol):
-                print(f"x{idx+1} = {val:.3f}" if val != int(val) else f"x{idx+1} = {int(val)}")
+        # 2) Expresiones de variables pivote en términos de libres (y constante)
+        #    Representamos una expresión como: {"const": c, <col_libre>: coef, ...}
+        expr = {}  # expr[col_pivote] -> dict
+
+        # Procesar de abajo hacia arriba (filas con pivote descendente)
+        rows_by_desc = sorted(((row, col) for col, row in pivotes.items()), reverse=True)
+        for row, pcol in rows_by_desc:
+            piv = A[row][pcol]
+            # RHS inicial (constante)
+            cte = A[row][-1]
+            terms = {}  # coeficientes para libres
+
+            # Restar contribución de columnas libres
+            for j in free_cols:
+                coef = A[row][j]
+                if abs(coef) > eps:
+                    terms[j] = terms.get(j, 0.0) - coef
+
+            # Restar contribución de pivotes "inferiores" (columnas de pivote mayores)
+            for qcol, qrow in pivotes.items():
+                if qcol <= pcol:
+                    continue
+                coef = A[row][qcol]
+                if abs(coef) <= eps:
+                    continue
+                # expr[qcol] ya calculada
+                qexpr = expr[qcol]
+                cte -= coef * qexpr.get("const", 0.0)
+                for lj, lcoef in qexpr.items():
+                    if lj == "const":
+                        continue
+                    terms[lj] = terms.get(lj, 0.0) - coef * lcoef
+
+            # Dividir todo por el pivote
+            cte /= piv
+            for k in list(terms.keys()):
+                terms[k] /= piv
+
+            e = {"const": cte}
+            e.update({j: terms[j] for j in terms})
+            expr[pcol] = e
+
+        # 3) Formatear solución igual que gauss_jordan
+        def fmt(v):
+            return self._format_number(v)
+
+        solucion = {}
+        for j in range(n_vars):
+            var = self.variables[j]
+            if j in free_cols:
+                solucion[var] = "libre"
+            else:
+                e = expr[j]
+                partes = [fmt(e.get("const", 0.0))]
+                for lj in sorted([k for k in e.keys() if k != "const"]):
+                    coef = e[lj]
+                    if abs(coef) > eps:
+                        partes.append(f"+ ({fmt(coef)})*{self.variables[lj]}")
+                # Siempre dejamos la constante primero (aunque sea 0) para que coincida con Gauss-Jordan
+                solucion[var] = " ".join(partes) if partes else "0"
+
+        return solucion
+
+            
+
+# -------------------- EJEMPLO --------------------
+import json
+from matrices import Matriz
+
+datos = [
+    [2, -1, 1, 0], [1, 3, 2, 12], [1, -1, 2, 1]
+]
+
+m = Matriz(datos)
+
+resultado_gj = m.gauss_jordan()
+resultado_g = m.gauss()
 
 if __name__ == "__main__":
-    try:
-        # Ejemplo de uso
-        datos = [
-            [1,6,2,-5,-2,-4],
-        [0,0,2,-8,-1,3],
-        [0,0,0,0,1,7]
-        ]
-        m = Matriz(datos)
-        print("\n\nMétodo de Gauss:")
-        m.gauss()
-        
-        print("\n\n\nMétodo de Gauss-Jordan:")
-        m.gauss_jordan()
-    except NameError as e:
-        print(f"Error: Hay una variable no definida en la matriz de entrada. {e}")
-    except TypeError as e:
-        print(f"Error: Hay un dato no numérico en la matriz de entrada. {e}")
-    except ValueError as e:
-        print(f"Error al inicializar la matriz: {e}")
-        
+    print("=== Gauss-Jordan ===")
+    print(json.dumps(resultado_gj, indent=4, ensure_ascii=False))
+
+    print("\n=== Gauss ===")
+    print(json.dumps(resultado_g, indent=4, ensure_ascii=False))
