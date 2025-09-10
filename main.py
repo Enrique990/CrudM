@@ -87,11 +87,19 @@ class MatrixCRUDApp:
         # Botones de acción
         button_frame = ttk.Frame(list_frame)
         button_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
-        
+
         ttk.Button(button_frame, text="Ver", command=self.view_matrix).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Eliminar", command=self.delete_matrix).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Resolver", command=self.solve_matrix).pack(side=tk.LEFT, padx=5)
-        
+
+        # Método de resolución
+        method_frame = ttk.Frame(main_frame)
+        method_frame.grid(row=2, column=2, sticky=tk.W, padx=10)
+        ttk.Label(method_frame, text="Método:").pack(side=tk.LEFT)
+        self.method_var = tk.StringVar(value="Gauss-Jordan")
+        self.method_combobox = ttk.Combobox(method_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss"], state="readonly", width=12)
+        self.method_combobox.pack(side=tk.LEFT, padx=5)
+
         # Crear nueva matriz
         ttk.Label(main_frame, text="Crear nueva matriz:", style='Header.TLabel').grid(row=3, column=0, sticky=tk.W, pady=(20, 5))
         
@@ -186,27 +194,32 @@ class MatrixCRUDApp:
         if not selection:
             messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
             return
-            
         matrix_name = self.matrix_listbox.get(selection[0])
         try:
-            # Cargar la matriz
             matriz_data = persistencia.cargar_matriz(matrix_name)
             if matriz_data is None:
                 messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
                 return
-            
-            # Crear una instancia de Matriz y usar el método gauss_jordan
             matriz_obj = matrices.Matriz(matriz_data['datos'])
-            resultado = matriz_obj.gauss_jordan()
-            
-            # Mostrar la solución
-            if resultado["solucion"] == "Sin solución":
-                self.show_result("El sistema no tiene solución.")
+            metodo = self.method_var.get()
+            if metodo == "Gauss-Jordan":
+                resultado = matriz_obj.gauss_jordan()
             else:
-                result_text = f"Solución del sistema para la matriz '{matrix_name}':\n"
+                resultado = matriz_obj.gauss()
+            # Mostrar la solución y el procedimiento
+            texto = f"Solución del sistema para la matriz '{matrix_name}' usando {metodo}:\n"
+            if resultado["solucion"] == "Sin solución" or resultado["solucion"] == "Sistema incompatible, no tiene solución.":
+                texto += "El sistema no tiene solución.\n"
+            else:
                 for variable, valor in resultado["solucion"].items():
-                    result_text += f"{variable} = {valor}\n"
-                self.show_result(result_text)
+                    texto += f"{variable} = {valor}\n"
+            texto += "\nProcedimiento paso a paso:\n"
+            for paso in resultado["pasos"]:
+                texto += f"- {paso['descripcion']}\n"
+                for fila in paso['matriz']:
+                    texto += "  " + "  ".join(str(x) for x in fila) + "\n"
+                texto += "\n"
+            self.show_result(texto)
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la resolución: {e}")
     
