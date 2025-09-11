@@ -29,7 +29,7 @@ class MatrixCRUDApp:
         style.configure('Title.TLabel', background="#23272e", foreground="#00adb5", font=('Segoe UI', 18, 'bold'))
         style.configure('Result.TLabel', background="#23272e", foreground="#e0e0e0", font=('Consolas', 13))
         style.configure('Entry.TEntry', fieldbackground="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11))
-        style.configure('TCombobox', fieldbackground="#393e46", background="#393e46", foreground="#e0e0e0")
+        style.configure('TCombobox', fieldbackground="#393e46", background="#393e46", foreground="#000000")
 
         # Frame principal con scroll
         main_frame = ttk.Frame(self.root, style='Dark.TFrame')
