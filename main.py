@@ -111,7 +111,7 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
-        ttk.Label(main_frame, text="Datos de la matriz:", style='Dark.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
+        ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
         self.matrix_frame = ttk.Frame(main_frame, style='Dark.TFrame')
         self.matrix_frame.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(0,10))
 
