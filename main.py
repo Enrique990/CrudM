@@ -310,6 +310,12 @@ class MatrixCRUDApp:
         if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
             messagebox.showerror("Nombre inválido", "El nombre de la matriz debe ser una única letra mayúscula (A-Z).")
             return
+        
+        # Validar si el nombre de la matriz ya existe
+        todas_matrices = persistencia.cargar_todas_matrices()
+        if name in todas_matrices:
+            messagebox.showerror("Nombre en uso", f"Ya existe una matriz con el nombre '{name}'. Por favor, elige otro nombre.")
+            return
             
         try:
             rows = int(self.rows_var.get())
