@@ -40,7 +40,6 @@ class MatrixCRUDApp:
         self.scrollable_frame.bind("<Enter>", self._bound_to_mousewheel)
         self.scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel)
 
-        # Inicializar selecciones (para que no se des-seleccione al cambiar foco)
         self.selected_matrix = None
         self.selected_method = None
 
@@ -190,7 +189,7 @@ class MatrixCRUDApp:
             
         matrix_name = self.matrix_listbox.get(selection[0])
         if messagebox.askyesno("Confirmar", f"¿Estás seguro de que quieres eliminar la matriz '{matrix_name}'?"):
-            # Llamar directamente a la función de persistencia para evitar problemas
+            # Llamar directamente a la función de persistencia
             todas_matrices = persistencia.cargar_todas_matrices()
             
             if matrix_name not in todas_matrices:
@@ -210,18 +209,14 @@ class MatrixCRUDApp:
                 messagebox.showerror("Error", f"No se pudo eliminar la matriz: {e}")
     
     def _on_matrix_select(self, event):
-        # Mantener la selección de matriz sin borrar la previa al perder foco
         selection = self.matrix_listbox.curselection()
         if selection:
             self.selected_matrix = self.matrix_listbox.get(selection[0])
-        # si no hay selección actual, no sobrescribimos selected_matrix (se conserva)
 
     def _on_method_select(self, event):
-        # Mantener la selección de método
         self.selected_method = self.method_var.get()
 
     def solve_matrix(self):
-        # Usar las selecciones guardadas
         matrix_name = getattr(self, 'selected_matrix', None)
         metodo = getattr(self, 'selected_method', self.method_var.get())
         if not matrix_name:
@@ -255,7 +250,6 @@ class MatrixCRUDApp:
             for idx, paso in enumerate(resultado["pasos"]):
                 self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
                 
-                # Convertir la matriz del paso a números antes de formatear
                 matriz_paso_float = []
                 for fila_str in paso['matriz']:
                     matriz_paso_float.append([float(x) for x in fila_str])
@@ -281,7 +275,6 @@ class MatrixCRUDApp:
             messagebox.showerror("Error", "Filas y columnas deben ser números enteros positivos.")
             return
         
-        # Crear la interfaz para ingresar los datos de la matriz
         self.create_matrix_input_ui(rows, cols, name)
     
     def create_matrix_input_ui(self, rows, cols, name):
