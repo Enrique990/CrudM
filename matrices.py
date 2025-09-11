@@ -99,7 +99,12 @@ class Matriz:
                 val = A[pivotes[i]][-1]
                 solucion[self.variables[i]] = self._format_number(val)
 
-        return {"pasos": pasos, "solucion": solucion}
+        # Mensaje sobre el tipo de solución
+        if libres:
+            tipo_sol = "El sistema tiene infinitas soluciones (variables libres presentes)."
+        else:
+            tipo_sol = "El sistema tiene solución única."
+        return {"pasos": pasos, "solucion": solucion, "mensaje": tipo_sol}
 
     # -------------------- MÉTODO GAUSS --------------------
     def gauss(self):

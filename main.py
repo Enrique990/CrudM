@@ -242,8 +242,11 @@ class MatrixCRUDApp:
             self.result_text.delete(1.0, tk.END)
             self.steps_text.delete(1.0, tk.END)
             if resultado["solucion"] == "Sin solución" or resultado["solucion"] == "Sistema incompatible, no tiene solución.":
-                self.result_text.insert(tk.END, "El sistema no tiene solución.\n")
+                self.result_text.insert(tk.END, "El sistema es inconsistente (no tiene solución).\n")
             else:
+                # Mostrar el mensaje de tipo de solución si existe
+                if "mensaje" in resultado:
+                    self.result_text.insert(tk.END, resultado["mensaje"] + "\n\n")
                 for variable, valor in resultado["solucion"].items():
                     self.result_text.insert(tk.END, f"{variable} = {valor}\n")
 
