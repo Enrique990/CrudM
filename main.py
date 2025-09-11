@@ -8,132 +8,154 @@ import matrices
 class MatrixCRUDApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Sistema CRUD de Matrices")
-        self.root.geometry("800x600")
-        
-        # Crear un frame principal con scrollbar
-        main_frame = ttk.Frame(self.root)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Crear un canvas y scrollbar
-        self.canvas = tk.Canvas(main_frame)
-        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas)
-        
+        self.root.title("Calculadora de Matrices - Modo Oscuro")
+        self.root.geometry("900x700")
+        self.root.configure(bg="#23272e")
+
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('Dark.TFrame', background="#23272e")
+        style.configure('Dark.TLabel', background="#23272e", foreground="#e0e0e0", font=('Segoe UI', 11))
+        style.configure('Dark.TButton', background="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11), borderwidth=0)
+        style.map('Dark.TButton', background=[('active', '#00adb5')])
+        style.configure('Title.TLabel', background="#23272e", foreground="#00adb5", font=('Segoe UI', 18, 'bold'))
+        style.configure('Result.TLabel', background="#23272e", foreground="#e0e0e0", font=('Consolas', 13))
+        style.configure('Entry.TEntry', fieldbackground="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11))
+        style.configure('TCombobox', fieldbackground="#393e46", background="#393e46", foreground="#e0e0e0")
+
+        # Frame principal con scroll
+        main_frame = ttk.Frame(self.root, style='Dark.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+        self.canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas, style='Dark.TFrame')
         self.scrollable_frame.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
-        
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-        
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Configurar el evento de scroll con el ratón
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.scrollable_frame.bind("<Enter>", self._bound_to_mousewheel)
         self.scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel)
-        
-        # Estilo
-        style = ttk.Style()
-        style.configure('TFrame', background='#f0f0f0')
-        style.configure('TLabel', background='#f0f0f0', font=('Arial', 10))
-        style.configure('TButton', font=('Arial', 10))
-        style.configure('Header.TLabel', font=('Arial', 14, 'bold'))
-        
+
+        # Inicializar selecciones (para que no se des-seleccione al cambiar foco)
+        self.selected_matrix = None
+        self.selected_method = None
+
         self.create_widgets()
         self.update_matrix_list()
-        
+
     def _bound_to_mousewheel(self, event):
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        
     def _unbound_to_mousewheel(self, event):
         self.canvas.unbind_all("<MouseWheel>")
-        
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
+
     def create_widgets(self):
-        # Frame principal
         main_frame = self.scrollable_frame
-        
+
         # Título
-        title_label = ttk.Label(main_frame, text="Sistema CRUD de Matrices", style='Header.TLabel')
-        title_label.grid(row=0, column=0, columnspan=2, pady=10)
-        
-        # Lista de matrices
-        ttk.Label(main_frame, text="Matrices almacenadas:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        
-        # Frame para lista y botones de acción
-        list_frame = ttk.Frame(main_frame)
-        list_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        list_frame.columnconfigure(0, weight=1)
-        list_frame.rowconfigure(0, weight=1)
-        
-        # Listbox con scrollbar
-        listbox_frame = ttk.Frame(list_frame)
-        listbox_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        listbox_frame.columnconfigure(0, weight=1)
-        listbox_frame.rowconfigure(0, weight=1)
-        
-        self.matrix_listbox = tk.Listbox(listbox_frame, height=8, font=('Arial', 10))
-        scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=self.matrix_listbox.yview)
-        self.matrix_listbox.configure(yscrollcommand=scrollbar.set)
-        
-        self.matrix_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        
-        # Botones de acción
-        button_frame = ttk.Frame(list_frame)
-        button_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
+        title_label = ttk.Label(main_frame, text="Calculadora de Matrices", style='Title.TLabel')
+        title_label.grid(row=0, column=0, columnspan=4, pady=(0, 20), sticky="w")
 
-        ttk.Button(button_frame, text="Ver", command=self.view_matrix).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Eliminar", command=self.delete_matrix).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Resolver", command=self.solve_matrix).pack(side=tk.LEFT, padx=5)
+        # Campo de entrada de ecuación (nombre)
+        ttk.Label(main_frame, text="Nombre de la matriz:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=5)
+        self.name_entry = ttk.Entry(main_frame, width=18, style='Entry.TEntry')
+        self.name_entry.grid(row=1, column=1, sticky="w", padx=(0, 20))
 
-        # Método de resolución
-        method_frame = ttk.Frame(main_frame)
-        method_frame.grid(row=2, column=2, sticky=tk.W, padx=10)
-        ttk.Label(method_frame, text="Método:").pack(side=tk.LEFT)
+        # Selector de método
+        ttk.Label(main_frame, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky="e", padx=(0,5))
         self.method_var = tk.StringVar(value="Gauss-Jordan")
-        self.method_combobox = ttk.Combobox(method_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss"], state="readonly", width=12)
-        self.method_combobox.pack(side=tk.LEFT, padx=5)
+        self.method_combobox = ttk.Combobox(main_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss"], state="readonly", width=14)
+        self.method_combobox.grid(row=1, column=3, sticky="w")
+        self.method_combobox.bind('<<ComboboxSelected>>', self._on_method_select)
 
-        # Crear nueva matriz
-        ttk.Label(main_frame, text="Crear nueva matriz:", style='Header.TLabel').grid(row=3, column=0, sticky=tk.W, pady=(20, 5))
-        
-        create_frame = ttk.Frame(main_frame)
-        create_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-        
-        ttk.Label(create_frame, text="Nombre:").grid(row=0, column=0, sticky=tk.W, padx=5)
-        self.name_entry = ttk.Entry(create_frame, width=20)
-        self.name_entry.grid(row=0, column=1, padx=5)
-        
-        ttk.Label(create_frame, text="Filas:").grid(row=0, column=2, sticky=tk.W, padx=5)
+        # Campos de filas y columnas
+        ttk.Label(main_frame, text="Filas:", style='Dark.TLabel').grid(row=2, column=0, sticky="w", pady=5)
         self.rows_var = tk.StringVar(value="0")
-        self.rows_spinbox = tk.Spinbox(create_frame, from_=1, to=20, width=5, textvariable=self.rows_var)
-        self.rows_spinbox.grid(row=0, column=3, padx=5)
-        
-        ttk.Label(create_frame, text="Columnas:").grid(row=0, column=4, sticky=tk.W, padx=5)
+        self.rows_spinbox = tk.Spinbox(main_frame, from_=1, to=20, width=6, textvariable=self.rows_var, bg="#393e46", fg="#e0e0e0", font=('Segoe UI', 11))
+        self.rows_spinbox.grid(row=2, column=1, sticky="w", padx=(0, 20))
+        ttk.Label(main_frame, text="Columnas:", style='Dark.TLabel').grid(row=2, column=2, sticky="e", padx=(0,5))
         self.cols_var = tk.StringVar(value="0")
-        self.cols_spinbox = tk.Spinbox(create_frame, from_=1, to=20, width=5, textvariable=self.cols_var)
-        self.cols_spinbox.grid(row=0, column=5, padx=5)
+        self.cols_spinbox = tk.Spinbox(main_frame, from_=1, to=20, width=6, textvariable=self.cols_var, bg="#393e46", fg="#e0e0e0", font=('Segoe UI', 11))
+        self.cols_spinbox.grid(row=2, column=3, sticky="w")
+
+        # Botón crear matriz
+        ttk.Button(main_frame, text="Crear matriz", command=self.create_matrix, style='Dark.TButton').grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky="ew")
+
+        # Lista de matrices
+        ttk.Label(main_frame, text="Matrices almacenadas:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky="w", pady=(0,5))
+        self.matrix_listbox = tk.Listbox(main_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.matrix_listbox.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(0,10))
+        self.matrix_listbox.bind('<<ListboxSelect>>', self._on_matrix_select)
+
+        # Botones de acción
+        action_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+        action_frame.grid(row=5, column=2, columnspan=2, sticky="ew")
+        ttk.Button(action_frame, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+
+        # Área para ingresar datos de la matriz
+        ttk.Label(main_frame, text="Datos de la matriz:", style='Dark.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
+        self.matrix_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+        self.matrix_frame.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(0,10))
+
+        # Área de resultados (solución y pasos)
+        result_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+        result_frame.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(10,0))
+        ttk.Label(result_frame, text="Solución", style='Title.TLabel').pack(anchor="w", pady=(0,5))
+        self.result_text = tk.Text(result_frame, height=8, width=80, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.result_text.pack(fill=tk.BOTH, expand=True, pady=(0,10))
+        ttk.Label(result_frame, text="Pasos de solución", style='Title.TLabel').pack(anchor="w", pady=(0,5))
+        self.steps_text = tk.Text(result_frame, height=16, width=80, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        self.steps_text.pack(fill=tk.BOTH, expand=True)
+
+    def _format_matrix_for_display(self, matrix_data):
+        if not matrix_data or not any(matrix_data):
+            return ""
         
-        ttk.Button(create_frame, text="Crear", command=self.create_matrix).grid(row=0, column=6, padx=10)
+        # Convertir todos los elementos a cadenas para calcular anchos
+        str_matrix = [[str(cell) for cell in row] for row in matrix_data]
         
-        # Área de matriz
-        ttk.Label(main_frame, text="Datos de la matriz:").grid(row=5, column=0, sticky=tk.W, pady=5)
-        
-        self.matrix_frame = ttk.Frame(main_frame)
-        self.matrix_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-        
-        # Área de resultados
-        ttk.Label(main_frame, text="Resultados:").grid(row=7, column=0, sticky=tk.W, pady=5)
-        
-        self.result_text = scrolledtext.ScrolledText(main_frame, height=10, width=70, font=('Consolas', 10))
-        self.result_text.grid(row=8, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        
+        # Encontrar el ancho máximo para cada columna
+        col_widths = [0] * len(str_matrix[0])
+        for row in str_matrix:
+            for i, cell in enumerate(row):
+                if len(cell) > col_widths[i]:
+                    col_widths[i] = len(cell)
+                    
+        # Construir la cadena formateada
+        formatted_str = ""
+        num_rows = len(str_matrix)
+        for i, row in enumerate(str_matrix):
+            line = ""
+            # Usar paréntesis normales y alineación
+            if i == 0:
+                line += " /"
+            elif i == num_rows - 1:
+                line += " \\"
+            else:
+                line += "| "
+                
+            for j, cell in enumerate(row):
+                line += cell.rjust(col_widths[j] + 1)
+            
+            line += " "
+            if i == 0:
+                line += "\\ "
+            elif i == num_rows - 1:
+                line += "/ "
+            else:
+                line += "|"
+            
+            formatted_str += line + "\n"
+            
+        return formatted_str
+
     def update_matrix_list(self):
         self.matrix_listbox.delete(0, tk.END)
         matrices_data = persistencia.cargar_todas_matrices()
@@ -152,13 +174,11 @@ class MatrixCRUDApp:
         
         if matrix_data:
             # Formatear los datos de la matriz para mostrarlos correctamente
-            matrix_str = ""
-            for fila in matrix_data['datos']:
-                matrix_str += "  ".join(f"{x:.2f}" if isinstance(x, float) else str(x) for x in fila) + "\n"
+            matrix_str = self._format_matrix_for_display(matrix_data['datos'])
             
             self.show_result(f"Matriz: {matrix_data['nombre']}\n"
-                            f"Dimensiones: {matrix_data['filas']}x{matrix_data['columnas']}\n"
-                            f"Datos:\n{matrix_str}")
+                            f"Dimensiones: {matrix_data['filas']}x{matrix_data['columnas']}\n\n"
+                            f"{matrix_str}")
         else:
             messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
     
@@ -189,37 +209,60 @@ class MatrixCRUDApp:
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar la matriz: {e}")
     
-    def solve_matrix(self):
+    def _on_matrix_select(self, event):
+        # Mantener la selección de matriz sin borrar la previa al perder foco
         selection = self.matrix_listbox.curselection()
-        if not selection:
-            messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
-            return
-        matrix_name = self.matrix_listbox.get(selection[0])
+        if selection:
+            self.selected_matrix = self.matrix_listbox.get(selection[0])
+        # si no hay selección actual, no sobrescribimos selected_matrix (se conserva)
+
+    def _on_method_select(self, event):
+        # Mantener la selección de método
+        self.selected_method = self.method_var.get()
+
+    def solve_matrix(self):
+        # Usar las selecciones guardadas
+        matrix_name = getattr(self, 'selected_matrix', None)
+        metodo = getattr(self, 'selected_method', self.method_var.get())
+        if not matrix_name:
+            selection = self.matrix_listbox.curselection()
+            if selection:
+                matrix_name = self.matrix_listbox.get(selection[0])
+            else:
+                messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
+                return
+        if not metodo:
+            metodo = self.method_var.get()
         try:
             matriz_data = persistencia.cargar_matriz(matrix_name)
             if matriz_data is None:
                 messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
                 return
             matriz_obj = matrices.Matriz(matriz_data['datos'])
-            metodo = self.method_var.get()
             if metodo == "Gauss-Jordan":
                 resultado = matriz_obj.gauss_jordan()
             else:
                 resultado = matriz_obj.gauss()
             # Mostrar la solución y el procedimiento
-            texto = f"Solución del sistema para la matriz '{matrix_name}' usando {metodo}:\n"
+            self.result_text.delete(1.0, tk.END)
+            self.steps_text.delete(1.0, tk.END)
             if resultado["solucion"] == "Sin solución" or resultado["solucion"] == "Sistema incompatible, no tiene solución.":
-                texto += "El sistema no tiene solución.\n"
+                self.result_text.insert(tk.END, "El sistema no tiene solución.\n")
             else:
                 for variable, valor in resultado["solucion"].items():
-                    texto += f"{variable} = {valor}\n"
-            texto += "\nProcedimiento paso a paso:\n"
-            for paso in resultado["pasos"]:
-                texto += f"- {paso['descripcion']}\n"
-                for fila in paso['matriz']:
-                    texto += "  " + "  ".join(str(x) for x in fila) + "\n"
-                texto += "\n"
-            self.show_result(texto)
+                    self.result_text.insert(tk.END, f"{variable} = {valor}\n")
+
+            for idx, paso in enumerate(resultado["pasos"]):
+                self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
+                
+                # Convertir la matriz del paso a números antes de formatear
+                matriz_paso_float = []
+                for fila_str in paso['matriz']:
+                    matriz_paso_float.append([float(x) for x in fila_str])
+
+                formatted_step_matrix = self._format_matrix_for_display(paso['matriz'])
+                self.steps_text.insert(tk.END, formatted_step_matrix + "\n")
+
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la resolución: {e}")
     
@@ -293,6 +336,7 @@ class MatrixCRUDApp:
     
     def show_result(self, text):
         self.result_text.delete(1.0, tk.END)
+        self.steps_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, text)
 
 if __name__ == "__main__":
