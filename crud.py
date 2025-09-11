@@ -54,15 +54,22 @@ def resolver_matriz(nombre):
     datos = matriz['datos']
     print(f"Solución del sistema para la matriz '{nombre}':")
     try:
-        solucion = matrices.resolver_gauss_jordan(datos)
-        if solucion is None:
+        matriz_reducida = matrices.resolver_gauss_jordan(datos)
+        if matriz_reducida is None:
             return
-        for linea in solucion:
-            print(linea)
+        for fila in matriz_reducida:
+            print(fila)
+        print("\nSistema resuelto por variable:")
+        mostrar_solucion_sistema(matriz_reducida)
     except Exception as e:
         print(f"Error durante la resolución: {e}")
 
 def mostrar_solucion_sistema(matriz, nombres_variables=None):
+    try:
+        matriz = [[float(valor) for valor in fila] for fila in matriz]
+    except Exception as e:
+        print("Error: La matriz contiene valores no numéricos. Revisa los datos guardados.")
+        return
     filas = len(matriz)
     columnas = len(matriz[0]) - 1  # última columna es el término independiente
     if not nombres_variables:
