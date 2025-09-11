@@ -1,4 +1,4 @@
-from fractions import Fraction  # Importa Fraction para trabajar con fracciones exactas
+from fractions import Fraction
 
 def imprimir_matriz(matriz, mensaje="Matriz actual:"):
     """
@@ -24,48 +24,72 @@ def resolver_gauss_jordan(matriz_aumentada):
 
     imprimir_matriz(matriz, "Matriz aumentada inicial:")
 
-    # Recorre cada columna (excepto la última, que es el término independiente)
-    for col in range(n):
-        # 1. Buscar el pivote en la posición (col, col)
-        pivote = matriz[col][col]
-        if abs(pivote) < 1e-12:
-            # Si el pivote es cero, busca una fila más abajo con un pivote no nulo y la intercambia
-            for fila_buscada in range(col + 1, n):
-                if abs(matriz[fila_buscada][col]) > 1e-12:
-                    matriz[col], matriz[fila_buscada] = matriz[fila_buscada], matriz[col]  # Intercambio de filas
-                    print(f"R{col+1} ← R{fila_buscada+1}")
-                    imprimir_matriz(matriz)
-                    pivote = matriz[col][col]
-                    break
-            else:
-                # Si no encuentra un pivote válido, el sistema no tiene solución única
-                raise Exception("El sistema no tiene solución única (pivote cero).")
+    # Gauss-Jordan: reducción a forma escalonada reducida
+    fila_actual = 0
+    pivotes = [-1] * n  # Guarda la columna del pivote de cada fila
+    for col in range(m-1):
+        # Buscar fila con pivote no nulo
+        pivote_encontrado = False
+        for f in range(fila_actual, n):
+            if matriz[f][col] != 0:
+                matriz[fila_actual], matriz[f] = matriz[f], matriz[fila_actual]
+                pivote_encontrado = True
+                break
+        if not pivote_encontrado:
+            continue  # No hay pivote en esta columna, variable libre
 
-        # 2. Hacer el pivote igual a 1 dividiendo toda la fila por el valor del pivote
-        if pivote != 1:
-            factor = pivote
-            matriz[col] = [v / factor for v in matriz[col]]
-            print(f"R{col+1} ← R{col+1} / {factor}")
-            imprimir_matriz(matriz)
+        pivote = matriz[fila_actual][col]
+        matriz[fila_actual] = [v / pivote for v in matriz[fila_actual]]
+        print(f"R{fila_actual+1} ← R{fila_actual+1} / {pivote}")
+        imprimir_matriz(matriz)
 
-        # 3. Hacer ceros en la columna actual para todas las demás filas
-        for fila in range(n):
-            if fila != col:
-                factor = matriz[fila][col]
-                if abs(factor) > 1e-12:
-                    # Restar un múltiplo de la fila pivote para hacer cero el elemento actual
-                    matriz[fila] = [
-                        v - factor * matriz[col][i]
-                        for i, v in enumerate(matriz[fila])
-                    ]
-                    print(f"R{fila+1} ← R{fila+1} - ({factor})·R{col+1}")
-                    imprimir_matriz(matriz)
+        # Hacer ceros en la columna actual para todas las demás filas
+        for f in range(n):
+            if f != fila_actual and matriz[f][col] != 0:
+                factor = matriz[f][col]
+                matriz[f] = [
+                    v - factor * matriz[fila_actual][i]
+                    for i, v in enumerate(matriz[f])
+                ]
+                print(f"R{f+1} ← R{f+1} - ({factor})·R{fila_actual+1}")
+                imprimir_matriz(matriz)
+        pivotes[fila_actual] = col
+        fila_actual += 1
+        if fila_actual == n:
+            break
 
-    # La solución está en la última columna de la matriz reducida
-    solucion = [matriz[i][-1] for i in range(n)]
-    print("Solución encontrada (fracciones):")
-    for i, valor in enumerate(solucion):
-        print(f"x{i+1} = {valor}   (≈ {float(valor):.6f})")
+    # Detectar sistema incompatible
+    for fila in matriz:
+        if all(v == 0 for v in fila[:-1]) and fila[-1] != 0:
+            return ["El sistema es incompatible y no tiene solución."]
+
+    # Identificar variables libres y pivote
+    var_libres = []
+    var_pivote = {}
+    for i, col in enumerate(pivotes):
+        if col != -1:
+            var_pivote[col] = i
+    for j in range(m-1):
+        if j not in var_pivote:
+            var_libres.append(j)
+
+    # Construir la solución general
+    solucion = []
+    for j in range(m-1):
+        if j in var_libres:
+            solucion.append(f"x{j+1} (libre), x{j+1}∈ℝ")
+        else:
+            fila_idx = var_pivote[j]
+            val = matriz[fila_idx][-1]
+            expr = f"{val}"
+            for k in var_libres:
+                coef = -matriz[fila_idx][k]
+                if coef != 0:
+                    if coef > 0:
+                        expr += f" + {coef}*x{k+1}"
+                    else:
+                        expr += f" - {abs(coef)}*x{k+1}"
+            solucion.append(f"x{j+1} = {expr}")
     return solucion
 
 def es_matriz_valida(matriz):

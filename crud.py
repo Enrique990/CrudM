@@ -48,14 +48,55 @@ def eliminar_matriz(nombre):
 
 def resolver_matriz(nombre):
     matriz = persistencia.cargar_matriz(nombre)
-    if matriz is None:
-        print(f"Error: No se encontró la matriz '{nombre}'.")
+    if not matriz:
+        print(f"No se encontró la matriz '{nombre}'.")
         return
-    
+    datos = matriz['datos']
+    print(f"Solución del sistema para la matriz '{nombre}':")
     try:
-        solucion = matrices.resolver_gauss_jordan(matriz['datos'])
-        print(f"Solución del sistema para la matriz '{nombre}':")
-        for i, valor in enumerate(solucion):
-            print(f"x{i+1} = {valor}")
+        solucion = matrices.resolver_gauss_jordan(datos)
+        if solucion is None:
+            return
+        for linea in solucion:
+            print(linea)
     except Exception as e:
         print(f"Error durante la resolución: {e}")
+
+def mostrar_solucion_sistema(matriz, nombres_variables=None):
+    filas = len(matriz)
+    columnas = len(matriz[0]) - 1  # última columna es el término independiente
+    if not nombres_variables:
+        nombres_variables = [f"x{i+1}" for i in range(columnas)]
+
+    pivotes = [-1] * filas
+    for i in range(filas):
+        for j in range(columnas):
+            if abs(matriz[i][j]) > 1e-10:
+                pivotes[i] = j
+                break
+
+    variable_es_pivote = [False] * columnas
+    for p in pivotes:
+        if p != -1:
+            variable_es_pivote[p] = True
+
+    for idx_var in range(columnas):
+        if variable_es_pivote[idx_var]:
+            # Buscar la fila donde está el pivote de esta variable
+            fila = pivotes.index(idx_var)
+            coef_libres = []
+            for j in range(idx_var+1, columnas):
+                if abs(matriz[fila][j]) > 1e-10:
+                    signo = '-' if matriz[fila][j] > 0 else '+'
+                    valor = abs(matriz[fila][j])
+                    if valor == 1:
+                        coef_libres.append(f"{signo} {nombres_variables[j]}")
+                    else:
+                        coef_libres.append(f"{signo} {valor}{nombres_variables[j]}")
+            rhs = matriz[fila][-1]
+            expresion = f"{nombres_variables[idx_var]} = {rhs:.4g}"
+            if coef_libres:
+                expresion += ' ' + ' '.join(coef_libres)
+            print(expresion)
+        else:
+            print(f"{nombres_variables[idx_var]} = {nombres_variables[idx_var]} (variable libre)")
