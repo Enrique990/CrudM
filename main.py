@@ -8,9 +8,17 @@ import matrices
 class MatrixCRUDApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Calculadora de Matrices - Modo Oscuro")
-        self.root.geometry("900x700")
+        self.root.title("Calculadora de Matrices")
         self.root.configure(bg="#23272e")
+
+        # Centrar la ventana en la pantalla
+        window_width = 790
+        window_height = 700
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        center_x = int(screen_width/2 - window_width / 2)
+        center_y = int(screen_height/2 - window_height / 2)
+        self.root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 
         style = ttk.Style()
         style.theme_use('clam')
@@ -40,6 +48,10 @@ class MatrixCRUDApp:
         self.scrollable_frame.bind("<Enter>", self._bound_to_mousewheel)
         self.scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel)
 
+        # Frame contenedor para centrar el contenido
+        self.content_container = ttk.Frame(self.scrollable_frame, style='Dark.TFrame')
+        self.content_container.pack(expand=True, padx=20, pady=20)
+
         self.selected_matrix = None
         self.selected_method = None
 
@@ -54,7 +66,7 @@ class MatrixCRUDApp:
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def create_widgets(self):
-        main_frame = self.scrollable_frame
+        main_frame = self.content_container
 
         # Título
         title_label = ttk.Label(main_frame, text="Calculadora de Matrices", style='Title.TLabel')
@@ -103,15 +115,39 @@ class MatrixCRUDApp:
         self.matrix_frame = ttk.Frame(main_frame, style='Dark.TFrame')
         self.matrix_frame.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(0,10))
 
-        # Área de resultados (solución y pasos)
-        result_frame = ttk.Frame(main_frame, style='Dark.TFrame')
-        result_frame.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(10,0))
-        ttk.Label(result_frame, text="Solución", style='Title.TLabel').pack(anchor="w", pady=(0,5))
-        self.result_text = tk.Text(result_frame, height=8, width=80, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
-        self.result_text.pack(fill=tk.BOTH, expand=True, pady=(0,10))
-        ttk.Label(result_frame, text="Pasos de solución", style='Title.TLabel').pack(anchor="w", pady=(0,5))
-        self.steps_text = tk.Text(result_frame, height=16, width=80, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
-        self.steps_text.pack(fill=tk.BOTH, expand=True)
+        # Área de resultados (solución y pasos) con su propio scroll
+        result_container = ttk.Frame(main_frame, style='Dark.TFrame')
+        result_container.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(10,0))
+        result_container.grid_rowconfigure(1, weight=1)
+        result_container.grid_columnconfigure(0, weight=1)
+
+        ttk.Label(result_container, text="Solución", style='Title.TLabel').grid(row=0, column=0, sticky="w", pady=(0,5))
+        
+        # Frame para el texto de resultados con scroll
+        solution_frame = ttk.Frame(result_container)
+        solution_frame.grid(row=1, column=0, sticky="nsew")
+        solution_frame.grid_rowconfigure(0, weight=1)
+        solution_frame.grid_columnconfigure(0, weight=1)
+
+        self.result_text = tk.Text(solution_frame, height=8, width=80, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.result_text.grid(row=0, column=0, sticky="nsew")
+        result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.result_text.yview)
+        result_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.result_text.configure(yscrollcommand=result_scrollbar.set)
+
+        ttk.Label(result_container, text="Pasos de solución", style='Title.TLabel').grid(row=2, column=0, sticky="w", pady=(10,5))
+
+        # Frame para el texto de pasos con scroll
+        steps_frame = ttk.Frame(result_container)
+        steps_frame.grid(row=3, column=0, sticky="nsew")
+        steps_frame.grid_rowconfigure(0, weight=1)
+        steps_frame.grid_columnconfigure(0, weight=1)
+
+        self.steps_text = tk.Text(steps_frame, height=16, width=80, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        self.steps_text.grid(row=0, column=0, sticky="nsew")
+        steps_scrollbar = ttk.Scrollbar(steps_frame, orient=tk.VERTICAL, command=self.steps_text.yview)
+        steps_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.steps_text.configure(yscrollcommand=steps_scrollbar.set)
 
     def _format_matrix_for_display(self, matrix_data):
         if not matrix_data or not any(matrix_data):
@@ -218,7 +254,8 @@ class MatrixCRUDApp:
 
     def solve_matrix(self):
         matrix_name = getattr(self, 'selected_matrix', None)
-        metodo = getattr(self, 'selected_method', self.method_var.get())
+        metodo = getattr(self, 'selected_method', None) # Cambiado para forzar selección
+
         if not matrix_name:
             selection = self.matrix_listbox.curselection()
             if selection:
@@ -226,8 +263,11 @@ class MatrixCRUDApp:
             else:
                 messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
                 return
+        
         if not metodo:
-            metodo = self.method_var.get()
+            messagebox.showwarning("Selección requerida", "Por favor selecciona un método de resolución (Gauss o Gauss-Jordan).")
+            return
+
         try:
             matriz_data = persistencia.cargar_matriz(matrix_name)
             if matriz_data is None:
@@ -265,8 +305,10 @@ class MatrixCRUDApp:
     
     def create_matrix(self):
         name = self.name_entry.get().strip()
-        if not name:
-            messagebox.showwarning("Nombre requerido", "Por favor ingresa un nombre para la matriz.")
+        
+        # Validación del nombre de la matriz
+        if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
+            messagebox.showerror("Nombre inválido", "El nombre de la matriz debe ser una única letra mayúscula (A-Z).")
             return
             
         try:
