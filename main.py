@@ -107,6 +107,7 @@ class MatrixCRUDApp:
         action_frame = ttk.Frame(main_frame, style='Dark.TFrame')
         action_frame.grid(row=5, column=2, columnspan=2, sticky="ew")
         ttk.Button(action_frame, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
@@ -328,32 +329,123 @@ class MatrixCRUDApp:
         
         self.create_matrix_input_ui(rows, cols, name)
     
-    def create_matrix_input_ui(self, rows, cols, name):
+    def modify_matrix(self):
+        selection = self.matrix_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz para modificar.")
+            return
+
+        matrix_name = self.matrix_listbox.get(selection[0])
+        matrix_data = persistencia.cargar_matriz(matrix_name)
+
+        if not matrix_data:
+            messagebox.showerror("Error", f"No se pudo cargar la matriz '{matrix_name}'.")
+            return
+
+        self.create_matrix_input_ui(matrix_data['filas'], matrix_data['columnas'], matrix_name, is_modification=True, data=matrix_data['datos'])
+
+    def create_matrix_input_ui(self, rows, cols, name, is_modification=False, data=None):
         # Limpiar frame anterior
         for widget in self.matrix_frame.winfo_children():
             widget.destroy()
-        
+
+        # Guardar datos originales para comparación posterior si es modificación
+        if is_modification:
+            self.original_matrix_data_for_modification = {
+                'filas': rows,
+                'columnas': cols,
+                'datos': [row[:] for row in data] # Copia profunda
+            }
+
+        # Crear widgets para redimensionar si es modificación
+        if is_modification:
+            resize_frame = ttk.Frame(self.matrix_frame, style='Dark.TFrame')
+            resize_frame.grid(row=0, column=0, columnspan=cols + 1, pady=(0, 10), sticky="ew")
+            
+            ttk.Label(resize_frame, text="Filas:", style='Dark.TLabel').pack(side=tk.LEFT, padx=(0, 5))
+            mod_rows_var = tk.StringVar(value=str(rows))
+            mod_rows_spinbox = tk.Spinbox(resize_frame, from_=1, to=20, width=5, textvariable=mod_rows_var, bg="#393e46", fg="#e0e0e0")
+            mod_rows_spinbox.pack(side=tk.LEFT, padx=(0, 10))
+
+            ttk.Label(resize_frame, text="Columnas:", style='Dark.TLabel').pack(side=tk.LEFT, padx=(0, 5))
+            mod_cols_var = tk.StringVar(value=str(cols))
+            mod_cols_spinbox = tk.Spinbox(resize_frame, from_=1, to=20, width=5, textvariable=mod_cols_var, bg="#393e46", fg="#e0e0e0")
+            mod_cols_spinbox.pack(side=tk.LEFT, padx=(0, 20))
+
+            ttk.Button(resize_frame, text="Redimensionar", style='Dark.TButton',
+                       command=lambda: self.redraw_matrix_entries_for_modification(mod_rows_var, mod_cols_var, name, data)).pack(side=tk.LEFT)
+
         # Crear etiquetas de columna
         for j in range(cols):
-            ttk.Label(self.matrix_frame, text=f"Col {j+1}").grid(row=0, column=j+1, padx=5, pady=2)
-        
+            ttk.Label(self.matrix_frame, text=f"Col {j+1}").grid(row=1, column=j+1, padx=5, pady=2)
+
         # Crear entradas para la matriz
         entries = []
         for i in range(rows):
             row_entries = []
-            ttk.Label(self.matrix_frame, text=f"Fila {i+1}").grid(row=i+1, column=0, padx=5, pady=2)
+            ttk.Label(self.matrix_frame, text=f"Fila {i+1}").grid(row=i+2, column=0, padx=5, pady=2)
             for j in range(cols):
                 entry = ttk.Entry(self.matrix_frame, width=8)
-                entry.insert(0, "0")  # Valor por defecto
-                entry.grid(row=i+1, column=j+1, padx=2, pady=2)
+                default_value = "0"
+                if data and i < len(data) and j < len(data[i]):
+                    default_value = str(data[i][j])
+                entry.insert(0, default_value)
+                entry.grid(row=i+2, column=j+1, padx=2, pady=2)
                 row_entries.append(entry)
             entries.append(row_entries)
-        
+
         # Botón para guardar
-        ttk.Button(self.matrix_frame, text="Guardar Matriz", 
-                  command=lambda: self.save_matrix_data(entries, rows, cols, name)).grid(
-                  row=rows+1, column=0, columnspan=cols+1, pady=10)
-    
+        button_text = "Actualizar Matriz" if is_modification else "Guardar Matriz"
+        command = lambda: self.update_matrix_data(entries, int(mod_rows_var.get()), int(mod_cols_var.get()), name) if is_modification else self.save_matrix_data(entries, rows, cols, name)
+        ttk.Button(self.matrix_frame, text=button_text, command=command).grid(
+            row=rows+3, column=0, columnspan=cols+1, pady=10)
+
+    def redraw_matrix_entries_for_modification(self, rows_var, cols_var, name, old_data):
+        try:
+            new_rows = int(rows_var.get())
+            new_cols = int(cols_var.get())
+            if new_rows <= 0 or new_cols <= 0: raise ValueError
+
+            # Crear nueva matriz de datos manteniendo los valores antiguos que quepan
+            new_data = [[0] * new_cols for _ in range(new_rows)]
+            for i in range(min(new_rows, len(old_data))):
+                for j in range(min(new_cols, len(old_data[0]))):
+                    new_data[i][j] = old_data[i][j]
+            
+            self.create_matrix_input_ui(new_rows, new_cols, name, is_modification=True, data=new_data)
+
+        except ValueError:
+            messagebox.showerror("Dimensiones inválidas", "Las filas y columnas deben ser números enteros positivos.")
+
+    def update_matrix_data(self, entries, rows, cols, name):
+        datos = []
+        try:
+            for i in range(rows):
+                fila = []
+                for j in range(cols):
+                    valor = entries[i][j].get()
+                    fila.append(float(valor))
+                datos.append(fila)
+
+            # Validar si hubo cambios
+            original = self.original_matrix_data_for_modification
+            if original['filas'] == rows and original['columnas'] == cols and original['datos'] == datos:
+                # No hay cambios, no hacer nada
+                for widget in self.matrix_frame.winfo_children():
+                    widget.destroy()
+                return
+
+            if actualizar_matriz(name, datos, rows, cols):
+                messagebox.showinfo("Éxito", f"Matriz '{name}' actualizada exitosamente.")
+                self.update_matrix_list()
+                for widget in self.matrix_frame.winfo_children():
+                    widget.destroy()
+            else:
+                messagebox.showerror("Error", f"No se pudo actualizar la matriz '{name}'.")
+
+        except ValueError:
+            messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos en todas las celdas.")
+
     def save_matrix_data(self, entries, rows, cols, name):
         datos = []
         try:
