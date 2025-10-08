@@ -4,6 +4,7 @@ class Matriz:
     def __init__(self, datos):
         # Validaciones básicas
         # - Datos no vacíos
+        #
         if not datos or not all(datos):
             raise ValueError("La matriz no puede estar vacía.")
         cols = len(datos[0])
@@ -14,6 +15,7 @@ class Matriz:
                 raise ValueError("Todas las filas deben tener la misma cantidad de columnas")
         
         # Guardo mi matriz(A), numero de filas y columnas tambn
+        
         self.A = [row[:] for row in datos]
         self.n = len(datos)
         self.m = cols
@@ -52,23 +54,27 @@ class Matriz:
                     break
             if pivot_row is None:
                 libres.add(col)
-                pasos.append({"descripcion": f"Columna {col+1}: variable libre", "matriz": self._mat_str(A)})
+                pasos.append({"descripcion": f"{self.variables[col]}: variable libre (columna {col+1})", "matriz": self._mat_str(A)})
                 continue
 
             if pivot_row != fila:
                 A[fila], A[pivot_row] = A[pivot_row], A[fila]
-                pasos.append({"descripcion": f"F{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(A)})
+                valor_pivote = self._format_number(A[fila][col])
+                pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(A)})
 
             pivot = A[fila][col]
+            # Solo agrego pivote en los pasos que ya existen
             if abs(pivot - 1) > 1e-10:
                 A[fila] = [x/pivot for x in A[fila]]
-                pasos.append({"descripcion": f"F{fila+1} → F{fila+1} / {self._format_number(pivot)}", "matriz": self._mat_str(A)})
+                valor_pivote = self._format_number(pivot)
+                pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{fila+1} → F{fila+1} / {valor_pivote}", "matriz": self._mat_str(A)})
 
             for r in range(n):
                 if r != fila and abs(A[r][col]) > 1e-10:
                     factor = A[r][col]
                     A[r] = [A[r][k] - factor*A[fila][k] for k in range(m)]
-                    pasos.append({"descripcion": f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(A)})
+                    valor_pivote = self._format_number(A[fila][col])
+                    pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(A)})
 
             pivotes[col] = fila
             fila += 1
@@ -104,7 +110,12 @@ class Matriz:
                 val = A[pivotes[i]][-1]
                 solucion[self.variables[i]] = self._format_number(val)
 
-        return {"pasos": pasos, "solucion": solucion}
+        # Mensaje sobre el tipo de solución
+        if libres:
+            tipo_sol = "El sistema tiene infinitas soluciones (variables libres presentes)."
+        else:
+            tipo_sol = "El sistema tiene solución única."
+        return {"pasos": pasos, "solucion": solucion, "mensaje": tipo_sol}
 
     # -------------------- MÉTODO GAUSS --------------------
     def gauss(self):
