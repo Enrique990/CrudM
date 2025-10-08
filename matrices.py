@@ -2,31 +2,42 @@
 
 class Matriz:
     def __init__(self, datos):
+        # Validaciones básicas
+        # - Datos no vacíos
         #
         if not datos or not all(datos):
             raise ValueError("La matriz no puede estar vacía.")
         cols = len(datos[0])
+
+        # - Todas las filas, igual cantidad de columnas
         for fila in datos:
             if len(fila) != cols:
                 raise ValueError("Todas las filas deben tener la misma cantidad de columnas")
         
+        # Guardo mi matriz(A), numero de filas y columnas tambn
+        
         self.A = [row[:] for row in datos]
         self.n = len(datos)
         self.m = cols
+        
+        # Me crea el nombre de las variables x1, x2, ..., x(m-1)
         self.variables = [f"x{i+1}" for i in range(self.m-1)]
 
+    """ Si es un numero entero, asi se muestra. Si tiene decimales, se muestra con 4 decimales"""
     def _format_number(self, x):
         if abs(x - int(x)) < 1e-10:
             return str(int(x))
         else:
             return f"{x:.4f}"
-
+    # utiliza la funcion de arriba, pero la aplica a toda la matriz
     def _mat_str(self, mat):
         return [[self._format_number(x) for x in row] for row in mat]
+    
+    
 
-    # -------------------- MÉTODO GAUSS-JORDAN --------------------
+    """ -------------------- MÉTODO GAUSS-JORDAN -------------------- """
     def gauss_jordan(self):
-        A = [row[:] for row in self.A]  # trabajar sobre copia
+        A = [row[:] for row in self.A]  # trabajar sobre copia (para hacer distintas operaciones)
         n, m = self.n, self.m
         pasos = []
         pivotes = {}
@@ -115,6 +126,23 @@ class Matriz:
 
         pasos.append({"descripcion": "Matriz inicial", "matriz": self._mat_str(A)})
 
+        # Reutilizar el forward elimination privado
+        A, pivotes, pasos_elim = self._forward_elimination(A)
+        pasos.extend(pasos_elim)
+
+        return {"pasos": pasos, "solucion": self._resolver_sustitucion(A)}
+
+    def _forward_elimination(self, A):
+        """Realiza eliminación hacia adelante (como en Gauss), retorna la matriz transformada,
+        el dict de pivotes (col -> fila) y la lista de pasos (mismo formato que gauss/gauss_jordan).
+        """
+        n, m = self.n, self.m
+        pasos = []
+        pivotes = {}
+        fila = 0
+
+        pasos.append({"descripcion": "Matriz inicial", "matriz": self._mat_str(A)})
+
         for col in range(min(n, m-1)):
             pivot_row = None
             for r in range(fila, n):
@@ -122,7 +150,7 @@ class Matriz:
                     pivot_row = r
                     break
             if pivot_row is None:
-                pasos.append({"descripcion": f"Columna {col+1}: variable libre", "matriz": self._mat_str(A)})
+                pasos.append({"descripcion": f"{self.variables[col]}: columna sin pivote (variable libre)", "matriz": self._mat_str(A)})
                 continue
 
             if pivot_row != fila:
@@ -140,11 +168,53 @@ class Matriz:
                     A[r] = [A[r][k] - factor*A[fila][k] for k in range(m)]
                     pasos.append({"descripcion": f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(A)})
 
+            pivotes[col] = fila
             fila += 1
             if fila >= n:
                 break
 
-        return {"pasos": pasos, "solucion": self._resolver_sustitucion(A)}
+        return A, pivotes, pasos
+
+    def independencia(self):
+        """Determina si las columnas (coeficientes) son linealmente independientes.
+        Reutiliza _forward_elimination para obtener pivotes y pasos.
+        """
+        A = [row[:] for row in self.A]
+        A_after, pivotes, pasos = self._forward_elimination(A)
+
+        num_cols = self.m - 1
+        rango = len(pivotes)
+        pivot_cols = sorted(pivotes.keys())
+        libres = [c for c in range(num_cols) if c not in pivotes]
+
+        independiente = (rango == num_cols)
+
+        if independiente:
+            mensaje = f"La matriz de coeficientes tiene rango {rango} y {num_cols} columna(s): es linealmente independiente."
+        else:
+            libres_nombres = ", ".join(self.variables[c] for c in libres) if libres else "ninguna"
+            mensaje = (f"La matriz es linealmente dependiente: rango {rango} < {num_cols}. "
+                       f"Columnas sin pivote (libres): {libres_nombres}.")
+
+        solucion = {
+            "independiente": independiente,
+            "rango": rango,
+            "pivotes": [c + 1 for c in pivot_cols],
+            "libres": [c + 1 for c in libres]
+        }
+
+        return {"pasos": pasos, "solucion": solucion, "mensaje": mensaje}
+
+    def trasponer(self):
+        """Devuelve una nueva instancia de Matriz que es la traspuesta de la actual.
+        No modifica la matriz original.
+        """
+        # Construir la traspuesta: filas -> columnas
+        trans = [[self.A[r][c] for r in range(self.n)] for c in range(self.m)]
+        return Matriz(trans)
+
+    # alias en inglés por conveniencia
+    transpose = trasponer
 
     def _resolver_sustitucion(self, A):
         eps = 1e-10
