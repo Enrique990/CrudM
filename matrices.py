@@ -205,6 +205,17 @@ class Matriz:
 
         return {"pasos": pasos, "solucion": solucion, "mensaje": mensaje}
 
+    def trasponer(self):
+        """Devuelve una nueva instancia de Matriz que es la traspuesta de la actual.
+        No modifica la matriz original.
+        """
+        # Construir la traspuesta: filas -> columnas
+        trans = [[self.A[r][c] for r in range(self.n)] for c in range(self.m)]
+        return Matriz(trans)
+
+    # alias en inglés por conveniencia
+    transpose = trasponer
+
     def _resolver_sustitucion(self, A):
         eps = 1e-10
         n_vars = self.m - 1
