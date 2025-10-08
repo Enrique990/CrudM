@@ -36,9 +36,26 @@ def ver_matriz(nombre):
     for fila in matriz['datos']:
         print(fila)
 
-def actualizar_matriz(nombre):
-    print("Función de actualizar no implementada aún.")
-    pass
+def actualizar_matriz(nombre_matriz, nuevos_datos, nuevas_filas, nuevas_columnas):
+    todas_matrices = persistencia.cargar_todas_matrices()
+    if nombre_matriz not in todas_matrices:
+        print(f"Error: No se encontró la matriz '{nombre_matriz}'.")
+        return False
+
+    todas_matrices[nombre_matriz]['datos'] = nuevos_datos
+    todas_matrices[nombre_matriz]['filas'] = nuevas_filas
+    todas_matrices[nombre_matriz]['columnas'] = nuevas_columnas
+
+    try:
+        # Escribir directamente al archivo, similar a como lo hace delete_matrix en main.py
+        with open(persistencia.ARCHIVO_DATOS, 'w') as file:
+            import json
+            json.dump(todas_matrices, file, indent=4)
+        print(f"Matriz '{nombre_matriz}' actualizada exitosamente.")
+        return True
+    except Exception as e:
+        print(f"Error al guardar la matriz actualizada: {e}")
+        return False
 
 def eliminar_matriz(nombre):
     if persistencia.eliminar_matriz(nombre):
