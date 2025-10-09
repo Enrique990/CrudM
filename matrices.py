@@ -197,25 +197,43 @@ class Matriz:
         return A, pivotes, pasos
 
     # -------------------- INDEPENDENCIA LINEAL --------------------
-    def independencia(self, exclude_last_column=False):
-        A_src = deepcopy(self.A)
-        if exclude_last_column and self.m > 0:
-            A_src = [row[:-1] for row in A_src]
-        A = [list(map(float, row)) for row in A_src] if A_src else []
-        if not A or not A[0]:
-            return {"pasos": [], "solucion": {"independiente": True, "rango": 0}, "mensaje": "Matriz vacía."}
-
+    def independencia(self):
+        """Determina si las columnas (coeficientes) son linealmente independientes.
+        Reutiliza _forward_elimination para obtener pivotes y pasos.
+        """
+        A = [row[:] for row in self.A]
         A_after, pivotes, pasos = self._forward_elimination(A)
-        num_cols = len(A[0])
+
+        num_cols = self.m - 1
         rango = len(pivotes)
+        pivot_cols = sorted(pivotes.keys())
+        libres = [c for c in range(num_cols) if c not in pivotes]
+
         independiente = (rango == num_cols)
-        mensaje = ("Las columnas son linealmente independientes."
-                   if independiente else f"Las columnas son linealmente dependientes (rango = {rango} < {num_cols}).")
-        solucion = {"independiente": independiente, "rango": rango, "pivotes": [c+1 for c in sorted(pivotes.keys())]}
+
+        if independiente:
+            mensaje = f"La matriz de coeficientes tiene rango {rango} y {num_cols} columna(s): es linealmente independiente."
+        else:
+            libres_nombres = ", ".join(self.variables[c] for c in libres) if libres else "ninguna"
+            mensaje = (f"La matriz es linealmente dependiente: rango {rango} < {num_cols}. "
+                       f"Columnas sin pivote (libres): {libres_nombres}.")
+
+        solucion = {
+            "independiente": independiente,
+            "rango": rango,
+            "pivotes": [c + 1 for c in pivot_cols],
+            "libres": [c + 1 for c in libres]
+        }
+
         return {"pasos": pasos, "solucion": solucion, "mensaje": mensaje}
 
     def trasponer(self):
-        return [list(row) for row in zip(*self.A)]
+        """Devuelve una nueva instancia de Matriz que es la traspuesta de la actual.
+        No modifica la matriz original.
+        """
+        # Construir la traspuesta: filas -> columnas
+        trans = [[self.A[r][c] for r in range(self.n)] for c in range(self.m)]
+        return Matriz(trans)
 
     # alias en inglés por conveniencia
     transpose = trasponer
