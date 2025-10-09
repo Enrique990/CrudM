@@ -343,3 +343,63 @@ class Matriz:
                 solucion[f"x{c+1}"] = f"t{c+1}"
             return solucion
 
+def parse_vectors_text(text):
+    """Parsea texto con un vector por línea; componentes separadas por espacio o coma.
+    Devuelve lista de vectores (listas de float).
+    Lanza ValueError si hay formato inválido o dimensiones inconsistentes.
+    """
+    if text is None:
+        raise ValueError("Texto vacío.")
+    lines = [ln.strip() for ln in str(text).splitlines() if ln.strip()]
+    vectors = []
+    for ln in lines:
+        parts = ln.replace(",", " ").split()
+        if not parts:
+            continue
+        try:
+            vec = [float(p) for p in parts]
+        except Exception:
+            raise ValueError(f"Componente no numérica en la línea: '{ln}'")
+        vectors.append(vec)
+    if not vectors:
+        raise ValueError("No se encontraron vectores en la entrada.")
+    dim = len(vectors[0])
+    if any(len(v) != dim for v in vectors):
+        raise ValueError("Todos los vectores deben tener la misma dimensión.")
+    return vectors
+
+def analyze_vectors(vectors):
+    """Analiza independencia lineal de una lista de vectores (cada vector es lista de números).
+    Interpreta los vectores como columnas y usa Matriz.independencia().
+    Devuelve dict con claves: rank (int), independent (bool), relation (None por ahora), pasos, mensaje.
+    """
+    if not vectors:
+        return {"rank": 0, "independent": True, "relation": None, "pasos": [], "mensaje": "No hay vectores."}
+    # construir matriz con vectores como columnas: filas = dimensión, columnas = nº vectores
+    try:
+        A_rows = [list(row) for row in zip(*vectors)]
+        M = Matriz(A_rows)
+    except Exception as e:
+        raise ValueError(f"No se pudo construir la matriz de vectores: {e}")
+    res = M.independencia()
+    sol = res.get("solucion", {}) if isinstance(res, dict) else {}
+    rank = sol.get("rango", None) if isinstance(sol, dict) else None
+    independent = sol.get("independiente", None) if isinstance(sol, dict) else None
+    return {
+        "rank": rank,
+        "independent": independent,
+        "relation": None,   # cálculo de relación (nullspace) no implementado aquí
+        "pasos": res.get("pasos"),
+        "mensaje": res.get("mensaje")
+    }
+
+def vectors_to_row_matrix(vectors):
+    """Devuelve lista de filas donde cada vector es una fila."""
+    return [list(v) for v in vectors]
+
+def vectors_to_column_matrix(vectors):
+    """Devuelve la matriz (lista de filas) en la que cada vector es una columna (transpuesta)."""
+    if not vectors:
+        return []
+    return [list(row) for row in zip(*vectors)]
+
