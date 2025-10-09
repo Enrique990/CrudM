@@ -12,7 +12,7 @@ class MatrixCRUDApp:
         self.root.configure(bg="#23272e")
 
         # Centrar la ventana en la pantalla
-        window_width = 790
+        window_width = 900
         window_height = 700
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -26,152 +26,154 @@ class MatrixCRUDApp:
         style.configure('Dark.TLabel', background="#23272e", foreground="#e0e0e0", font=('Segoe UI', 11))
         style.configure('Dark.TButton', background="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11), borderwidth=0)
         style.map('Dark.TButton', background=[('active', '#00adb5')])
-        style.configure('Title.TLabel', background="#23272e", foreground="#00adb5", font=('Segoe UI', 18, 'bold'))
+        style.configure('Title.TLabel', background="#23272e", foreground="#00adb5", font=('Segoe UI', 16, 'bold'))
         style.configure('Result.TLabel', background="#23272e", foreground="#e0e0e0", font=('Consolas', 13))
         style.configure('Entry.TEntry', fieldbackground="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11))
         style.configure('TCombobox', fieldbackground="#393e46", background="#393e46", foreground="#000000")
 
         # Frame principal con scroll
         main_frame = ttk.Frame(self.root, style='Dark.TFrame')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
-        self.canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas, style='Dark.TFrame')
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.scrollable_frame.bind("<Enter>", self._bound_to_mousewheel)
-        self.scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Frame contenedor para centrar el contenido
-        self.content_container = ttk.Frame(self.scrollable_frame, style='Dark.TFrame')
-        self.content_container.pack(expand=True, padx=20, pady=20)
+        # Usar PanedWindow para separar lista (izq) y trabajo (der)
+        paned = ttk.Panedwindow(main_frame, orient=tk.HORIZONTAL)
+        paned.pack(fill=tk.BOTH, expand=True)
 
-        self.selected_matrix = None
-        self.selected_method = None
+        # Left: lista y acciones
+        left_frame = ttk.Frame(paned, width=260, style='Dark.TFrame')
+        left_frame.pack_propagate(False)
+        paned.add(left_frame, weight=1)
 
-        self.create_widgets()
-        self.update_matrix_list()
+        ttk.Label(left_frame, text="Matrices almacenadas", style='Title.TLabel').pack(anchor="w", pady=(0,8), padx=10)
 
-    def _bound_to_mousewheel(self, event):
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-    def _unbound_to_mousewheel(self, event):
-        self.canvas.unbind_all("<MouseWheel>")
-    def _on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-
-    def create_widgets(self):
-        main_frame = self.content_container
-
-        # Título
-        title_label = ttk.Label(main_frame, text="Calculadora de Matrices", style='Title.TLabel')
-        title_label.grid(row=0, column=0, columnspan=4, pady=(0, 20), sticky="w")
-
-        # Campo de entrada de ecuación (nombre)
-        ttk.Label(main_frame, text="Nombre de la matriz:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=5)
-        self.name_entry = ttk.Entry(main_frame, width=18, style='Entry.TEntry')
-        self.name_entry.grid(row=1, column=1, sticky="w", padx=(0, 20))
-
-        # Selector de método
-        ttk.Label(main_frame, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky="e", padx=(0,5))
-        self.method_var = tk.StringVar(value="Gauss-Jordan")
-        self.method_combobox = ttk.Combobox(main_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss"], state="readonly", width=14)
-        self.method_combobox.grid(row=1, column=3, sticky="w")
-        self.method_combobox.bind('<<ComboboxSelected>>', self._on_method_select)
-
-        # Campos de filas y columnas
-        ttk.Label(main_frame, text="Filas:", style='Dark.TLabel').grid(row=2, column=0, sticky="w", pady=5)
-        self.rows_var = tk.StringVar(value="0")
-        self.rows_spinbox = tk.Spinbox(main_frame, from_=1, to=20, width=6, textvariable=self.rows_var, bg="#393e46", fg="#e0e0e0", font=('Segoe UI', 11))
-        self.rows_spinbox.grid(row=2, column=1, sticky="w", padx=(0, 20))
-        ttk.Label(main_frame, text="Columnas:", style='Dark.TLabel').grid(row=2, column=2, sticky="e", padx=(0,5))
-        self.cols_var = tk.StringVar(value="0")
-        self.cols_spinbox = tk.Spinbox(main_frame, from_=1, to=20, width=6, textvariable=self.cols_var, bg="#393e46", fg="#e0e0e0", font=('Segoe UI', 11))
-        self.cols_spinbox.grid(row=2, column=3, sticky="w")
-
-        # Botón crear matriz
-        ttk.Button(main_frame, text="Crear matriz", command=self.create_matrix, style='Dark.TButton').grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky="ew")
-
-        # Lista de matrices
-        ttk.Label(main_frame, text="Matrices almacenadas:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky="w", pady=(0,5))
-        self.matrix_listbox = tk.Listbox(main_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
-        self.matrix_listbox.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(0,10))
+        self.matrix_listbox = tk.Listbox(left_frame, height=20, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.matrix_listbox.pack(fill=tk.BOTH, expand=True, padx=10)
         self.matrix_listbox.bind('<<ListboxSelect>>', self._on_matrix_select)
 
-        # Botones de acción
-        action_frame = ttk.Frame(main_frame, style='Dark.TFrame')
-        action_frame.grid(row=5, column=2, columnspan=2, sticky="ew")
-        ttk.Button(action_frame, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        action_frame = ttk.Frame(left_frame, style='Dark.TFrame')
+        action_frame.pack(fill=tk.X, padx=10, pady=10)
+        ttk.Button(action_frame, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, expand=True, fill=tk.X, padx=3)
+        ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, expand=True, fill=tk.X, padx=3)
+        ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, expand=True, fill=tk.X, padx=3)
 
-        # Área para ingresar datos de la matriz
-        ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
-        self.matrix_frame = ttk.Frame(main_frame, style='Dark.TFrame')
-        self.matrix_frame.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(0,10))
+        # Right: creación, editor, operador, resultados
+        right_frame = ttk.Frame(paned, style='Dark.TFrame')
+        paned.add(right_frame, weight=4)
 
-        # ----------------- Operador de matrices -----------------
-        ttk.Label(main_frame, text="Operador de matrices:", style='Title.TLabel').grid(row=9, column=0, columnspan=4, sticky="w", pady=(10,5))
-        op_frame = ttk.Frame(main_frame, style='Dark.TFrame')
-        op_frame.grid(row=10, column=0, columnspan=4, sticky="ew", pady=(0,10))
+        # Header / creación rápida
+        header_frame = ttk.Frame(right_frame, style='Dark.TFrame')
+        header_frame.pack(fill=tk.X, padx=10, pady=(0,10))
 
-        ttk.Label(op_frame, text="Matriz A:", style='Dark.TLabel').grid(row=0, column=0, sticky="w")
+        ttk.Label(header_frame, text="Calculadora de Matrices", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky="w")
+
+        ttk.Label(header_frame, text="Nombre:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=6)
+        self.name_entry = ttk.Entry(header_frame, width=6, style='Entry.TEntry')
+        self.name_entry.grid(row=1, column=1, sticky="w", padx=(5,15))
+
+        ttk.Label(header_frame, text="Filas:", style='Dark.TLabel').grid(row=1, column=2, sticky="e")
+        self.rows_var = tk.StringVar(value="1")
+        self.rows_spinbox = tk.Spinbox(header_frame, from_=1, to=20, width=5, textvariable=self.rows_var, bg="#393e46", fg="#e0e0e0", font=('Segoe UI', 11))
+        self.rows_spinbox.grid(row=1, column=3, sticky="w", padx=(5,15))
+
+        ttk.Label(header_frame, text="Columnas:", style='Dark.TLabel').grid(row=1, column=4, sticky="e")
+        self.cols_var = tk.StringVar(value="1")
+        self.cols_spinbox = tk.Spinbox(header_frame, from_=1, to=20, width=5, textvariable=self.cols_var, bg="#393e46", fg="#e0e0e0", font=('Segoe UI', 11))
+        self.cols_spinbox.grid(row=1, column=5, sticky="w", padx=(5,15))
+
+        ttk.Label(header_frame, text="Método:", style='Dark.TLabel').grid(row=2, column=0, sticky="w", pady=(6,0))
+        self.method_var = tk.StringVar(value="Gauss-Jordan")
+        self.method_combobox = ttk.Combobox(header_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss"], state="readonly", width=14)
+        self.method_combobox.grid(row=2, column=1, sticky="w", pady=(6,0))
+        self.method_combobox.bind('<<ComboboxSelected>>', self._on_method_select)
+
+        ttk.Button(header_frame, text="Crear matriz", command=self.create_matrix, style='Dark.TButton').grid(row=2, column=3, columnspan=2, sticky="w", padx=5, pady=(6,0))
+
+        ttk.Button(header_frame, text="Resolver seleccionada", command=self.solve_matrix, style='Dark.TButton').grid(row=2, column=5, sticky="e", padx=5, pady=(6,0))
+
+        # Area de edición de matriz (crear/editar)
+        editor_label = ttk.Label(right_frame, text="Editor de matriz (crear/editar)", style='Title.TLabel')
+        editor_label.pack(anchor="w", padx=10, pady=(6,0))
+
+        # Crear un área de editor desplazable (canvas + scrollbar).
+        # self.matrix_canvas_frame es el contenedor que se mostrará/ocultará.
+        self.matrix_canvas_frame = ttk.Frame(right_frame, style='Dark.TFrame')
+        self.matrix_canvas = tk.Canvas(self.matrix_canvas_frame, bg="#23272e", highlightthickness=0)
+        self.matrix_scrollbar = ttk.Scrollbar(self.matrix_canvas_frame, orient=tk.VERTICAL, command=self.matrix_canvas.yview)
+        self.matrix_canvas.configure(yscrollcommand=self.matrix_scrollbar.set)
+
+        # Frame interior donde colocaremos los widgets del editor
+        self.matrix_frame = ttk.Frame(self.matrix_canvas, style='Dark.TFrame', relief=tk.FLAT)
+        self._matrix_window = self.matrix_canvas.create_window((0, 0), window=self.matrix_frame, anchor='nw')
+
+        # Ajustes de empaquetado (no mostrar por defecto, se mostrará con create_matrix_input_ui)
+        self.matrix_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.matrix_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Actualizar la región desplazable cuando cambie el tamaño del contenido
+        def _on_frame_configure(event):
+            self.matrix_canvas.configure(scrollregion=self.matrix_canvas.bbox("all"))
+        self.matrix_frame.bind("<Configure>", _on_frame_configure)
+
+        # Asegurar que la ventana interior se ajuste al ancho del canvas
+        def _on_canvas_configure(event):
+            self.matrix_canvas.itemconfig(self._matrix_window, width=event.width)
+        self.matrix_canvas.bind("<Configure>", _on_canvas_configure)
+        # no hacer pack aquí para evitar dejar espacio vacío al iniciar
+
+        # Operador de matrices (A op B)
+        op_container = ttk.Labelframe(right_frame, text="Operador de matrices", style='Dark.TFrame')
+        op_container.pack(fill=tk.X, padx=10, pady=(6,8))
+
+        op_inner = ttk.Frame(op_container, style='Dark.TFrame')
+        op_inner.pack(fill=tk.X, padx=8, pady=6)
+
+        ttk.Label(op_inner, text="Matriz A:", style='Dark.TLabel').grid(row=0, column=0, sticky="w")
         self.op_a_var = tk.StringVar()
-        self.op_a_cb = ttk.Combobox(op_frame, textvariable=self.op_a_var, values=[], state='readonly', width=8)
-        self.op_a_cb.grid(row=0, column=1, padx=(5, 20))
+        self.op_a_cb = ttk.Combobox(op_inner, textvariable=self.op_a_var, values=[], state='readonly', width=10)
+        self.op_a_cb.grid(row=0, column=1, padx=(5, 15))
 
-        ttk.Label(op_frame, text="Matriz B:", style='Dark.TLabel').grid(row=0, column=2, sticky="w")
+        ttk.Label(op_inner, text="Matriz B:", style='Dark.TLabel').grid(row=0, column=2, sticky="w")
         self.op_b_var = tk.StringVar()
-        self.op_b_cb = ttk.Combobox(op_frame, textvariable=self.op_b_var, values=[], state='readonly', width=8)
-        self.op_b_cb.grid(row=0, column=3, padx=(5, 20))
+        self.op_b_cb = ttk.Combobox(op_inner, textvariable=self.op_b_var, values=[], state='readonly', width=10)
+        self.op_b_cb.grid(row=0, column=3, padx=(5, 15))
 
-        ttk.Label(op_frame, text="Operación:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=(8,0))
+        ttk.Label(op_inner, text="Operación:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=(8,0))
         self.op_var = tk.StringVar(value='Sumar')
-        self.op_cb = ttk.Combobox(op_frame, textvariable=self.op_var, values=['Sumar', 'Restar', 'Multiplicar'], state='readonly', width=12)
+        self.op_cb = ttk.Combobox(op_inner, textvariable=self.op_var, values=['Sumar', 'Restar', 'Multiplicar'], state='readonly', width=12)
         self.op_cb.grid(row=1, column=1, sticky='w', pady=(8,0))
 
-        ttk.Button(op_frame, text="Operar", command=self.perform_matrix_operation, style='Dark.TButton').grid(row=1, column=2, padx=5, pady=(8,0))
-        ttk.Button(op_frame, text="Guardar resultado", command=self.save_operation_result, style='Dark.TButton').grid(row=1, column=3, padx=5, pady=(8,0))
+        ttk.Button(op_inner, text="Operar", command=self.perform_matrix_operation, style='Dark.TButton').grid(row=1, column=2, padx=5, pady=(8,0))
+        ttk.Button(op_inner, text="Guardar resultado", command=self.save_operation_result, style='Dark.TButton').grid(row=1, column=3, padx=5, pady=(8,0))
 
-        # Área de resultados (solución y pasos) con su propio scroll
-        result_container = ttk.Frame(main_frame, style='Dark.TFrame')
-        result_container.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(10,0))
-        result_container.grid_rowconfigure(1, weight=1)
-        result_container.grid_columnconfigure(0, weight=1)
+        # Notebook para Resultado y Pasos
+        notebook = ttk.Notebook(right_frame)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=(6,0))
 
-        ttk.Label(result_container, text="Solución", style='Title.TLabel').grid(row=0, column=0, sticky="w", pady=(0,5))
-        
-        # Frame para el texto de resultados con scroll
-        solution_frame = ttk.Frame(result_container)
-        solution_frame.grid(row=1, column=0, sticky="nsew")
-        solution_frame.grid_rowconfigure(0, weight=1)
-        solution_frame.grid_columnconfigure(0, weight=1)
+        # Resultado tab
+        result_tab = ttk.Frame(notebook, style='Dark.TFrame')
+        notebook.add(result_tab, text="Resultado")
 
-        self.result_text = tk.Text(solution_frame, height=8, width=80, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
-        self.result_text.grid(row=0, column=0, sticky="nsew")
-        result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.result_text.yview)
-        result_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.result_text = tk.Text(result_tab, height=8, width=60, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.result_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        result_scrollbar = ttk.Scrollbar(result_tab, orient=tk.VERTICAL, command=self.result_text.yview)
+        result_scrollbar.place(relx=0.985, rely=0.02, relheight=0.96)
         self.result_text.configure(yscrollcommand=result_scrollbar.set)
 
-        ttk.Label(result_container, text="Pasos de solución", style='Title.TLabel').grid(row=2, column=0, sticky="w", pady=(10,5))
+        # Pasos tab
+        steps_tab = ttk.Frame(notebook, style='Dark.TFrame')
+        notebook.add(steps_tab, text="Pasos de solución")
 
-        # Frame para el texto de pasos con scroll
-        steps_frame = ttk.Frame(result_container)
-        steps_frame.grid(row=3, column=0, sticky="nsew")
-        steps_frame.grid_rowconfigure(0, weight=1)
-        steps_frame.grid_columnconfigure(0, weight=1)
-
-        self.steps_text = tk.Text(steps_frame, height=16, width=80, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
-        self.steps_text.grid(row=0, column=0, sticky="nsew")
-        steps_scrollbar = ttk.Scrollbar(steps_frame, orient=tk.VERTICAL, command=self.steps_text.yview)
-        steps_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.steps_text = tk.Text(steps_tab, height=16, width=60, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        self.steps_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        steps_scrollbar = ttk.Scrollbar(steps_tab, orient=tk.VERTICAL, command=self.steps_text.yview)
+        steps_scrollbar.place(relx=0.985, rely=0.02, relheight=0.96)
         self.steps_text.configure(yscrollcommand=steps_scrollbar.set)
+
+        # Inicializar selección y cargar matrices almacenadas al iniciar
+        self.selected_matrix = None
+        self.selected_method = self.method_var.get()
+        self._last_operation_result = None
+        self.update_matrix_list()
 
     def _format_matrix_for_display(self, matrix_data):
         if not matrix_data or not any(matrix_data):
@@ -228,7 +230,7 @@ class MatrixCRUDApp:
         names = list(matrices_data.keys()) if matrices_data else []
         self.op_a_cb['values'] = names
         self.op_b_cb['values'] = names
-    
+
     def view_matrix(self):
         selection = self.matrix_listbox.curselection()
         if not selection:
@@ -239,7 +241,6 @@ class MatrixCRUDApp:
         matrix_data = persistencia.cargar_matriz(matrix_name)
         
         if matrix_data:
-            # Formatear los datos de la matriz para mostrarlos correctamente
             matrix_str = self._format_matrix_for_display(matrix_data['datos'])
             
             self.show_result(f"Matriz: {matrix_data['nombre']}\n"
@@ -247,7 +248,7 @@ class MatrixCRUDApp:
                             f"{matrix_str}")
         else:
             messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
-    
+
     def delete_matrix(self):
         selection = self.matrix_listbox.curselection()
         if not selection:
@@ -274,7 +275,7 @@ class MatrixCRUDApp:
                 self.update_matrix_list()
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar la matriz: {e}")
-    
+
     def _on_matrix_select(self, event):
         selection = self.matrix_listbox.curselection()
         if selection:
@@ -403,7 +404,7 @@ class MatrixCRUDApp:
         crear_matriz(name, filas, cols, datos)
         messagebox.showinfo("Guardado", f"Matriz '{name}' guardada exitosamente.")
         self.update_matrix_list()
-    
+
     def create_matrix(self):
         name = self.name_entry.get().strip()
         
@@ -445,6 +446,11 @@ class MatrixCRUDApp:
         self.create_matrix_input_ui(matrix_data['filas'], matrix_data['columnas'], matrix_name, is_modification=True, data=matrix_data['datos'])
 
     def create_matrix_input_ui(self, rows, cols, name, is_modification=False, data=None):
+        # Asegurar que el área de editor desplazable esté visible (se había ocultado con pack_forget)
+        if not self.matrix_canvas_frame.winfo_ismapped():
+            # usar fill=BOTH para permitir scroll cuando la ventana es pequeña
+            self.matrix_canvas_frame.pack(fill=tk.BOTH, padx=10, pady=(6,8), expand=False)
+
         # Limpiar frame anterior
         for widget in self.matrix_frame.winfo_children():
             widget.destroy()
@@ -454,7 +460,7 @@ class MatrixCRUDApp:
             self.original_matrix_data_for_modification = {
                 'filas': rows,
                 'columnas': cols,
-                'datos': [row[:] for row in data] # Copia profunda
+                'datos': [row[:] for row in data] if data else [[0]*cols for _ in range(rows)] # Copia profunda
             }
 
         # Crear widgets para redimensionar si es modificación
@@ -477,13 +483,13 @@ class MatrixCRUDApp:
 
         # Crear etiquetas de columna
         for j in range(cols):
-            ttk.Label(self.matrix_frame, text=f"Col {j+1}").grid(row=1, column=j+1, padx=5, pady=2)
+            ttk.Label(self.matrix_frame, text=f"Col {j+1}", style='Dark.TLabel').grid(row=1, column=j+1, padx=5, pady=2)
 
         # Crear entradas para la matriz
         entries = []
         for i in range(rows):
             row_entries = []
-            ttk.Label(self.matrix_frame, text=f"Fila {i+1}").grid(row=i+2, column=0, padx=5, pady=2)
+            ttk.Label(self.matrix_frame, text=f"Fila {i+1}", style='Dark.TLabel').grid(row=i+2, column=0, padx=5, pady=2)
             for j in range(cols):
                 entry = ttk.Entry(self.matrix_frame, width=8)
                 default_value = "0"
@@ -495,16 +501,22 @@ class MatrixCRUDApp:
             entries.append(row_entries)
 
         # Botón para guardar
-        button_text = "Actualizar Matriz" if is_modification else "Guardar Matriz"
-        command = lambda: self.update_matrix_data(entries, int(mod_rows_var.get()), int(mod_cols_var.get()), name) if is_modification else self.save_matrix_data(entries, rows, cols, name)
-        ttk.Button(self.matrix_frame, text=button_text, command=command).grid(
+        if is_modification:
+            command = lambda: self.update_matrix_data(entries, int(mod_rows_var.get()), int(mod_cols_var.get()), name)
+            button_text = "Actualizar Matriz"
+        else:
+            command = lambda: self.save_matrix_data(entries, rows, cols, name)
+            button_text = "Guardar Matriz"
+
+        ttk.Button(self.matrix_frame, text=button_text, command=command, style='Dark.TButton').grid(
             row=rows+3, column=0, columnspan=cols+1, pady=10)
 
     def redraw_matrix_entries_for_modification(self, rows_var, cols_var, name, old_data):
         try:
             new_rows = int(rows_var.get())
             new_cols = int(cols_var.get())
-            if new_rows <= 0 or new_cols <= 0: raise ValueError
+            if new_rows <= 0 or new_cols <= 0:
+                raise ValueError
 
             # Crear nueva matriz de datos manteniendo los valores antiguos que quepan
             new_data = [[0] * new_cols for _ in range(new_rows)]
@@ -528,18 +540,28 @@ class MatrixCRUDApp:
                 datos.append(fila)
 
             # Validar si hubo cambios
-            original = self.original_matrix_data_for_modification
-            if original['filas'] == rows and original['columnas'] == cols and original['datos'] == datos:
-                # No hay cambios, no hacer nada
+            original = getattr(self, 'original_matrix_data_for_modification', None)
+            if original and original['filas'] == rows and original['columnas'] == cols and original['datos'] == datos:
+                # No hay cambios, limpiar y ocultar editor
                 for widget in self.matrix_frame.winfo_children():
                     widget.destroy()
+                self.matrix_canvas_frame.pack_forget()
                 return
 
-            if actualizar_matriz(name, datos, rows, cols):
+            # Intentar actualizar
+            updated = False
+            try:
+                updated = actualizar_matriz(name, datos, rows, cols)
+            except Exception:
+                updated = False
+
+            if updated:
                 messagebox.showinfo("Éxito", f"Matriz '{name}' actualizada exitosamente.")
                 self.update_matrix_list()
                 for widget in self.matrix_frame.winfo_children():
                     widget.destroy()
+                # ocultar editor después de actualizar
+                self.matrix_canvas_frame.pack_forget()
             else:
                 messagebox.showerror("Error", f"No se pudo actualizar la matriz '{name}'.")
 
@@ -562,11 +584,13 @@ class MatrixCRUDApp:
             
             # Limpiar entradas y resetear valores a 0
             self.name_entry.delete(0, tk.END)
-            self.rows_var.set("0")
-            self.cols_var.set("0")
+            self.rows_var.set("1")
+            self.cols_var.set("1")
             for widget in self.matrix_frame.winfo_children():
                 widget.destroy()
-                
+            # ocultar editor al terminar
+            self.matrix_canvas_frame.pack_forget()
+                 
         except ValueError:
             messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos en todas las celdas.")
     
