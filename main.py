@@ -86,6 +86,9 @@ class MatrixCRUDApp:
         self.method_combobox.grid(row=2, column=1, sticky="w", pady=(6,0))
         self.method_combobox.bind('<<ComboboxSelected>>', self._on_method_select)
 
+        # Botón para comprobar independencia lineal de vectores
+        ttk.Button(header_frame, text="Vectores", command=self.open_vector_checker, style='Dark.TButton').grid(row=2, column=2, sticky="w", padx=5, pady=(6,0))
+        
         ttk.Button(header_frame, text="Crear matriz", command=self.create_matrix, style='Dark.TButton').grid(row=2, column=3, columnspan=2, sticky="w", padx=5, pady=(6,0))
 
         ttk.Button(header_frame, text="Resolver seleccionada", command=self.solve_matrix, style='Dark.TButton').grid(row=2, column=5, sticky="e", padx=5, pady=(6,0))
@@ -598,6 +601,111 @@ class MatrixCRUDApp:
         self.result_text.delete(1.0, tk.END)
         self.steps_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, text)
+
+    # --- Interfaz para comprobar independencia de vectores (entrada horizontal) ---
+    def open_vector_checker(self):
+        win = tk.Toplevel(self.root)
+        win.title("Comprobar independencia de vectores")
+        win.geometry("700x420")
+        win.configure(bg="#23272e")
+
+        top_frame = ttk.Frame(win, style='Dark.TFrame')
+        top_frame.pack(fill=tk.X, padx=10, pady=(10,0))
+
+        ttk.Label(top_frame, text="Introduce vectores (horizontal):", style='Title.TLabel').grid(row=0, column=0, columnspan=3, sticky="w")
+
+        ttk.Label(top_frame, text="Modo de visualización:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=(6,0))
+        self._vec_orientation = tk.StringVar(value="columnas")
+        orientation_cb = ttk.Combobox(top_frame, textvariable=self._vec_orientation,
+                                     values=["columnas", "filas"],
+                                     state='readonly', width=18)
+        orientation_cb.grid(row=1, column=1, sticky="w", pady=(6,0))
+        ttk.Label(top_frame, text="(columnas = vertical, filas = horizontal)", style='Dark.TLabel').grid(row=1, column=2, sticky="w", pady=(6,0), padx=(8,0))
+
+        paste_btn = ttk.Button(top_frame, text="Pegar desde portapapeles", style='Dark.TButton',
+                               command=lambda: self._paste_clipboard_to_text(txt))
+        paste_btn.grid(row=1, column=3, sticky="e", padx=6, pady=(6,0))
+
+        help_label = ttk.Label(win, text=(
+            "Formato: escribe un vector por línea, componentes separados por espacio o coma.\n"
+            "Ejemplo:\n  1 0 3\n  0 1 2\n\n"
+            "Luego elige cómo quieres formar/mostrar la matriz:\n"
+            "- 'columnas' -> cada vector será una columna (matriz vertical)\n"
+            "- 'filas'    -> cada vector será una fila (matriz horizontal)"
+        ), style='Dark.TLabel', justify='left')
+        help_label.pack(anchor="w", padx=12, pady=(6,0))
+
+        txt = scrolledtext.ScrolledText(win, height=14, font=('Consolas', 11), bg="#23272e", fg="#e0e0e0", bd=0)
+        txt.pack(fill=tk.BOTH, expand=True, padx=10, pady=(6,6))
+
+        btn_frame = ttk.Frame(win, style='Dark.TFrame')
+        btn_frame.pack(fill=tk.X, padx=10, pady=8)
+        ttk.Button(btn_frame, text="Comprobar", command=lambda: self._check_vectors_text(txt.get("1.0", tk.END), win), style='Dark.TButton').pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="Cerrar", command=win.destroy, style='Dark.TButton').pack(side=tk.RIGHT, padx=4)
+
+    def _paste_clipboard_to_text(self, text_widget):
+        try:
+            data = self.root.clipboard_get()
+            # pegar reemplazando el contenido para evitar mezclas
+            text_widget.delete("1.0", tk.END)
+            text_widget.insert(tk.END, data)
+        except Exception:
+            messagebox.showwarning("Portapapeles", "No hay texto en el portapapeles o no se pudo acceder a él.")
+
+    def _check_vectors_text(self, text, parent_window=None):
+        # Asumimos entrada horizontal: un vector por línea
+        try:
+            vectors = matrices.parse_vectors_text(text)  # debe aceptar vectores horizontales
+        except Exception as e:
+            messagebox.showerror("Entrada inválida", f"Error leyendo vectores: {e}")
+            return
+
+        # Analizar independencia usando la representación canónica (vectores como columnas)
+        try:
+            analysis = matrices.analyze_vectors(vectors)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo analizar los vectores: {e}")
+            return
+
+        orientation = getattr(self, '_vec_orientation', tk.StringVar(value="columnas")).get()
+        # Preparar matriz para mostrar según la orientación elegida
+        if orientation == "filas":
+            A_display = matrices.vectors_to_row_matrix(vectors)
+        else:
+            A_display = matrices.vectors_to_column_matrix(vectors)
+
+        rank = analysis["rank"]
+        n = analysis["n"]
+        independent = analysis["independent"]
+
+        # Mostrar resultado sencillo
+        lines = []
+        lines.append(f"{len(A_display)} x {len(A_display[0]) if A_display else 0}  (matriz mostrada según '{orientation}')")
+        lines.append(f"Rango (evaluado sobre vectores como columnas) = {rank}")
+        lines.append("")
+        if independent:
+            lines.append("Conclusión: Los vectores son linealmente INDEPENDIENTES.")
+        else:
+            lines.append("Conclusión: Los vectores son linealmente DEPENDIENTES.")
+            if analysis["relation"]:
+                coef = analysis["relation"]
+                coef_str = ", ".join([f"{c:.6g}" for c in coef])
+                lines.append("Ejemplo de relación no trivial (coeficientes para los vectores):")
+                lines.append(f"[{coef_str}]  →  suma_i coef_i * v_i = 0")
+
+        self.result_text.delete(1.0, tk.END)
+        self.steps_text.delete(1.0, tk.END)
+        self.result_text.insert(tk.END, "\n".join(lines))
+
+        # Mostrar la matriz formada con la orientación elegida
+        self.steps_text.insert(tk.END, "Matriz formada:\n")
+        self.steps_text.insert(tk.END, self._format_matrix_for_display(A_display))
+
+        if parent_window:
+            try:
+                parent_window.lift()
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     root = tk.Tk()
