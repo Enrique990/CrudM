@@ -4,37 +4,37 @@ class Matriz:
     def __init__(self, datos):
         # Validaciones básicas
         # - Datos no vacíos
-        #
         if not datos or not all(datos):
-            raise ValueError("La matriz no puede estar vacía.")
+            raise ValueError("La matriz no puede estar vacía y las filas no pueden ser vacías.")
+        
         cols = len(datos[0])
 
         # - Todas las filas, igual cantidad de columnas
         for fila in datos:
             if len(fila) != cols:
-                raise ValueError("Todas las filas deben tener la misma cantidad de columnas")
+                raise ValueError("Todas las filas deben tener la misma cantidad de columnas.")
         
         # Guardo mi matriz(A), numero de filas y columnas tambn
-        
-        self.A = [row[:] for row in datos]
+        # convierto a floats internamente
+        self.A = [[float(x) for x in row] for row in datos]
         self.n = len(datos)
         self.m = cols
         
         # Me crea el nombre de las variables x1, x2, ..., x(m-1)
-        self.variables = [f"x{i+1}" for i in range(self.m-1)]
+        self.variables = [f"x{i+1}" for i in range(max(0, self.m-1))]
 
     """ Si es un numero entero, asi se muestra. Si tiene decimales, se muestra con 4 decimales"""
     def _format_number(self, x):
         if abs(x - int(x)) < 1e-10:
-            return str(int(x))
+            return str(int(round(x)))
         else:
             return f"{x:.4f}"
+    
     # utiliza la funcion de arriba, pero la aplica a toda la matriz
+    # devuelve lista de listas de strings (útil para mostrar pasos)
     def _mat_str(self, mat):
         return [[self._format_number(x) for x in row] for row in mat]
     
-    
-
     """ -------------------- MÉTODO GAUSS-JORDAN -------------------- """
     def gauss_jordan(self):
         A = [row[:] for row in self.A]  # trabajar sobre copia (para hacer distintas operaciones)
@@ -228,64 +228,93 @@ class Matriz:
     def sumar(self, other):
         """Suma elemento a elemento con otra matriz de igual tamaño.
         Devuelve dict con pasos, datos (lista) y una instancia de Matriz en 'resultado_matriz'.
-        """
+        Incluye pasos intermedios mostrando cómo se construye la matriz resultado."""
         B = self._ensure_matriz_input(other)
         if self.n != B.n or self.m != B.m:
-            raise ValueError("Las dimensiones deben coincidir para sumar matrices.")
+            raise ValueError("Dimensiones no conformes para suma (deben ser iguales).")
 
-        result = [[self.A[i][j] + B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        # Preparar paso iniciales
         pasos = [
             {"descripcion": "Matriz A", "matriz": self._mat_str(self.A)},
-            {"descripcion": "Matriz B", "matriz": B._mat_str(B.A)},
-            {"descripcion": "Resultado de A + B", "matriz": self._mat_str(result)}
+            {"descripcion": "Matriz B", "matriz": self._mat_str(B.A)}
         ]
+
+        # Realizar suma paso a paso (llenando resultado elemento a elemento)
+        result = [[0.0] * self.m for _ in range(self.n)]
+        for i in range(self.n):
+            for j in range(self.m):
+                result[i][j] = self.A[i][j] + B.A[i][j]
+                # añadir un paso que muestre el estado actual (útil para seguimiento)
+                pasos.append({
+                    "descripcion": f"Suma de elemento [{i+1},{j+1}] = {self._format_number(self.A[i][j])} + {self._format_number(B.A[i][j])}",
+                    "matriz": self._mat_str(result)
+                })
+
+        pasos.append({"descripcion": "Resultado final A + B", "matriz": self._mat_str(result)})
         return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Suma realizada."}
 
     def restar(self, other):
-        """Resta elemento a elemento con otra matriz de igual tamaño.
-        """
+        """Resta elemento a elemento con otra matriz de igual tamaño."""
         B = self._ensure_matriz_input(other)
         if self.n != B.n or self.m != B.m:
-            raise ValueError("Las dimensiones deben coincidir para restar matrices.")
+            raise ValueError("Dimensiones no conformes para resta (deben ser iguales).")
 
-        result = [[self.A[i][j] - B.A[i][j] for j in range(self.m)] for i in range(self.n)]
         pasos = [
             {"descripcion": "Matriz A", "matriz": self._mat_str(self.A)},
-            {"descripcion": "Matriz B", "matriz": B._mat_str(B.A)},
-            {"descripcion": "Resultado de A - B", "matriz": self._mat_str(result)}
+            {"descripcion": "Matriz B", "matriz": self._mat_str(B.A)}
         ]
+
+        result = [[0.0] * self.m for _ in range(self.n)]
+        for i in range(self.n):
+            for j in range(self.m):
+                result[i][j] = self.A[i][j] - B.A[i][j]
+                pasos.append({
+                    "descripcion": f"Resta de elemento [{i+1},{j+1}] = {self._format_number(self.A[i][j])} - {self._format_number(B.A[i][j])}",
+                    "matriz": self._mat_str(result)
+                })
+
+        pasos.append({"descripcion": "Resultado final A - B", "matriz": self._mat_str(result)})
         return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Resta realizada."}
 
     def multiplicar(self, other):
         """Multiplica la matriz por otra (A * B). Valida conformabilidad (m == other.n).
-        Devuelve pasos (explicación breve por matrices), datos y Matriz resultante.
-        """
+        Devuelve pasos (muestra A, B y el proceso de acumulación), datos y Matriz resultante."""
         B = self._ensure_matriz_input(other)
         if self.m != B.n:
-            raise ValueError("Dimensiones no conformables para multiplicación (A.m debe ser igual a B.n).")
+            raise ValueError("Dimensiones no conformes para multiplicación (columnas de A deben igualar filas de B).")
 
-        # Producto (n x m) * (m x p) -> (n x p) where p = B.m
-        n = self.n
-        p = B.m
-        result = [[0.0 for _ in range(p)] for _ in range(n)]
-        pasos = [{"descripcion": "Matriz A", "matriz": self._mat_str(self.A)},
-                 {"descripcion": "Matriz B", "matriz": B._mat_str(B.A)}]
+        pasos = [
+            {"descripcion": "Matriz A", "matriz": self._mat_str(self.A)},
+            {"descripcion": "Matriz B", "matriz": self._mat_str(B.A)},
+            {"descripcion": "Inicialización de resultado (ceros)", "matriz": self._mat_str([[0.0]*B.m for _ in range(self.n)])}
+        ]
 
-        # Calcular cada elemento y añadir un paso resumido por fila calculada
-        for i in range(n):
-            for j in range(p):
-                s = 0.0
-                terminos = []
+        # Resultado inicial
+        result = [[0.0] * B.m for _ in range(self.n)]
+
+        # Calcular producto elemento a elemento mostrando acumulación
+        for i in range(self.n):
+            for j in range(B.m):
+                acumulado = 0.0
+                # Mostrar los sumandos en la descripción
+                detalles = []
                 for k in range(self.m):
-                    a = self.A[i][k]
-                    b = B.A[k][j]
-                    s += a * b
-                    terminos.append(f"({self._format_number(a)})*({self._format_number(b)})")
-                result[i][j] = s
-            # agregar paso parcial con la fila i calculada
-            pasos.append({"descripcion": f"Fila {i+1} calculada: sumar productos elemento-a-elemento -> {' + '.join(terminos)}", "matriz": self._mat_str(result)})
+                    producto = self.A[i][k] * B.A[k][j]
+                    acumulado += producto
+                    detalles.append(f"{self._format_number(self.A[i][k])}*{self._format_number(B.A[k][j])}={self._format_number(producto)}")
+                    # actualizar resultado parcial y añadir paso
+                    result[i][j] = acumulado
+                    pasos.append({
+                        "descripcion": f"Actualizar elemento [{i+1},{j+1}] sumando {self._format_number(self.A[i][k])}*{self._format_number(B.A[k][j])}",
+                        "matriz": self._mat_str(result)
+                    })
+                # paso final por elemento con la suma completa
+                pasos.append({
+                    "descripcion": f"Elemento [{i+1},{j+1}] = " + " + ".join(detalles) + f" = {self._format_number(acumulado)}",
+                    "matriz": self._mat_str(result)
+                })
 
-        pasos.append({"descripcion": "Resultado A * B", "matriz": self._mat_str(result)})
+        pasos.append({"descripcion": "Resultado final A * B", "matriz": self._mat_str(result)})
         return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Multiplicación realizada."}
 
     def _resolver_sustitucion(self, A):
@@ -371,4 +400,3 @@ class Matriz:
 
         return solucion
 
-            
