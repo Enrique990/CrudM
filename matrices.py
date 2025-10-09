@@ -216,6 +216,78 @@ class Matriz:
     # alias en inglés por conveniencia
     transpose = trasponer
 
+    # -------------------- OPERACIONES ENTRE MATRICES --------------------
+    def _ensure_matriz_input(self, other):
+        """Acepta otra Matriz o una lista de listas y devuelve una instancia de Matriz."""
+        if isinstance(other, Matriz):
+            return other
+        if isinstance(other, list):
+            return Matriz(other)
+        raise ValueError("El operando debe ser una Matriz o una lista de listas.")
+
+    def sumar(self, other):
+        """Suma elemento a elemento con otra matriz de igual tamaño.
+        Devuelve dict con pasos, datos (lista) y una instancia de Matriz en 'resultado_matriz'.
+        """
+        B = self._ensure_matriz_input(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Las dimensiones deben coincidir para sumar matrices.")
+
+        result = [[self.A[i][j] + B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        pasos = [
+            {"descripcion": "Matriz A", "matriz": self._mat_str(self.A)},
+            {"descripcion": "Matriz B", "matriz": B._mat_str(B.A)},
+            {"descripcion": "Resultado de A + B", "matriz": self._mat_str(result)}
+        ]
+        return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Suma realizada."}
+
+    def restar(self, other):
+        """Resta elemento a elemento con otra matriz de igual tamaño.
+        """
+        B = self._ensure_matriz_input(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Las dimensiones deben coincidir para restar matrices.")
+
+        result = [[self.A[i][j] - B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        pasos = [
+            {"descripcion": "Matriz A", "matriz": self._mat_str(self.A)},
+            {"descripcion": "Matriz B", "matriz": B._mat_str(B.A)},
+            {"descripcion": "Resultado de A - B", "matriz": self._mat_str(result)}
+        ]
+        return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Resta realizada."}
+
+    def multiplicar(self, other):
+        """Multiplica la matriz por otra (A * B). Valida conformabilidad (m == other.n).
+        Devuelve pasos (explicación breve por matrices), datos y Matriz resultante.
+        """
+        B = self._ensure_matriz_input(other)
+        if self.m != B.n:
+            raise ValueError("Dimensiones no conformables para multiplicación (A.m debe ser igual a B.n).")
+
+        # Producto (n x m) * (m x p) -> (n x p) where p = B.m
+        n = self.n
+        p = B.m
+        result = [[0.0 for _ in range(p)] for _ in range(n)]
+        pasos = [{"descripcion": "Matriz A", "matriz": self._mat_str(self.A)},
+                 {"descripcion": "Matriz B", "matriz": B._mat_str(B.A)}]
+
+        # Calcular cada elemento y añadir un paso resumido por fila calculada
+        for i in range(n):
+            for j in range(p):
+                s = 0.0
+                terminos = []
+                for k in range(self.m):
+                    a = self.A[i][k]
+                    b = B.A[k][j]
+                    s += a * b
+                    terminos.append(f"({self._format_number(a)})*({self._format_number(b)})")
+                result[i][j] = s
+            # agregar paso parcial con la fila i calculada
+            pasos.append({"descripcion": f"Fila {i+1} calculada: sumar productos elemento-a-elemento -> {' + '.join(terminos)}", "matriz": self._mat_str(result)})
+
+        pasos.append({"descripcion": "Resultado A * B", "matriz": self._mat_str(result)})
+        return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Multiplicación realizada."}
+
     def _resolver_sustitucion(self, A):
         eps = 1e-10
         n_vars = self.m - 1

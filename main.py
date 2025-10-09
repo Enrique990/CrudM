@@ -1,6 +1,6 @@
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext, simpledialog
 from crud import crear_matriz, listar_matrices, ver_matriz, actualizar_matriz, eliminar_matriz
 import persistencia
 import matrices
@@ -116,6 +116,29 @@ class MatrixCRUDApp:
         self.matrix_frame = ttk.Frame(main_frame, style='Dark.TFrame')
         self.matrix_frame.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(0,10))
 
+        # ----------------- Operador de matrices -----------------
+        ttk.Label(main_frame, text="Operador de matrices:", style='Title.TLabel').grid(row=9, column=0, columnspan=4, sticky="w", pady=(10,5))
+        op_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+        op_frame.grid(row=10, column=0, columnspan=4, sticky="ew", pady=(0,10))
+
+        ttk.Label(op_frame, text="Matriz A:", style='Dark.TLabel').grid(row=0, column=0, sticky="w")
+        self.op_a_var = tk.StringVar()
+        self.op_a_cb = ttk.Combobox(op_frame, textvariable=self.op_a_var, values=[], state='readonly', width=8)
+        self.op_a_cb.grid(row=0, column=1, padx=(5, 20))
+
+        ttk.Label(op_frame, text="Matriz B:", style='Dark.TLabel').grid(row=0, column=2, sticky="w")
+        self.op_b_var = tk.StringVar()
+        self.op_b_cb = ttk.Combobox(op_frame, textvariable=self.op_b_var, values=[], state='readonly', width=8)
+        self.op_b_cb.grid(row=0, column=3, padx=(5, 20))
+
+        ttk.Label(op_frame, text="Operación:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=(8,0))
+        self.op_var = tk.StringVar(value='Sumar')
+        self.op_cb = ttk.Combobox(op_frame, textvariable=self.op_var, values=['Sumar', 'Restar', 'Multiplicar'], state='readonly', width=12)
+        self.op_cb.grid(row=1, column=1, sticky='w', pady=(8,0))
+
+        ttk.Button(op_frame, text="Operar", command=self.perform_matrix_operation, style='Dark.TButton').grid(row=1, column=2, padx=5, pady=(8,0))
+        ttk.Button(op_frame, text="Guardar resultado", command=self.save_operation_result, style='Dark.TButton').grid(row=1, column=3, padx=5, pady=(8,0))
+
         # Área de resultados (solución y pasos) con su propio scroll
         result_container = ttk.Frame(main_frame, style='Dark.TFrame')
         result_container.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(10,0))
@@ -169,11 +192,14 @@ class MatrixCRUDApp:
         num_rows = len(str_matrix)
         for i, row in enumerate(str_matrix):
             line = ""
-            # Usar paréntesis normales y alineación
+            # Usar símbolos más claros para los paréntesis que encierran la matriz
+            # Primera fila: ⎡ ... ⎤
+            # Filas intermedias: | ... |
+            # Última fila: ⎣ ... ⎦
             if i == 0:
-                line += " /"
+                line += "⎡ "
             elif i == num_rows - 1:
-                line += " \\"
+                line += "⎣ "
             else:
                 line += "| "
                 
@@ -182,11 +208,11 @@ class MatrixCRUDApp:
             
             line += " "
             if i == 0:
-                line += "\\ "
+                line += " ⎤"
             elif i == num_rows - 1:
-                line += "/ "
+                line += " ⎦"
             else:
-                line += "|"
+                line += " |"
             
             formatted_str += line + "\n"
             
@@ -198,6 +224,10 @@ class MatrixCRUDApp:
         if matrices_data:
             for name in matrices_data.keys():
                 self.matrix_listbox.insert(tk.END, name)
+        # actualizar comboboxes del operador
+        names = list(matrices_data.keys()) if matrices_data else []
+        self.op_a_cb['values'] = names
+        self.op_b_cb['values'] = names
     
     def view_matrix(self):
         selection = self.matrix_listbox.curselection()
@@ -303,6 +333,76 @@ class MatrixCRUDApp:
 
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la resolución: {e}")
+
+    def perform_matrix_operation(self):
+        a_name = self.op_a_var.get()
+        b_name = self.op_b_var.get()
+        op = self.op_var.get()
+
+        if not a_name or not b_name:
+            messagebox.showwarning("Selección requerida", "Selecciona las dos matrices A y B para operar.")
+            return
+
+        a_data = persistencia.cargar_matriz(a_name)
+        b_data = persistencia.cargar_matriz(b_name)
+        if a_data is None or b_data is None:
+            messagebox.showerror("Error", "No se pudieron cargar una o ambas matrices seleccionadas.")
+            return
+
+        try:
+            A = matrices.Matriz(a_data['datos'])
+            B = matrices.Matriz(b_data['datos'])
+            if op == 'Sumar':
+                resultado = A.sumar(B)
+            elif op == 'Restar':
+                resultado = A.restar(B)
+            else:
+                resultado = A.multiplicar(B)
+
+            # Mostrar resultado y pasos
+            self.result_text.delete(1.0, tk.END)
+            self.steps_text.delete(1.0, tk.END)
+            if 'mensaje' in resultado:
+                self.result_text.insert(tk.END, resultado['mensaje'] + "\n\n")
+            # mostrar datos
+            formatted = self._format_matrix_for_display(resultado['datos'])
+            self.result_text.insert(tk.END, formatted)
+
+            for idx, paso in enumerate(resultado['pasos']):
+                self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
+                self.steps_text.insert(tk.END, self._format_matrix_for_display(paso['matriz']) + "\n")
+
+            # guardar temporalmente resultado para que el botón guardado lo use
+            self._last_operation_result = resultado
+
+        except Exception as e:
+            messagebox.showerror("Error en operación", str(e))
+
+    def save_operation_result(self):
+        if not hasattr(self, '_last_operation_result') or not self._last_operation_result:
+            messagebox.showwarning("Nada para guardar", "Primero realiza una operación y luego guarda el resultado.")
+            return
+
+        # pedir nombre para la nueva matriz
+        name = tk.simpledialog.askstring("Nombre", "Introduce un nombre (una letra mayúscula) para la matriz resultado:")
+        if not name:
+            return
+        name = name.strip()
+        if not name.isalpha() or not name.isupper() or len(name) != 1:
+            messagebox.showerror("Nombre inválido", "El nombre debe ser una sola letra mayúscula (A-Z).")
+            return
+
+        todas = persistencia.cargar_todas_matrices()
+        if name in todas:
+            messagebox.showerror("Nombre en uso", f"Ya existe una matriz con el nombre '{name}'.")
+            return
+
+        datos = self._last_operation_result['datos']
+        filas = len(datos)
+        cols = len(datos[0]) if filas else 0
+        crear_matriz(name, filas, cols, datos)
+        messagebox.showinfo("Guardado", f"Matriz '{name}' guardada exitosamente.")
+        self.update_matrix_list()
     
     def create_matrix(self):
         name = self.name_entry.get().strip()
