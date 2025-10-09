@@ -144,8 +144,7 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        # El botón de independencia ya no es necesario aquí, tiene su propia pestaña.
-        # ttk.Button(action_frame, text="Independencia", command=self.check_independence, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Independencia", command=self.check_independence, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
