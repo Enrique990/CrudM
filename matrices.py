@@ -205,6 +205,95 @@ class Matriz:
 
         return {"pasos": pasos, "solucion": solucion, "mensaje": mensaje}
 
+    def independencia_vectores(self, vectores, mostrar_pasos=True):
+        """Comprueba la independencia lineal de una lista de vectores.
+
+        - vectores: lista de listas, cada lista es un vector de misma dimensión (longitud n).
+        - mostrar_pasos: si True se devuelven los pasos de eliminación (en formato consistente con
+          los otros métodos). Si False, la clave "pasos" será una lista vacía.
+
+        Retorna un dict con las mismas claves que `independencia`: {"pasos", "solucion", "mensaje"}.
+        """
+        # Validaciones básicas
+        if vectores is None:
+            raise ValueError("Se requiere una lista de vectores.")
+
+        k = len(vectores)
+        if k == 0:
+            return {"pasos": [] if not mostrar_pasos else [],
+                    "solucion": {"independiente": True, "rango": 0, "pivotes": [], "libres": []},
+                    "mensaje": "No hay vectores: por convención el conjunto vacío es independiente."}
+
+        n = len(vectores[0])
+        for v in vectores:
+            if len(v) != n:
+                raise ValueError("Todos los vectores deben tener la misma dimensión")
+
+        # Construir la matriz cuyo número de columnas = número de vectores
+        A = [[vectores[c][r] for c in range(k)] for r in range(n)]
+
+        pasos = []
+        pivotes = {}
+        libres = set()
+        fila = 0
+
+        pasos.append({"descripcion": "Matriz (vectores como columnas) - matriz inicial", "matriz": self._mat_str(A)})
+
+        for col in range(k):
+            pivot_row = None
+            for r in range(fila, n):
+                if abs(A[r][col]) > 1e-10:
+                    pivot_row = r
+                    break
+            if pivot_row is None:
+                libres.add(col)
+                pasos.append({"descripcion": f"v{col+1}: columna sin pivote (libre)", "matriz": self._mat_str(A)})
+                continue
+
+            if pivot_row != fila:
+                A[fila], A[pivot_row] = A[pivot_row], A[fila]
+                valor_pivote = self._format_number(A[fila][col])
+                pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(A)})
+
+            pivot = A[fila][col]
+            if abs(pivot - 1) > 1e-10:
+                A[fila] = [x / pivot for x in A[fila]]
+                valor_pivote = self._format_number(pivot)
+                pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{fila+1} → F{fila+1} / {valor_pivote}", "matriz": self._mat_str(A)})
+
+            for r in range(n):
+                if r != fila and abs(A[r][col]) > 1e-10:
+                    factor = A[r][col]
+                    A[r] = [A[r][c] - factor * A[fila][c] for c in range(k)]
+                    valor_pivote = self._format_number(A[fila][col])
+                    pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(A)})
+
+            pivotes[col] = fila
+            fila += 1
+            if fila >= n:
+                break
+
+        pivot_cols = sorted(pivotes.keys())
+        libres = [c for c in range(k) if c not in pivotes]
+        rango = len(pivotes)
+        independiente = (rango == k)
+
+        if independiente:
+            mensaje = f"Los vectores son linealmente independientes (rango {rango} = {k})."
+        else:
+            libres_nombres = ", ".join(f"v{c+1}" for c in libres) if libres else "ninguna"
+            mensaje = (f"Los vectores son linealmente dependientes: rango {rango} < {k}. "
+                       f"Columnas sin pivote (libres): {libres_nombres}.")
+
+        solucion = {
+            "independiente": independiente,
+            "rango": rango,
+            "pivotes": [c + 1 for c in pivot_cols],
+            "libres": [c + 1 for c in libres]
+        }
+
+        return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": mensaje}
+
     def trasponer(self):
         """Devuelve una nueva instancia de Matriz que es la traspuesta de la actual.
         No modifica la matriz original.

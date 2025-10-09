@@ -1,7 +1,7 @@
 import json
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
-from crud import crear_matriz, listar_matrices, ver_matriz, actualizar_matriz, eliminar_matriz
+from crud import crear_matriz, listar_matrices, ver_matriz, actualizar_matriz, eliminar_matriz, crear_conjunto_vectores, actualizar_conjunto_vectores
 import persistencia
 import matrices
 
@@ -12,7 +12,7 @@ class MatrixCRUDApp:
         self.root.configure(bg="#23272e")
 
         # Centrar la ventana en la pantalla
-        window_width = 790
+        window_width = 885
         window_height = 700
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -22,6 +22,11 @@ class MatrixCRUDApp:
 
         style = ttk.Style()
         style.theme_use('clam')
+        # Estilo para el Notebook y sus pestañas
+        style.configure('TNotebook', background="#23272e", borderwidth=0)
+        style.configure('TNotebook.Tab', background="#393e46", foreground="#e0e0e0", padding=[10, 5], font=('Segoe UI', 11))
+        style.map('TNotebook.Tab', background=[('selected', '#00adb5'), ('active', '#2d323a')], foreground=[('selected', '#23272e')])
+
         style.configure('Dark.TFrame', background="#23272e")
         style.configure('Dark.TLabel', background="#23272e", foreground="#e0e0e0", font=('Segoe UI', 11))
         style.configure('Dark.TButton', background="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11), borderwidth=0)
@@ -31,8 +36,31 @@ class MatrixCRUDApp:
         style.configure('Entry.TEntry', fieldbackground="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11))
         style.configure('TCombobox', fieldbackground="#393e46", background="#393e46", foreground="#000000")
 
+        # --- Creación del Notebook para manejar las pestañas ---
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
+
+        # --- Pestaña 1: Calculadora de Matrices (funcionalidad existente) ---
+        self.calculator_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
+        self.notebook.add(self.calculator_tab, text='Calculadora de Matrices')
+        self.create_calculator_widgets(self.calculator_tab)
+
+        # --- Pestaña 2: Independencia de Vectores ---
+        self.independence_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
+        self.notebook.add(self.independence_tab, text='Independencia de Vectores')
+        self.create_independence_widgets(self.independence_tab)
+
+        self.selected_matrix = None
+        self.selected_method = None
+        self.selected_vector_set = None
+
+        self.update_matrix_list()
+        self.update_vector_set_list()
+
+    def create_calculator_widgets(self, parent_frame):
+        """Crea todos los widgets para la pestaña de la calculadora de matrices."""
         # Frame principal con scroll
-        main_frame = ttk.Frame(self.root, style='Dark.TFrame')
+        main_frame = ttk.Frame(parent_frame, style='Dark.TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         self.canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.canvas.yview)
@@ -52,11 +80,7 @@ class MatrixCRUDApp:
         self.content_container = ttk.Frame(self.scrollable_frame, style='Dark.TFrame')
         self.content_container.pack(expand=True, padx=20, pady=20)
 
-        self.selected_matrix = None
-        self.selected_method = None
-
-        self.create_widgets()
-        self.update_matrix_list()
+        self.create_widgets() # Llama al método original para poblar el contenedor
 
     def _bound_to_mousewheel(self, event):
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
@@ -65,7 +89,17 @@ class MatrixCRUDApp:
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
+    def _bound_to_mousewheel_vectors(self, event):
+        self.vector_canvas.bind_all("<MouseWheel>", self._on_mousewheel_vectors)
+
+    def _unbound_to_mousewheel_vectors(self, event):
+        self.vector_canvas.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel_vectors(self, event):
+        self.vector_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
     def create_widgets(self):
+        # El contenido de este método ahora se dibuja dentro de self.content_container
         main_frame = self.content_container
 
         # Título
@@ -110,6 +144,8 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        # El botón de independencia ya no es necesario aquí, tiene su propia pestaña.
+        # ttk.Button(action_frame, text="Independencia", command=self.check_independence, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -149,6 +185,196 @@ class MatrixCRUDApp:
         steps_scrollbar = ttk.Scrollbar(steps_frame, orient=tk.VERTICAL, command=self.steps_text.yview)
         steps_scrollbar.grid(row=0, column=1, sticky="ns")
         self.steps_text.configure(yscrollcommand=steps_scrollbar.set)
+
+    def create_independence_widgets(self, parent_frame):
+        """Crea todos los widgets para la pestaña de independencia de vectores."""
+        # --- Scrollbar para toda la pestaña ---
+        self.vector_canvas = tk.Canvas(parent_frame, bg="#23272e", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(parent_frame, orient="vertical", command=self.vector_canvas.yview)
+        self.vector_scrollable_frame = ttk.Frame(self.vector_canvas, style='Dark.TFrame')
+
+        self.vector_scrollable_frame.bind("<Configure>", lambda e: self.vector_canvas.configure(scrollregion=self.vector_canvas.bbox("all")))
+        self.vector_canvas.create_window((0, 0), window=self.vector_scrollable_frame, anchor="nw")
+        self.vector_canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.vector_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bindeo de la rueda del ratón
+        self.vector_scrollable_frame.bind("<Enter>", self._bound_to_mousewheel_vectors)
+        self.vector_scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel_vectors)
+
+        container = ttk.Frame(self.vector_scrollable_frame, style='Dark.TFrame', padding=20)
+        container.pack(expand=True, fill='both')
+
+        # --- Sección de Controles ---
+        controls_frame = ttk.Frame(container, style='Dark.TFrame')
+        controls_frame.pack(fill='x', pady=(0, 20))
+        controls_frame.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(controls_frame, text="Independencia de Vectores", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 15))
+
+        # --- CRUD para Vectores ---
+        ttk.Label(controls_frame, text="Nombre:", style='Dark.TLabel').grid(row=1, column=0, sticky='w', padx=(0, 5))
+        self.vector_name_entry = ttk.Entry(controls_frame, width=18, style='Entry.TEntry')
+        self.vector_name_entry.grid(row=1, column=1, sticky='w')
+
+        ttk.Label(controls_frame, text="Nº Vectores:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', padx=(0, 5), pady=5)
+        self.num_vectors_var = tk.StringVar(value="0")
+        num_vectors_spinbox = tk.Spinbox(controls_frame, from_=1, to=20, width=6, textvariable=self.num_vectors_var, bg="#393e46", fg="#e0e0e0")
+        num_vectors_spinbox.grid(row=2, column=1, sticky='w')
+
+        ttk.Label(controls_frame, text="Dimensión:", style='Dark.TLabel').grid(row=2, column=2, sticky='w', padx=(10, 5), pady=5)
+        self.dim_vectors_var = tk.StringVar(value="0")
+        dim_vectors_spinbox = tk.Spinbox(controls_frame, from_=1, to=20, width=6, textvariable=self.dim_vectors_var, bg="#393e46", fg="#e0e0e0")
+        dim_vectors_spinbox.grid(row=2, column=3, sticky='w')
+
+        ttk.Button(controls_frame, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=3, column=0, columnspan=4, pady=(15, 10), sticky='ew')
+
+        # --- Lista de Conjuntos de Vectores ---
+        ttk.Label(container, text="Conjuntos de Vectores Almacenados:", style='Dark.TLabel').pack(fill='x', pady=(10,5))
+        self.vector_set_listbox = tk.Listbox(container, height=5, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.vector_set_listbox.pack(fill='x', pady=(0,10))
+        self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
+
+        # --- Botones de Acción para Vectores ---
+        vector_action_frame = ttk.Frame(container, style='Dark.TFrame')
+        vector_action_frame.pack(fill='x', pady=(0, 20))
+        ttk.Button(vector_action_frame, text="Ver", command=self.view_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(vector_action_frame, text="Verificar Independencia", command=self.run_independence_check, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(vector_action_frame, text="Modificar", command=self.modify_vector_set_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(vector_action_frame, text="Eliminar", command=self.delete_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+
+        # --- Título para el área de entradas ---
+        ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').pack(fill='x', pady=(10,5))
+
+        # --- Frame para las entradas de los vectores ---
+        self.vector_entries_frame = ttk.Frame(container, style='Dark.TFrame')
+        self.vector_entries_frame.pack(fill='x', pady=(0, 10))
+
+        # --- Frame para resultados ---
+        results_container = ttk.Frame(container, style='Dark.TFrame')
+        results_container.pack(fill='both', expand=True)
+        results_container.grid_rowconfigure(1, weight=1)
+        results_container.grid_rowconfigure(3, weight=1)
+        results_container.grid_columnconfigure(0, weight=1)
+
+        ttk.Label(results_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky="w", pady=(0,5))
+        
+        # Frame para el texto de resultados con scroll
+        solution_frame_vec = ttk.Frame(results_container)
+        solution_frame_vec.grid(row=1, column=0, sticky="nsew")
+        solution_frame_vec.grid_rowconfigure(0, weight=1)
+        solution_frame_vec.grid_columnconfigure(0, weight=1)
+        
+        self.independence_result_text = tk.Text(solution_frame_vec, height=4, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.independence_result_text.grid(row=0, column=0, sticky="nsew")
+        result_scrollbar_vec = ttk.Scrollbar(solution_frame_vec, orient=tk.VERTICAL, command=self.independence_result_text.yview)
+        result_scrollbar_vec.grid(row=0, column=1, sticky="ns")
+        self.independence_result_text.configure(yscrollcommand=result_scrollbar_vec.set)
+
+        ttk.Label(results_container, text="Procedimiento", style='Title.TLabel').grid(row=2, column=0, sticky="w", pady=(10,5))
+
+        # Frame para el texto de pasos con scroll
+        steps_frame_vec = ttk.Frame(results_container)
+        steps_frame_vec.grid(row=3, column=0, sticky="nsew")
+        steps_frame_vec.grid_rowconfigure(0, weight=1)
+        steps_frame_vec.grid_columnconfigure(0, weight=1)
+
+        self.independence_steps_text = tk.Text(steps_frame_vec, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        self.independence_steps_text.grid(row=0, column=0, sticky="nsew")
+        steps_scrollbar_vec = ttk.Scrollbar(steps_frame_vec, orient=tk.VERTICAL, command=self.independence_steps_text.yview)
+        steps_scrollbar_vec.grid(row=0, column=1, sticky="ns")
+        self.independence_steps_text.configure(yscrollcommand=steps_scrollbar_vec.set)
+
+    def draw_vector_entries(self, num_vectores, dimension, name, is_modification=False, data=None):
+        """Dibuja la cuadrícula para ingresar los datos de los vectores."""
+        for widget in self.vector_entries_frame.winfo_children():
+            widget.destroy()
+
+        if is_modification:
+             self.original_vector_data_for_modification = {
+                'num_vectores': num_vectores,
+                'dimension': dimension,
+                'datos': [vec[:] for vec in data]
+            }
+
+        self.vector_entries = []
+        for j in range(num_vectores):
+            ttk.Label(self.vector_entries_frame, text=f"V{j+1}", style='Dark.TLabel').grid(row=0, column=j, padx=5, pady=5)
+            col_entries = []
+            for i in range(dimension):
+                entry = ttk.Entry(self.vector_entries_frame, width=8, style='Entry.TEntry')
+                default_value = "0"
+                if data and j < len(data) and i < len(data[j]):
+                    default_value = str(data[j][i])
+                entry.insert(0, default_value)
+                entry.grid(row=i + 1, column=j, padx=5, pady=2)
+                col_entries.append(entry)
+            self.vector_entries.append(col_entries)
+        
+        button_frame = ttk.Frame(self.vector_entries_frame, style='Dark.TFrame')
+        button_frame.grid(row=dimension + 2, column=0, columnspan=num_vectores, pady=(15, 0), sticky='ew')
+
+        button_text = "Actualizar Conjunto" if is_modification else "Guardar Conjunto"
+        save_command = lambda: self.update_vector_set_data(self.vector_entries, num_vectores, dimension, name) if is_modification else self.save_vector_set_data(self.vector_entries, num_vectores, dimension, name)
+        
+        ttk.Button(button_frame, text=button_text, style='Dark.TButton', command=save_command).pack(side=tk.LEFT, expand=True, fill='x', padx=2)
+        ttk.Button(button_frame, text="Cancelar", style='Dark.TButton', command=self.clear_vector_entries_frame).pack(side=tk.LEFT, expand=True, fill='x', padx=2)
+
+    def clear_vector_entries_frame(self):
+        for widget in self.vector_entries_frame.winfo_children():
+            widget.destroy()
+
+    def run_independence_check(self):
+        """Recopila los datos de los vectores y ejecuta la comprobación de independencia."""
+        selection = self.vector_set_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Selección requerida", "Por favor, selecciona un conjunto de vectores de la lista.")
+            return
+
+        name = self.vector_set_listbox.get(selection[0])
+        vector_set_data = persistencia.cargar_conjunto_vectores(name)
+
+        if not vector_set_data:
+            messagebox.showerror("Error", f"No se pudo cargar el conjunto de vectores '{name}'.")
+            return
+            
+        vectores = vector_set_data['datos']
+        
+        if len(vectores) < 1: # La función lógica ya valida < 2, pero aquí es por si los datos están mal
+            messagebox.showwarning("Validación", "Se requieren al menos dos vectores para realizar la comprobación.")
+            return
+
+        try:
+            # Se necesita una instancia de Matriz para llamar al método.
+            dummy_matrix = matrices.Matriz([[1]])
+            resultado = dummy_matrix.independencia_vectores(vectores)
+
+            # Limpiar áreas de texto
+            self.independence_result_text.delete(1.0, tk.END)
+            self.independence_steps_text.delete(1.0, tk.END)
+
+            # Mostrar resultados
+            self.independence_result_text.insert(tk.END, resultado.get("mensaje", "No se generó un mensaje."))
+            
+            solucion = resultado.get("solucion", {})
+            if solucion:
+                self.independence_result_text.insert(tk.END, f"\nRango: {solucion.get('rango')}")
+                if not solucion.get('independiente'):
+                    self.independence_result_text.insert(tk.END, f"\nColumnas libres (vectores): {solucion.get('libres')}")
+
+            if "pasos" in resultado:
+                for paso in resultado["pasos"]:
+                    self.independence_steps_text.insert(tk.END, f"{paso['descripcion']}\n")
+                    if 'matriz' in paso:
+                        formatted_matrix = self._format_matrix_for_display(paso['matriz'])
+                        self.independence_steps_text.insert(tk.END, formatted_matrix + "\n")
+
+        except ValueError as e:
+            messagebox.showerror("Error de Datos", f"Error en los datos del vector: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error inesperado: {e}")
 
     def _format_matrix_for_display(self, matrix_data):
         if not matrix_data or not any(matrix_data):
@@ -199,6 +425,13 @@ class MatrixCRUDApp:
             for name in matrices_data.keys():
                 self.matrix_listbox.insert(tk.END, name)
     
+    def update_vector_set_list(self):
+        self.vector_set_listbox.delete(0, tk.END)
+        vector_sets_data = persistencia.cargar_todos_vectores()
+        if vector_sets_data:
+            for name in vector_sets_data.keys():
+                self.vector_set_listbox.insert(tk.END, name)
+
     def view_matrix(self):
         selection = self.matrix_listbox.curselection()
         if not selection:
@@ -209,15 +442,51 @@ class MatrixCRUDApp:
         matrix_data = persistencia.cargar_matriz(matrix_name)
         
         if matrix_data:
-            # Formatear los datos de la matriz para mostrarlos correctamente
+            # Limpiar el frame de entrada y las áreas de resultado
+            self.clear_matrix_frame()
+            self.show_result("") # Limpia las áreas de texto inferiores
+
+            # Formatear los datos de la matriz para mostrarlos
+            info_str = (f"Matriz: {matrix_data['nombre']}\n"
+                        f"Dimensiones: {matrix_data['filas']}x{matrix_data['columnas']}\n\n")
             matrix_str = self._format_matrix_for_display(matrix_data['datos'])
             
-            self.show_result(f"Matriz: {matrix_data['nombre']}\n"
-                            f"Dimensiones: {matrix_data['filas']}x{matrix_data['columnas']}\n\n"
-                            f"{matrix_str}")
+            # Mostrar la información directamente en el frame de datos
+            display_label = ttk.Label(self.matrix_frame, text=info_str + matrix_str, style='Result.TLabel', justify=tk.LEFT)
+            display_label.pack(pady=10, padx=10, anchor='w')
         else:
             messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
     
+    def view_vector_set(self):
+        selection = self.vector_set_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Selección requerida", "Por favor selecciona un conjunto de vectores de la lista.")
+            return
+            
+        name = self.vector_set_listbox.get(selection[0])
+        vector_set_data = persistencia.cargar_conjunto_vectores(name)
+        
+        if vector_set_data:
+            # Limpiar el frame de entrada y las áreas de resultado
+            self.clear_vector_entries_frame()
+            self.independence_result_text.delete(1.0, tk.END)
+            self.independence_steps_text.delete(1.0, tk.END)
+
+            # Formatear los datos para mostrarlos
+            info_str = (f"Conjunto: {vector_set_data['nombre']}\n"
+                        f"Nº de Vectores: {vector_set_data['num_vectores']}\n"
+                        f"Dimensión: {vector_set_data['dimension']}\n\n")
+            
+            # Transponer los datos para mostrarlos como columnas
+            datos_transpuestos = list(map(list, zip(*vector_set_data['datos'])))
+            vector_str = self._format_matrix_for_display(datos_transpuestos)
+
+            # Mostrar la información directamente en el frame de datos de vectores
+            display_label = ttk.Label(self.vector_entries_frame, text=info_str + vector_str, style='Result.TLabel', justify=tk.LEFT)
+            display_label.pack(pady=10, padx=10, anchor='w')
+        else:
+            messagebox.showerror("Error", f"No se encontró el conjunto de vectores '{name}'.")
+
     def delete_matrix(self):
         selection = self.matrix_listbox.curselection()
         if not selection:
@@ -238,7 +507,7 @@ class MatrixCRUDApp:
             
             # Guardar los cambios
             try:
-                with open(persistencia.ARCHIVO_DATOS, 'w') as file:
+                with open(persistencia.ARCHIVO_MATRICES, 'w') as file:
                     json.dump(todas_matrices, file, indent=4)
                 messagebox.showinfo("Éxito", f"Matriz '{matrix_name}' eliminada exitosamente.")
                 self.update_matrix_list()
@@ -249,6 +518,11 @@ class MatrixCRUDApp:
         selection = self.matrix_listbox.curselection()
         if selection:
             self.selected_matrix = self.matrix_listbox.get(selection[0])
+
+    def _on_vector_set_select(self, event):
+        selection = self.vector_set_listbox.curselection()
+        if selection:
+            self.selected_vector_set = self.vector_set_listbox.get(selection[0])
 
     def _on_method_select(self, event):
         self.selected_method = self.method_var.get()
@@ -304,6 +578,58 @@ class MatrixCRUDApp:
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la resolución: {e}")
     
+    def check_independence(self):
+        matrix_name = getattr(self, 'selected_matrix', None)
+
+        if not matrix_name:
+            selection = self.matrix_listbox.curselection()
+            if selection:
+                matrix_name = self.matrix_listbox.get(selection[0])
+            else:
+                messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
+                return
+        
+        try:
+            matriz_data = persistencia.cargar_matriz(matrix_name)
+            if matriz_data is None:
+                messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
+                return
+
+            matriz_obj = matrices.Matriz(matriz_data['datos'])
+            
+            # Extraer los vectores columna de la matriz de datos
+            datos = matriz_data['datos']
+            if not datos or not datos[0]:
+                messagebox.showerror("Error", "La matriz está vacía y no se puede procesar.")
+                return
+            
+            num_filas = len(datos)
+            num_columnas = len(datos[0])
+            vectores_columna = [[datos[i][j] for i in range(num_filas)] for j in range(num_columnas)]
+
+            # Llamar a la función independencia_vectores con los vectores columna
+            resultado = matriz_obj.independencia_vectores(vectores_columna)
+
+            self.result_text.delete(1.0, tk.END)
+            self.steps_text.delete(1.0, tk.END)
+
+            # Mostrar el mensaje principal del resultado
+            if "mensaje" in resultado:
+                self.result_text.insert(tk.END, resultado["mensaje"] + "\n\n")
+
+            # Mostrar los pasos si existen
+            if "pasos" in resultado and resultado["pasos"]:
+                for idx, paso in enumerate(resultado["pasos"]):
+                    self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
+                    if 'matriz' in paso:
+                        formatted_step_matrix = self._format_matrix_for_display(paso['matriz'])
+                        self.steps_text.insert(tk.END, formatted_step_matrix + "\n")
+            
+        except AttributeError:
+            messagebox.showerror("Error", "La función 'independencia_vectores' no está implementada en la clase Matriz.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error durante la verificación de independencia: {e}")
+
     def create_matrix(self):
         name = self.name_entry.get().strip()
         
@@ -397,8 +723,17 @@ class MatrixCRUDApp:
         # Botón para guardar
         button_text = "Actualizar Matriz" if is_modification else "Guardar Matriz"
         command = lambda: self.update_matrix_data(entries, int(mod_rows_var.get()), int(mod_cols_var.get()), name) if is_modification else self.save_matrix_data(entries, rows, cols, name)
-        ttk.Button(self.matrix_frame, text=button_text, command=command).grid(
-            row=rows+3, column=0, columnspan=cols+1, pady=10)
+        button_frame = ttk.Frame(self.matrix_frame, style='Dark.TFrame')
+        button_frame.grid(row=rows+3, column=0, columnspan=cols+1, pady=10)
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(1, weight=1)
+
+        ttk.Button(button_frame, text=button_text, command=command).pack(side=tk.LEFT, expand=True, fill='x', padx=2)
+        ttk.Button(button_frame, text="Cancelar", command=self.clear_matrix_frame).pack(side=tk.LEFT, expand=True, fill='x', padx=2)
+
+    def clear_matrix_frame(self):
+        for widget in self.matrix_frame.winfo_children():
+            widget.destroy()
 
     def redraw_matrix_entries_for_modification(self, rows_var, cols_var, name, old_data):
         try:
@@ -470,6 +805,100 @@ class MatrixCRUDApp:
         except ValueError:
             messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos en todas las celdas.")
     
+    # --- Funciones CRUD para la UI de Vectores ---
+
+    def create_vector_set_ui(self):
+        name = self.vector_name_entry.get().strip()
+        if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
+            messagebox.showerror("Nombre inválido", "El nombre del conjunto debe ser una única letra mayúscula (A-Z).")
+            return
+        
+        if name in persistencia.cargar_todos_vectores():
+            messagebox.showerror("Nombre en uso", f"Ya existe un conjunto de vectores con el nombre '{name}'.")
+            return
+
+        try:
+            num_vectores = int(self.num_vectors_var.get())
+            dimension = int(self.dim_vectors_var.get())
+            if num_vectores <= 0 or dimension <= 0: raise ValueError
+        except ValueError:
+            messagebox.showerror("Error", "El número y la dimensión de vectores deben ser enteros positivos.")
+            return
+        
+        self.draw_vector_entries(num_vectores, dimension, name)
+
+    def save_vector_set_data(self, entries, num_vectores, dimension, name):
+        datos = []
+        try:
+            for j in range(num_vectores):
+                vector = []
+                for i in range(dimension):
+                    valor = entries[j][i].get()
+                    vector.append(float(valor))
+                datos.append(vector)
+            
+            if crear_conjunto_vectores(name, num_vectores, dimension, datos):
+                messagebox.showinfo("Éxito", f"Conjunto de vectores '{name}' guardado.")
+                self.update_vector_set_list()
+                self.vector_name_entry.delete(0, tk.END)
+                self.num_vectors_var.set("0")
+                self.dim_vectors_var.set("0")
+                self.clear_vector_entries_frame()
+        except ValueError:
+            messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos.")
+
+    def modify_vector_set_ui(self):
+        selection = self.vector_set_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Selección requerida", "Selecciona un conjunto de vectores para modificar.")
+            return
+
+        name = self.vector_set_listbox.get(selection[0])
+        data = persistencia.cargar_conjunto_vectores(name)
+        if not data:
+            messagebox.showerror("Error", f"No se pudo cargar el conjunto '{name}'.")
+            return
+        
+        self.draw_vector_entries(data['num_vectores'], data['dimension'], name, is_modification=True, data=data['datos'])
+
+    def update_vector_set_data(self, entries, num_vectores, dimension, name):
+        datos = []
+        try:
+            for j in range(num_vectores):
+                vector = []
+                for i in range(dimension):
+                    valor = entries[j][i].get()
+                    vector.append(float(valor))
+                datos.append(vector)
+
+            original = self.original_vector_data_for_modification
+            if original['num_vectores'] == num_vectores and original['dimension'] == dimension and original['datos'] == datos:
+                self.clear_vector_entries_frame()
+                return
+
+            if actualizar_conjunto_vectores(name, datos, num_vectores, dimension):
+                messagebox.showinfo("Éxito", f"Conjunto '{name}' actualizado.")
+                self.update_vector_set_list()
+                self.clear_vector_entries_frame()
+            else:
+                messagebox.showerror("Error", f"No se pudo actualizar el conjunto '{name}'.")
+        except ValueError:
+            messagebox.showerror("Error", "Asegúrate de que todos los valores sean números válidos.")
+
+    def delete_vector_set(self):
+        selection = self.vector_set_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Selección requerida", "Selecciona un conjunto para eliminar.")
+            return
+        
+        name = self.vector_set_listbox.get(selection[0])
+        if messagebox.askyesno("Confirmar", f"¿Seguro que quieres eliminar el conjunto de vectores '{name}'?"):
+            if persistencia.eliminar_conjunto_vectores(name):
+                messagebox.showinfo("Éxito", f"Conjunto '{name}' eliminado.")
+                self.update_vector_set_list()
+            else:
+                messagebox.showerror("Error", f"No se pudo eliminar el conjunto '{name}'.")
+
     def show_result(self, text):
         self.result_text.delete(1.0, tk.END)
         self.steps_text.delete(1.0, tk.END)

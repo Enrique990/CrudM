@@ -48,7 +48,7 @@ def actualizar_matriz(nombre_matriz, nuevos_datos, nuevas_filas, nuevas_columnas
 
     try:
         # Escribir directamente al archivo, similar a como lo hace delete_matrix en main.py
-        with open(persistencia.ARCHIVO_DATOS, 'w') as file:
+        with open(persistencia.ARCHIVO_MATRICES, 'w') as file:
             import json
             json.dump(todas_matrices, file, indent=4)
         print(f"Matriz '{nombre_matriz}' actualizada exitosamente.")
@@ -76,3 +76,37 @@ def resolver_matriz(nombre):
             print(f"x{i+1} = {valor}")
     except Exception as e:
         print(f"Error durante la resolución: {e}")
+
+# --- Funciones CRUD para Conjuntos de Vectores ---
+
+def crear_conjunto_vectores(nombre, num_vectores, dimension, datos):
+    nuevo_conjunto = {
+        "nombre": nombre,
+        "num_vectores": num_vectores,
+        "dimension": dimension,
+        "datos": datos
+    }
+    if persistencia.guardar_conjunto_vectores(nombre, nuevo_conjunto):
+        print(f"Conjunto de vectores '{nombre}' creado y guardado exitosamente.")
+        return True
+    else:
+        print(f"Error: No se pudo guardar el conjunto de vectores '{nombre}'.")
+        return False
+
+def actualizar_conjunto_vectores(nombre, nuevos_datos, nuevo_num_vectores, nueva_dimension):
+    todos_los_vectores = persistencia.cargar_todos_vectores()
+    if nombre not in todos_los_vectores:
+        return False
+
+    todos_los_vectores[nombre]['datos'] = nuevos_datos
+    todos_los_vectores[nombre]['num_vectores'] = nuevo_num_vectores
+    todos_los_vectores[nombre]['dimension'] = nueva_dimension
+
+    try:
+        with open(persistencia.ARCHIVO_VECTORES, 'w') as file:
+            import json
+            json.dump(todos_los_vectores, file, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error al actualizar el conjunto de vectores: {e}")
+        return False
