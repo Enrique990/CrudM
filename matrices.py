@@ -6,38 +6,36 @@ class Matriz:
     def __init__(self, datos):
         # Validaciones básicas
         if not datos or not all(isinstance(row, list) and row for row in datos):
-            raise ValueError("Datos de la matriz inválidos: debe ser una lista no vacía de filas (listas).")
+            raise ValueError("datos debe ser una lista no vacía de filas (listas)")
 
         cols = len(datos[0])
         # - Todas las filas, igual cantidad de columnas
         for fila in datos:
             if len(fila) != cols:
-                raise ValueError("Todas las filas deben tener la misma cantidad de columnas.")
+                raise ValueError("Todas las filas deben tener la misma cantidad de columnas")
 
         # Guardo mi matriz(A), numero de filas y columnas tambn
-        
         self.A = [row[:] for row in datos]
         self.n = len(datos)
         self.m = cols
-        
+
         # Me crea el nombre de las variables x1, x2, ..., x(m-1) (útil si la última columna es término independiente)
         self.variables = [f"x{i+1}" for i in range(max(0, self.m - 1))]
 
     """ Si es un numero entero, asi se muestra. Si tiene decimales, se muestra con 4 decimales"""
     def _format_number(self, x):
         try:
-            x = float(x)
+            xf = float(x)
         except Exception:
             return str(x)
-        if abs(x - int(x)) < 1e-10:
-            return str(int(round(x)))
+        if abs(xf - int(round(xf))) < 1e-10:
+            return str(int(round(xf)))
         else:
-            return f"{x:.4f}".rstrip('0').rstrip('.')
+            return f"{xf:.4f}".rstrip('0').rstrip('.') if '.' in f"{xf:.4f}" else f"{xf:.4f}"
+
     # utiliza la funcion de arriba, pero la aplica a toda la matriz
     def _mat_str(self, mat):
         return [[self._format_number(x) for x in row] for row in mat]
-    
-    
 
     """ -------------------- MÉTODO GAUSS-JORDAN -------------------- """
     def gauss_jordan(self):
@@ -46,33 +44,47 @@ class Matriz:
         pasos = []
         pivotes = {}
         fila = 0
+        tol = 1e-12
 
         pasos.append({"descripcion": "Matriz inicial", "matriz": deepcopy(A)})
 
-        for col in range(m - 1):  # la última columna se asume término independiente
-            # Buscar pivote (fila con valor absoluto máximo en esta columna desde 'fila' hacia abajo)
+        for col in range(m - 1):
+            # 1) Preferir un 1 exacto en la columna (desde fila hacia abajo)
             sel = None
-            maxval = 0.0
             for r in range(fila, n):
-                if abs(A[r][col]) > maxval:
-                    maxval = abs(A[r][col])
+                if abs(A[r][col] - 1.0) < tol:
                     sel = r
-            if sel is None or abs(A[sel][col]) < 1e-12:
+                    break
+            # 2) si no hay 1, seleccionar el mayor absoluto
+            if sel is None:
+                maxval = 0.0
+                for r in range(fila, n):
+                    if abs(A[r][col]) > maxval:
+                        maxval = abs(A[r][col])
+                        sel = r
+            if sel is None or abs(A[sel][col]) < tol:
                 continue  # no pivote en esta columna
-            # intercambiar filas
+
+            # intercambiar filas si hace falta
             if sel != fila:
                 A[fila], A[sel] = A[sel], A[fila]
-                pasos.append({"descripcion": f"Intercambiar fila {fila+1} con fila {sel+1}", "matriz": deepcopy(A)})
-            # normalizar pivote a 1
+                pasos.append({"descripcion": f"F{fila+1} ↔ F{sel+1}", "matriz": deepcopy(A)})
+
+            # normalizar pivote a 1 si no lo está
             pivot_val = A[fila][col]
-            A[fila] = [val / pivot_val for val in A[fila]]
-            pasos.append({"descripcion": f"Dividir fila {fila+1} por {pivot_val}", "matriz": deepcopy(A)})
-            # eliminar otras filas
+            if abs(pivot_val - 1.0) > tol:
+                formatted_pivot = self._format_number(pivot_val)
+                A[fila] = [val / pivot_val for val in A[fila]]
+                pasos.append({"descripcion": f"F{fila+1} → F{fila+1} / {formatted_pivot}", "matriz": deepcopy(A)})
+
+            # eliminar todas las demás filas (Gauss-Jordan: arriba y abajo)
             for r in range(n):
-                if r != fila and abs(A[r][col]) > 1e-12:
+                if r != fila and abs(A[r][col]) > tol:
                     factor = A[r][col]
+                    formatted_factor = self._format_number(factor)
                     A[r] = [A[r][c] - factor * A[fila][c] for c in range(m)]
-                    pasos.append({"descripcion": f"Restar {factor} * fila {fila+1} a fila {r+1}", "matriz": deepcopy(A)})
+                    pasos.append({"descripcion": f"F{r+1} → F{r+1} - {formatted_factor}*F{fila+1}", "matriz": deepcopy(A)})
+
             pivotes[col] = fila
             fila += 1
             if fila >= n:
@@ -80,38 +92,36 @@ class Matriz:
 
         # Detectar inconsistencia (fila 0 ... 0 | b != 0)
         for r in range(n):
-            if all(abs(A[r][c]) < 1e-12 for c in range(m - 1)) and abs(A[r][m - 1]) > 1e-12:
+            if all(abs(A[r][c]) < tol for c in range(m - 1)) and abs(A[r][m - 1]) > tol:
                 return {"pasos": pasos, "solucion": "Sin solución", "mensaje": "Sistema incompatible, no tiene solución."}
 
-        # Variables libres
+        # Variables libres y construir solución
         pivot_cols = sorted(pivotes.keys())
         libres = [c for c in range(m - 1) if c not in pivotes]
 
-        # Construir solución
         solucion = {}
         if libres:
             # expresar variables de pivote en función de libres
             for col, row in pivotes.items():
-                # valor del término independiente
                 val = A[row][m - 1]
                 expr_terms = []
                 for c in libres:
                     coef = -A[row][c]
-                    if abs(coef) > 1e-12:
+                    if abs(coef) > tol:
                         expr_terms.append(f"{self._format_number(coef)}*x{c+1}")
                 expr = f"{self._format_number(val)}"
                 if expr_terms:
                     expr += " + " + " + ".join(expr_terms)
                 solucion[f"x{col+1}"] = expr
             for c in libres:
-                solucion[f"x{c+1}"] = f"t{c+1}"  # parámetro libre
+                solucion[f"x{c+1}"] = f"t{c+1}"
             tipo_sol = "Infinitas soluciones (sistema subdeterminado)."
         else:
-            # solución única: tomar el valor en cada fila pivote
             for col, row in pivotes.items():
                 solucion[f"x{col+1}"] = self._format_number(A[row][m - 1])
             tipo_sol = "Solución única."
 
+        solucion.update({"rango": len(pivotes)})
         return {"pasos": pasos, "solucion": solucion, "mensaje": tipo_sol}
 
     # -------------------- MÉTODO GAUSS --------------------
@@ -125,40 +135,60 @@ class Matriz:
         A_after, pivotes, pasos_elim = self._forward_elimination(deepcopy(A))
         pasos.extend(pasos_elim)
 
+        # Detectar inconsistencia
+        tol = 1e-12
+        for r in range(n):
+            if all(abs(A_after[r][c]) < tol for c in range(m - 1)) and abs(A_after[r][m - 1]) > tol:
+                return {"pasos": pasos, "solucion": "Sin solución", "mensaje": "Sistema incompatible, no tiene solución."}
+
         solucion = self._resolver_sustitucion(A_after)
+        if isinstance(solucion, dict):
+            solucion.update({"rango": len(pivotes)})
         return {"pasos": pasos, "solucion": solucion}
 
     def _forward_elimination(self, A):
         """Realiza eliminación hacia adelante (como en Gauss), retorna la matriz transformada,
         el dict de pivotes (col -> fila) y la lista de pasos (mismo formato que gauss/gauss_jordan).
+        Prioriza traer un 1 como pivote si existe en la columna.
         """
         n = len(A)
         m = len(A[0]) if n else 0
         pasos = []
         pivotes = {}
         fila = 0
+        tol = 1e-12
 
         pasos.append({"descripcion": "Matriz inicial", "matriz": deepcopy(A)})
 
         for col in range(min(n, m - 1)):
-            # pivot parcial
+            # buscar 1 en la columna desde fila hacia abajo
             sel = None
-            maxval = 0.0
             for r in range(fila, n):
-                if abs(A[r][col]) > maxval:
-                    maxval = abs(A[r][col])
+                if abs(A[r][col] - 1.0) < tol:
                     sel = r
-            if sel is None or abs(A[sel][col]) < 1e-12:
+                    break
+            # si no hay 1, elegir mayor absoluto
+            if sel is None:
+                maxval = 0.0
+                for r in range(fila, n):
+                    if abs(A[r][col]) > maxval:
+                        maxval = abs(A[r][col])
+                        sel = r
+            if sel is None or abs(A[sel][col]) < tol:
                 continue
+
             if sel != fila:
                 A[fila], A[sel] = A[sel], A[fila]
-                pasos.append({"descripcion": f"Intercambiar fila {fila+1} con fila {sel+1}", "matriz": deepcopy(A)})
+                pasos.append({"descripcion": f"F{fila+1} ↔ F{sel+1}", "matriz": deepcopy(A)})
+
             # eliminar filas debajo
             for r in range(fila+1, n):
-                if abs(A[r][col]) > 1e-12:
+                if abs(A[r][col]) > tol:
                     factor = A[r][col] / A[fila][col]
+                    formatted_factor = self._format_number(factor)
                     A[r] = [A[r][c] - factor * A[fila][c] for c in range(m)]
-                    pasos.append({"descripcion": f"Restar {self._format_number(factor)} * fila {fila+1} a fila {r+1}", "matriz": deepcopy(A)})
+                    pasos.append({"descripcion": f"F{r+1} → F{r+1} - {formatted_factor}*F{fila+1}", "matriz": deepcopy(A)})
+
             pivotes[col] = fila
             fila += 1
             if fila >= n:
@@ -166,206 +196,115 @@ class Matriz:
 
         return A, pivotes, pasos
 
-    def independencia(self):
-        """Determina si las columnas (coeficientes) son linealmente independientes.
-        Reutiliza _forward_elimination para obtener pivotes y pasos.
-        """
-        # Usar toda la matriz (no tratamos última columna como término independiente aquí)
-        A = [list(map(float, row)) for row in deepcopy(self.A)]
-        # Si la matriz es n x m, consideramos las m columnas como columnas de vectores
-        # (si se quiere excluir una columna independiente, crear la Matriz sin esa columna).
+    # -------------------- INDEPENDENCIA LINEAL --------------------
+    def independencia(self, exclude_last_column=False):
+        A_src = deepcopy(self.A)
+        if exclude_last_column and self.m > 0:
+            A_src = [row[:-1] for row in A_src]
+        A = [list(map(float, row)) for row in A_src] if A_src else []
+        if not A or not A[0]:
+            return {"pasos": [], "solucion": {"independiente": True, "rango": 0}, "mensaje": "Matriz vacía."}
+
         A_after, pivotes, pasos = self._forward_elimination(A)
-
-        num_cols = self.m
+        num_cols = len(A[0])
         rango = len(pivotes)
-        pivot_cols = sorted(pivotes.keys())
-        libres = [c for c in range(num_cols) if c not in pivotes]
-
         independiente = (rango == num_cols)
-
-        if independiente:
-            mensaje = "Las columnas son linealmente independientes (rango = número de columnas)."
-        else:
-            mensaje = f"Las columnas son linealmente dependientes (rango = {rango} < {num_cols})."
-
-        solucion = {
-            "independiente": independiente,
-            "rango": rango,
-            "pivotes": [c + 1 for c in pivot_cols],
-            "libres": [c + 1 for c in libres]
-        }
-
+        mensaje = ("Las columnas son linealmente independientes."
+                   if independiente else f"Las columnas son linealmente dependientes (rango = {rango} < {num_cols}).")
+        solucion = {"independiente": independiente, "rango": rango, "pivotes": [c+1 for c in sorted(pivotes.keys())]}
         return {"pasos": pasos, "solucion": solucion, "mensaje": mensaje}
 
     def trasponer(self):
-        """Devuelve una nueva instancia de Matriz que es la traspuesta de la actual.
-        No modifica la matriz original.
-        """
-        trans = [[self.A[r][c] for r in range(self.n)] for c in range(self.m)]
-        return Matriz(trans)
+        return [list(row) for row in zip(*self.A)]
 
     # alias en inglés por conveniencia
     transpose = trasponer
 
     # -------------------- OPERACIONES ENTRE MATRICES --------------------
     def _ensure_matriz_input(self, other):
-        """Acepta otra Matriz o una lista de listas y devuelve una instancia de Matriz."""
-        if isinstance(other, Matriz):
-            return other
-        if isinstance(other, list):
-            return Matriz(other)
-        raise ValueError("El operando debe ser una Matriz o una lista de listas.")
+        if not isinstance(other, Matriz):
+            raise ValueError("Entrada debe ser otra Matriz")
+        return other
 
     def sumar(self, other):
-        """Suma elemento a elemento con otra matriz de igual tamaño.
-        Devuelve dict con pasos, datos (lista) y una instancia de Matriz en 'resultado_matriz'.
-        """
-        B = self._ensure_matriz_input(other)
-        if self.n != B.n or self.m != B.m:
-            raise ValueError("Para sumar, ambas matrices deben tener las mismas dimensiones.")
-
-        # Resultado inicial con ceros
-        result = [[0.0 for _ in range(self.m)] for __ in range(self.n)]
-        pasos = []
-        # Paso inicial (matrices A y B)
-        pasos.append({"descripcion": "Matrices iniciales (A y B)", "matriz": deepcopy(self.A)})
-        # Realizar suma elemento a elemento, guardando un paso por cada elemento calculado
-        for i in range(self.n):
-            for j in range(self.m):
-                a = self.A[i][j]
-                b = B.A[i][j]
-                s = a + b
-                result[i][j] = s
-                desc = f"Calcular C[{i+1},{j+1}] = A[{i+1},{j+1}] + B[{i+1},{j+1}] = {self._format_number(a)} + {self._format_number(b)} = {self._format_number(s)}"
-                pasos.append({"descripcion": desc, "matriz": deepcopy(result)})
-
-        return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Suma realizada."}
+        other = self._ensure_matriz_input(other)
+        if self.n != other.n or self.m != other.m:
+            raise ValueError("Dimensiones incompatibles para suma")
+        R = [[self.A[i][j] + other.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        pasos = [{"descripcion": "Suma A + B", "matriz": deepcopy(R)}]
+        return {"datos": R, "pasos": pasos}
 
     def restar(self, other):
-        B = self._ensure_matriz_input(other)
-        if self.n != B.n or self.m != B.m:
-            raise ValueError("Para restar, ambas matrices deben tener las mismas dimensiones.")
-
-        result = [[0.0 for _ in range(self.m)] for __ in range(self.n)]
-        pasos = []
-        pasos.append({"descripcion": "Matrices iniciales (A y B)", "matriz": deepcopy(self.A)})
-        for i in range(self.n):
-            for j in range(self.m):
-                a = self.A[i][j]
-                b = B.A[i][j]
-                r = a - b
-                result[i][j] = r
-                desc = f"Calcular C[{i+1},{j+1}] = A[{i+1},{j+1}] - B[{i+1},{j+1}] = {self._format_number(a)} - {self._format_number(b)} = {self._format_number(r)}"
-                pasos.append({"descripcion": desc, "matriz": deepcopy(result)})
-
-        return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Resta realizada."}
+        other = self._ensure_matriz_input(other)
+        if self.n != other.n or self.m != other.m:
+            raise ValueError("Dimensiones incompatibles para resta")
+        R = [[self.A[i][j] - other.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        pasos = [{"descripcion": "Resta A - B", "matriz": deepcopy(R)}]
+        return {"datos": R, "pasos": pasos}
 
     def multiplicar(self, other):
-        B = self._ensure_matriz_input(other)
-        if self.m != B.n:
-            raise ValueError("Para multiplicar A*B, columnas de A deben igualar filas de B.")
-        result = [[0.0 for _ in range(B.m)] for __ in range(self.n)]
-        pasos = []
-        pasos.append({"descripcion": f"Matrices iniciales (A {self.n}x{self.m} y B {B.n}x{B.m})", "matriz": deepcopy(self.A)})
-
-        for i in range(self.n):
-            for j in range(B.m):
-                terms = []
-                s = 0.0
-                for k in range(self.m):
-                    a = self.A[i][k]
-                    b = B.A[k][j]
-                    prod = a * b
-                    terms.append(f"{self._format_number(a)}*{self._format_number(b)}")
-                    s += prod
-                result[i][j] = s
-                expr = " + ".join(terms) if terms else "0"
-                desc = f"Calcular C[{i+1},{j+1}] = Σ_k A[{i+1},k]*B[k,{j+1}] = {expr} = {self._format_number(s)}"
-                pasos.append({"descripcion": desc, "matriz": deepcopy(result)})
-
-        return {"pasos": pasos, "datos": result, "resultado_matriz": Matriz(result), "mensaje": "Multiplicación realizada."}
+        other = self._ensure_matriz_input(other)
+        if self.m != other.n:
+            raise ValueError("Dimensiones incompatibles para multiplicación")
+        R = [[sum(self.A[i][k] * other.A[k][j] for k in range(self.m)) for j in range(other.m)] for i in range(self.n)]
+        pasos = [{"descripcion": "Multiplicación A * B", "matriz": deepcopy(R)}]
+        return {"datos": R, "pasos": pasos}
 
     def _resolver_sustitucion(self, A):
-        """Asume A en forma escalonada superior (como resultado de forward elimination).
-        Devuelve dict de solución, o mensaje string si incompatible.
-        """
+        """Back substitution para matriz aumentada triangular superior A (n x m, m = vars+1)."""
         n = len(A)
         m = len(A[0]) if n else 0
-        pivotes = {}
-        # detectar pivotes (col -> fila) en A (col < m-1)
-        fila = 0
-        for col in range(m - 1):
-            found = False
-            for r in range(fila, n):
-                if abs(A[r][col]) > 1e-12:
-                    pivotes[col] = r
-                    fila = r + 1
-                    found = True
+        vars_n = m - 1
+        tol = 1e-12
+        x = [0.0] * vars_n
+        # buscar pivotes (suponer rol de columnas de 0..vars_n-1)
+        # asumimos fila i corresponde a variable i en solución si hay pivote en diagonal; si no, se deja como libre
+        for i in range(vars_n-1, -1, -1):
+            # encontrar fila que tiene pivote en columna i (desde top)
+            pivot_row = None
+            for r in range(n):
+                if abs(A[r][i]) > tol:
+                    pivot_row = r
                     break
-            if not found:
+            if pivot_row is None:
+                # variable libre -> 0 por defecto aquí (caller puede tratar libres)
+                x[i] = 0.0
                 continue
-
-        # detectar inconsistencia
-        for r in range(n):
-            if all(abs(A[r][c]) < 1e-12 for c in range(m - 1)) and abs(A[r][m - 1]) > 1e-12:
-                return "Sistema incompatible, no tiene solución."
-
-        libres = [c for c in range(m - 1) if c not in pivotes]
-        solucion = {}
-
-        if not libres and len(pivotes) == (m - 1):
-            # solución única, back substitution
-            x = [0.0] * (m - 1)
-            for col in sorted(pivotes.keys(), reverse=True):
-                row = pivotes[col]
-                s = A[row][m - 1]
-                for c in range(col + 1, m - 1):
-                    s -= A[row][c] * x[c]
-                x[col] = s / A[row][col]
-            for i, val in enumerate(x):
-                solucion[f"x{i+1}"] = self._format_number(val)
-            return solucion
-        else:
-            # sistema con infinitas soluciones: expresar en función de libres
-            for col in sorted(pivotes.keys()):
-                row = pivotes[col]
-                val = A[row][m - 1]
-                expr_terms = []
-                for c in libres:
-                    coef = -A[row][c] / (A[row][col] if abs(A[row][col])>1e-12 else 1.0)
-                    if abs(coef) > 1e-12:
-                        expr_terms.append(f"{self._format_number(coef)}*x{c+1}")
-                expr = self._format_number(val / (A[row][col] if abs(A[row][col])>1e-12 else 1.0))
-                if expr_terms:
-                    expr += " + " + " + ".join(expr_terms)
-                solucion[f"x{col+1}"] = expr
-            for c in libres:
-                solucion[f"x{c+1}"] = f"t{c+1}"
-            return solucion
+            s = A[pivot_row][m-1]
+            for c in range(i+1, vars_n):
+                s -= A[pivot_row][c] * x[c]
+            x[i] = s / A[pivot_row][i] if abs(A[pivot_row][i]) > tol else 0.0
+        # formatear solución
+        sol = {f"x{i+1}": self._format_number(x[i]) for i in range(vars_n)}
+        return sol
 
 def parse_vectors_text(text):
-    """Parsea texto con un vector por línea; componentes separadas por espacio o coma.
+    """Parsea texto con un vector por línea; componentes separadas por espacio o comma.
     Devuelve lista de vectores (listas de float).
     Lanza ValueError si hay formato inválido o dimensiones inconsistentes.
     """
     if text is None:
-        raise ValueError("Texto vacío.")
+        raise ValueError("Texto vacío")
+
     lines = [ln.strip() for ln in str(text).splitlines() if ln.strip()]
     vectors = []
     for ln in lines:
-        parts = ln.replace(",", " ").split()
+        parts = [p for p in (ln.replace(',', ' ').split()) if p]
         if not parts:
             continue
         try:
             vec = [float(p) for p in parts]
         except Exception:
-            raise ValueError(f"Componente no numérica en la línea: '{ln}'")
+            raise ValueError(f"Formato inválido en línea: '{ln}'")
         vectors.append(vec)
+
     if not vectors:
-        raise ValueError("No se encontraron vectores en la entrada.")
+        raise ValueError("No se encontraron vectores en la entrada")
+
     dim = len(vectors[0])
     if any(len(v) != dim for v in vectors):
-        raise ValueError("Todos los vectores deben tener la misma dimensión.")
+        raise ValueError("Vectores con dimensiones inconsistentes")
+
     return vectors
 
 def analyze_vectors(vectors):
@@ -374,13 +313,15 @@ def analyze_vectors(vectors):
     Devuelve dict con claves: rank (int), independent (bool), relation (None por ahora), pasos, mensaje.
     """
     if not vectors:
-        return {"rank": 0, "independent": True, "relation": None, "pasos": [], "mensaje": "No hay vectores."}
+        raise ValueError("No hay vectores para analizar")
+
     # construir matriz con vectores como columnas: filas = dimensión, columnas = nº vectores
     try:
-        A_rows = [list(row) for row in zip(*vectors)]
-        M = Matriz(A_rows)
+        Mmat = vectors_to_column_matrix(vectors)
+        M = Matriz(Mmat)
     except Exception as e:
-        raise ValueError(f"No se pudo construir la matriz de vectores: {e}")
+        raise
+
     res = M.independencia()
     sol = res.get("solucion", {}) if isinstance(res, dict) else {}
     rank = sol.get("rango", None) if isinstance(sol, dict) else None
@@ -388,7 +329,7 @@ def analyze_vectors(vectors):
     return {
         "rank": rank,
         "independent": independent,
-        "relation": None,   # cálculo de relación (nullspace) no implementado aquí
+        "relation": None,
         "pasos": res.get("pasos"),
         "mensaje": res.get("mensaje")
     }
