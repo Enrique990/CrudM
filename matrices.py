@@ -299,4 +299,45 @@ class Matriz:
 
         return solucion
 
-            
+    # -------------------- OPERACIONES BÁSICAS (Suma, Resta, Multiplicación) --------------------
+    def sumar(self, otra):
+        """Suma elemento a elemento. Ambas matrices deben tener mismas dimensiones."""
+        if not isinstance(otra, Matriz):
+            raise ValueError("La suma requiere otra Matriz.")
+        if self.n != otra.n or self.m != otra.m:
+            raise ValueError("Dimensiones incompatibles para la suma.")
+        resultado = [[self.A[i][j] + otra.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(resultado)
+
+    def restar(self, otra):
+        """Resta elemento a elemento. Ambas matrices deben tener mismas dimensiones."""
+        if not isinstance(otra, Matriz):
+            raise ValueError("La resta requiere otra Matriz.")
+        if self.n != otra.n or self.m != otra.m:
+            raise ValueError("Dimensiones incompatibles para la resta.")
+        resultado = [[self.A[i][j] - otra.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(resultado)
+
+    def multiplicar(self, otra):
+        """Multiplicación matricial (self x otra). Requiere self.m == otra.n."""
+        if not isinstance(otra, Matriz):
+            raise ValueError("La multiplicación requiere otra Matriz.")
+        if self.m != otra.n:
+            raise ValueError("Dimensiones incompatibles para multiplicación (cols de A != filas de B).")
+        # resultado tendrá dimensiones n x otra.m
+        resultado = [
+            [sum(self.A[i][k] * otra.A[k][j] for k in range(self.m)) for j in range(otra.m)]
+            for i in range(self.n)
+        ]
+        return Matriz(resultado)
+
+    # Operadores python convenientes
+    def __add__(self, other):
+        return self.sumar(other)
+
+    def __sub__(self, other):
+        return self.restar(other)
+
+    def __matmul__(self, other):
+        return self.multiplicar(other)
+

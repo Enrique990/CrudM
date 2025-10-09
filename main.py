@@ -110,6 +110,10 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        # Operaciones entre matrices
+        ttk.Button(action_frame, text="Sumar", command=lambda: self._matrix_operation_window("Suma", lambda a,b: a.sumar(b)), style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Restar", command=lambda: self._matrix_operation_window("Resta", lambda a,b: a.restar(b)), style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Multiplicar", command=lambda: self._matrix_operation_window("Multiplicación", lambda a,b: a.multiplicar(b)), style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -474,6 +478,57 @@ class MatrixCRUDApp:
         self.result_text.delete(1.0, tk.END)
         self.steps_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, text)
+
+    def _matrix_operation_window(self, title, operation_func):
+        """Abre una ventana para seleccionar dos matrices y aplicar operation_func(m1, m2)."""
+        todas = persistencia.cargar_todas_matrices() or {}
+        if not todas:
+            messagebox.showwarning("No hay matrices", "No hay matrices guardadas para operar.")
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title(title)
+        win.configure(bg="#23272e")
+        win.geometry("420x180")
+
+        ttk.Label(win, text=f"{title} de matrices", style='Title.TLabel').pack(pady=(10,5), anchor="w", padx=10)
+
+        frame = ttk.Frame(win, style='Dark.TFrame')
+        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        ttk.Label(frame, text="Matriz A:", style='Dark.TLabel').grid(row=0, column=0, sticky="w", pady=5)
+        var_a = tk.StringVar(value=list(todas.keys())[0])
+        cb_a = ttk.Combobox(frame, textvariable=var_a, values=list(todas.keys()), state="readonly", width=20)
+        cb_a.grid(row=0, column=1, pady=5)
+
+        ttk.Label(frame, text="Matriz B:", style='Dark.TLabel').grid(row=1, column=0, sticky="w", pady=5)
+        var_b = tk.StringVar(value=list(todas.keys())[0])
+        cb_b = ttk.Combobox(frame, textvariable=var_b, values=list(todas.keys()), state="readonly", width=20)
+        cb_b.grid(row=1, column=1, pady=5)
+
+        def calcular():
+            name_a = var_a.get()
+            name_b = var_b.get()
+            try:
+                data_a = persistencia.cargar_matriz(name_a)
+                data_b = persistencia.cargar_matriz(name_b)
+                if data_a is None or data_b is None:
+                    raise ValueError("No se pudo cargar una de las matrices seleccionadas.")
+
+                m1 = matrices.Matriz(data_a['datos'])
+                m2 = matrices.Matriz(data_b['datos'])
+                resultado = operation_func(m1, m2)
+                # Mostrar resultado
+                mat_str = self._format_matrix_for_display(resultado.A)
+                self.show_result(f"Resultado de {title} ({name_a} , {name_b}):\n\n{mat_str}")
+                win.destroy()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo realizar la operación: {e}")
+
+        ttk.Button(frame, text="Calcular", command=calcular, style='Dark.TButton').grid(row=2, column=0, columnspan=2, pady=12)
+        win.transient(self.root)
+        win.grab_set()
+        win.focus_set()
 
 if __name__ == "__main__":
     root = tk.Tk()
