@@ -674,24 +674,31 @@ class MatrixCRUDApp:
         else:
             A_display = matrices.vectors_to_column_matrix(vectors)
 
-        rank = analysis["rank"]
-        n = analysis["n"]
-        independent = analysis["independent"]
+        rank = analysis.get("rank")
+        k = len(vectors)
+        independent = analysis.get("independent")
+        relation = analysis.get("relation")
 
-        # Mostrar resultado sencillo
+        # Construir salida: primero la conclusión principal y luego una explicación sencilla
         lines = []
-        lines.append(f"{len(A_display)} x {len(A_display[0]) if A_display else 0}  (matriz mostrada según '{orientation}')")
-        lines.append(f"Rango (evaluado sobre vectores como columnas) = {rank}")
-        lines.append("")
+        lines.append("")  # espacio superior
         if independent:
-            lines.append("Conclusión: Los vectores son linealmente INDEPENDIENTES.")
+            lines.append("CONCLUSIÓN PRINCIPAL: Los vectores son LINEALMENTE INDEPENDIENTES.")
+            lines.append(f"Explicación breve: el rango de la matriz formada por los vectores como columnas es {rank}, igual al número de vectores ({k}).")
+            lines.append("Por tanto, la única combinación lineal que produce el vector cero es la combinación trivial (todos los coeficientes = 0).")
         else:
-            lines.append("Conclusión: Los vectores son linealmente DEPENDIENTES.")
-            if analysis["relation"]:
-                coef = analysis["relation"]
-                coef_str = ", ".join([f"{c:.6g}" for c in coef])
-                lines.append("Ejemplo de relación no trivial (coeficientes para los vectores):")
-                lines.append(f"[{coef_str}]  →  suma_i coef_i * v_i = 0")
+            lines.append("CONCLUSIÓN PRINCIPAL: Los vectores son LINEALMENTE DEPENDIENTES.")
+            lines.append(f"Explicación breve: el rango de la matriz formada por los vectores como columnas es {rank}, menor que el número de vectores ({k}).")
+            lines.append("Por tanto, existe una combinación lineal no trivial (coeficientes no todos cero) que da el vector cero.")
+            if relation:
+                coef_str = ", ".join([f"{c:.6g}" for c in relation])
+                lines.append("Ejemplo de relación no trivial (coeficientes correspondientes a cada vector):")
+                lines.append(f"[{coef_str}]")
+
+        # Información adicional compacta
+        lines.append("")
+        lines.append(f"Matriz mostrada ({orientation}): {len(A_display)} x {len(A_display[0]) if A_display else 0}")
+        lines.append(f"Rango (evaluado sobre vectores como columnas) = {rank}")
 
         self.result_text.delete(1.0, tk.END)
         self.steps_text.delete(1.0, tk.END)
