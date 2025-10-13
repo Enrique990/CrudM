@@ -279,10 +279,10 @@ class Matriz:
         independiente = (rango == k)
 
         if independiente:
-            mensaje = f"Es linealmente independientes "
+            mensaje = f"Linealmente independientes "
         else:
             libres_nombres = ", ".join(f"v{c+1}" for c in libres) if libres else "ninguna"
-            mensaje = (f"Es linealmente dependientes. "
+            mensaje = (f"Linealmente dependientes. "
                        f"Columnas sin pivote (libres): {libres_nombres}.")
 
         solucion = {
