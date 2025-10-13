@@ -12,7 +12,7 @@ class MatrixCRUDApp:
         self.root.configure(bg="#23272e")
 
         # Centrar la ventana en la pantalla
-        window_width = 885
+        window_width = 1020
         window_height = 700
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -145,6 +145,7 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Independencia", command=self.check_independence, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Transponer", command=self.transpose_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -485,6 +486,35 @@ class MatrixCRUDApp:
             display_label.pack(pady=10, padx=10, anchor='w')
         else:
             messagebox.showerror("Error", f"No se encontró el conjunto de vectores '{name}'.")
+
+    def transpose_matrix(self):
+        selection = self.matrix_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz para transponer.")
+            return
+            
+        matrix_name = self.matrix_listbox.get(selection[0])
+        matrix_data = persistencia.cargar_matriz(matrix_name)
+        
+        if matrix_data:
+            try:
+                matriz_obj = matrices.Matriz(matrix_data['datos'])
+                matriz_transpuesta_obj = matriz_obj.trasponer()
+
+                self.clear_matrix_frame()
+                self.show_result("")
+
+                info_str = (f"Transpuesta de la Matriz: {matrix_data['nombre']}\n"
+                            f"Nuevas Dimensiones: {matriz_transpuesta_obj.n}x{matriz_transpuesta_obj.m}\n\n")
+                matrix_str = self._format_matrix_for_display(matriz_transpuesta_obj.A)
+                
+                display_label = ttk.Label(self.matrix_frame, text=info_str + matrix_str, style='Result.TLabel', justify=tk.LEFT)
+                display_label.pack(pady=10, padx=10, anchor='w')
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Ocurrió un error al transponer la matriz: {e}")
+        else:
+            messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
 
     def delete_matrix(self):
         selection = self.matrix_listbox.curselection()
