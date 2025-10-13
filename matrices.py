@@ -305,6 +305,61 @@ class Matriz:
     # alias en inglés por conveniencia
     transpose = trasponer
 
+    def inversa(self, mostrar_pasos=True):
+        """Calcula la inversa de la matriz usando Gauss-Jordan sobre [A | I].
+
+        - Validaciones: la matriz debe ser cuadrada (n == m).
+        - Si la matriz es singular devuelve {'pasos': pasos, 'inversa': None, 'mensaje': ...}.
+        - Si tiene inversa devuelve la matriz inversa formateada y los pasos (si mostrar_pasos).
+        """
+        # Solo para matrices cuadradas
+        if self.n != self.m:
+            raise ValueError("La inversa sólo está definida para matrices cuadradas (n == m).")
+
+        n = self.n
+        # Construir la matriz aumentada [A | I]
+        A = [row[:] for row in self.A]
+        Aug = [A[i] + [1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+
+        pasos = []
+        pasos.append({"descripcion": "Matriz inicial (A | I)", "matriz": self._mat_str(Aug)})
+
+        fila = 0
+        for col in range(n):
+            pivot_row = None
+            for r in range(fila, n):
+                if abs(Aug[r][col]) > 1e-10:
+                    pivot_row = r
+                    break
+            if pivot_row is None:
+                # No hay pivote en esta columna -> singular
+                return {"pasos": pasos, "inversa": None, "mensaje": "La matriz es singular y no tiene inversa."}
+
+            if pivot_row != fila:
+                Aug[fila], Aug[pivot_row] = Aug[pivot_row], Aug[fila]
+                pasos.append({"descripcion": f"F{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(Aug)})
+
+            pivot = Aug[fila][col]
+            if abs(pivot - 1) > 1e-10:
+                Aug[fila] = [x / pivot for x in Aug[fila]]
+                pasos.append({"descripcion": f"F{fila+1} → F{fila+1} / {self._format_number(pivot)}", "matriz": self._mat_str(Aug)})
+
+            for r in range(n):
+                if r != fila and abs(Aug[r][col]) > 1e-10:
+                    factor = Aug[r][col]
+                    Aug[r] = [Aug[r][k] - factor * Aug[fila][k] for k in range(2 * n)]
+                    pasos.append({"descripcion": f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(Aug)})
+
+            fila += 1
+
+        # Extraer la inversa (la mitad derecha de la matriz aumentada)
+        inv = [row[n:] for row in Aug]
+
+        return {"pasos": pasos if mostrar_pasos else [], "inversa": self._mat_str(inv), "mensaje": "Inversa calculada correctamente."}
+
+    # alias en inglés
+    inverse = inversa
+
     def _resolver_sustitucion(self, A):
         eps = 1e-10
         n_vars = self.m - 1
