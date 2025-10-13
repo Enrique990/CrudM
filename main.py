@@ -146,6 +146,7 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Independencia", command=self.check_independence, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Transponer", command=self.transpose_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Inversa", command=self.calculate_inverse, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -515,6 +516,44 @@ class MatrixCRUDApp:
                 messagebox.showerror("Error", f"Ocurrió un error al transponer la matriz: {e}")
         else:
             messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
+
+    def calculate_inverse(self):
+        """Calcula y muestra la inversa de la matriz seleccionada."""
+        selection = self.matrix_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Selección requerida", "Por favor, selecciona una matriz de la lista.")
+            return
+
+        matrix_name = self.matrix_listbox.get(selection[0])
+        matrix_data = persistencia.cargar_matriz(matrix_name)
+
+        if not matrix_data:
+            messagebox.showerror("Error", f"No se pudo cargar la matriz '{matrix_name}'.")
+            return
+
+        try:
+            matriz_obj = matrices.Matriz(matrix_data['datos'])
+            resultado = matriz_obj.inversa()
+
+            self.result_text.delete(1.0, tk.END)
+            self.steps_text.delete(1.0, tk.END)
+
+            self.result_text.insert(tk.END, resultado.get("mensaje", "No se generó mensaje.") + "\n")
+            if resultado.get("inversa"):
+                formatted_inv = self._format_matrix_for_display(resultado["inversa"])
+                self.result_text.insert(tk.END, "\nInversa:\n" + formatted_inv)
+
+            if "pasos" in resultado:
+                for paso in resultado["pasos"]:
+                    self.steps_text.insert(tk.END, f"{paso['descripcion']}\n")
+                    if 'matriz' in paso:
+                        formatted_matrix = self._format_matrix_for_display(paso['matriz'])
+                        self.steps_text.insert(tk.END, formatted_matrix + "\n\n")
+
+        except ValueError as e:
+            messagebox.showerror("Error de validación", str(e))
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error inesperado: {e}")
 
     def delete_matrix(self):
         selection = self.matrix_listbox.curselection()
