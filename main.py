@@ -1,7 +1,6 @@
-import json
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
-from crud import crear_matriz, listar_matrices, ver_matriz, actualizar_matriz, eliminar_matriz, crear_conjunto_vectores, actualizar_conjunto_vectores
+from tkinter import ttk, messagebox
+from crud import crear_matriz, actualizar_matriz, crear_conjunto_vectores, actualizar_conjunto_vectores
 import persistencia
 import matrices
 
@@ -12,7 +11,7 @@ class MatrixCRUDApp:
         self.root.configure(bg="#23272e")
 
         # Centrar la ventana en la pantalla
-        window_width = 1020
+        window_width = 1130
         window_height = 700
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -52,7 +51,6 @@ class MatrixCRUDApp:
 
         self.selected_matrix = None
         self.selected_method = None
-        self.selected_vector_set = None
 
         self.update_matrix_list()
         self.update_vector_set_list()
@@ -560,27 +558,14 @@ class MatrixCRUDApp:
         if not selection:
             messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
             return
-            
+
         matrix_name = self.matrix_listbox.get(selection[0])
         if messagebox.askyesno("Confirmar", f"¿Estás seguro de que quieres eliminar la matriz '{matrix_name}'?"):
-            # Llamar directamente a la función de persistencia
-            todas_matrices = persistencia.cargar_todas_matrices()
-            
-            if matrix_name not in todas_matrices:
-                messagebox.showerror("Error", f"No se pudo encontrar la matriz '{matrix_name}'.")
-                return
-                
-            # Eliminar la matriz del diccionario
-            del todas_matrices[matrix_name]
-            
-            # Guardar los cambios
-            try:
-                with open(persistencia.ARCHIVO_MATRICES, 'w') as file:
-                    json.dump(todas_matrices, file, indent=4)
+            if persistencia.eliminar_matriz(matrix_name):
                 messagebox.showinfo("Éxito", f"Matriz '{matrix_name}' eliminada exitosamente.")
                 self.update_matrix_list()
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo eliminar la matriz: {e}")
+            else:
+                messagebox.showerror("Error", f"No se pudo eliminar la matriz '{matrix_name}'.")
     
     def _on_matrix_select(self, event):
         selection = self.matrix_listbox.curselection()
@@ -635,11 +620,6 @@ class MatrixCRUDApp:
 
             for idx, paso in enumerate(resultado["pasos"]):
                 self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
-                
-                matriz_paso_float = []
-                for fila_str in paso['matriz']:
-                    matriz_paso_float.append([float(x) for x in fila_str])
-
                 formatted_step_matrix = self._format_matrix_for_display(paso['matriz'])
                 self.steps_text.insert(tk.END, formatted_step_matrix + "\n")
 
@@ -821,19 +801,11 @@ class MatrixCRUDApp:
             messagebox.showerror("Dimensiones inválidas", "Las filas y columnas deben ser números enteros positivos.")
 
     def update_matrix_data(self, entries, rows, cols, name):
-        datos = []
         try:
-            for i in range(rows):
-                fila = []
-                for j in range(cols):
-                    valor = entries[i][j].get()
-                    fila.append(float(valor))
-                datos.append(fila)
+            datos = self._extract_matrix_values(entries)
 
-            # Validar si hubo cambios
             original = self.original_matrix_data_for_modification
             if original['filas'] == rows and original['columnas'] == cols and original['datos'] == datos:
-                # No hay cambios, no hacer nada
                 for widget in self.matrix_frame.winfo_children():
                     widget.destroy()
                 return
@@ -845,31 +817,23 @@ class MatrixCRUDApp:
                     widget.destroy()
             else:
                 messagebox.showerror("Error", f"No se pudo actualizar la matriz '{name}'.")
-
         except ValueError:
             messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos en todas las celdas.")
 
     def save_matrix_data(self, entries, rows, cols, name):
-        datos = []
         try:
-            for i in range(rows):
-                fila = []
-                for j in range(cols):
-                    valor = entries[i][j].get()
-                    fila.append(float(valor))
-                datos.append(fila)
-            
+            datos = self._extract_matrix_values(entries)
+
             crear_matriz(name, rows, cols, datos)
             messagebox.showinfo("Éxito", f"Matriz '{name}' creada y guardada exitosamente.")
             self.update_matrix_list()
-            
-            # Limpiar entradas y resetear valores a 0
+
             self.name_entry.delete(0, tk.END)
             self.rows_var.set("0")
             self.cols_var.set("0")
             for widget in self.matrix_frame.winfo_children():
                 widget.destroy()
-                
+
         except ValueError:
             messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos en todas las celdas.")
     
@@ -896,15 +860,9 @@ class MatrixCRUDApp:
         self.draw_vector_entries(num_vectores, dimension, name)
 
     def save_vector_set_data(self, entries, num_vectores, dimension, name):
-        datos = []
         try:
-            for j in range(num_vectores):
-                vector = []
-                for i in range(dimension):
-                    valor = entries[j][i].get()
-                    vector.append(float(valor))
-                datos.append(vector)
-            
+            datos = self._extract_vector_values(entries)
+
             if crear_conjunto_vectores(name, num_vectores, dimension, datos):
                 messagebox.showinfo("Éxito", f"Conjunto de vectores '{name}' guardado.")
                 self.update_vector_set_list()
@@ -930,14 +888,8 @@ class MatrixCRUDApp:
         self.draw_vector_entries(data['num_vectores'], data['dimension'], name, is_modification=True, data=data['datos'])
 
     def update_vector_set_data(self, entries, num_vectores, dimension, name):
-        datos = []
         try:
-            for j in range(num_vectores):
-                vector = []
-                for i in range(dimension):
-                    valor = entries[j][i].get()
-                    vector.append(float(valor))
-                datos.append(vector)
+            datos = self._extract_vector_values(entries)
 
             original = self.original_vector_data_for_modification
             if original['num_vectores'] == num_vectores and original['dimension'] == dimension and original['datos'] == datos:
@@ -966,6 +918,14 @@ class MatrixCRUDApp:
                 self.update_vector_set_list()
             else:
                 messagebox.showerror("Error", f"No se pudo eliminar el conjunto '{name}'.")
+
+    def _extract_matrix_values(self, entries):
+        """Refactorización: transforma entradas UI en datos numéricos para matrices."""
+        return [[float(entry.get()) for entry in row] for row in entries]
+
+    def _extract_vector_values(self, entries):
+        """Refactorización: transforma entradas UI en datos numéricos para conjuntos de vectores."""
+        return [[float(entry.get()) for entry in column] for column in entries]
 
     def show_result(self, text):
         self.result_text.delete(1.0, tk.END)
