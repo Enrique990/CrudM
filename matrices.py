@@ -443,4 +443,64 @@ class Matriz:
 
         return solucion
 
-            
+    # -------------------- OPERADOR DE MATRICES --------------------
+    def _ensure_matrix_like(self, other):
+        if isinstance(other, Matriz):
+            return other
+        if isinstance(other, (list, tuple)):
+            return Matriz([list(row) for row in other])
+        raise ValueError("El operando debe ser una Matriz o una lista de listas numéricas.")
+
+    def sumar(self, other):
+        B = self._ensure_matrix_like(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Dimensiones incompatibles para suma: deben ser iguales.")
+        C = [[self.A[i][j] + B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(C)
+
+    def restar(self, other):
+        B = self._ensure_matrix_like(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Dimensiones incompatibles para resta: deben ser iguales.")
+        C = [[self.A[i][j] - B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(C)
+
+    def multiplicar(self, other):
+        # Escalar
+        if isinstance(other, (int, float)):
+            C = [[self.A[i][j] * other for j in range(self.m)] for i in range(self.n)]
+            return Matriz(C)
+        B = self._ensure_matrix_like(other)
+        if self.m != B.n:
+            raise ValueError(f"Dimensiones incompatibles para multiplicación: {self.n}x{self.m} * {B.n}x{B.m}")
+        C = [[0.0 for _ in range(B.m)] for __ in range(self.n)]
+        for i in range(self.n):
+            for j in range(B.m):
+                s = 0.0
+                for k in range(self.m):
+                    s += self.A[i][k] * B.A[k][j]
+                C[i][j] = s
+        return Matriz(C)
+
+    # Sobrecargas convenientes
+    # Sirve para usar los operadores +, -, @, * directamente
+    
+    def __add__(self, other):
+        return self.sumar(other)
+
+    def __sub__(self, other):
+        return self.restar(other)
+
+    def __matmul__(self, other):
+        return self.multiplicar(other)
+
+    def __mul__(self, other):
+        return self.multiplicar(other)
+
+    def __rmul__(self, other):
+        if isinstance(other, (int, float)):
+            return self.multiplicar(other)
+        return NotImplemented
+
+    def to_list(self):
+        return [row[:] for row in self.A]
