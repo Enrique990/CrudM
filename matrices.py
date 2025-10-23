@@ -120,17 +120,22 @@ class Matriz:
     # -------------------- MÉTODO GAUSS --------------------
     def gauss(self):
         A = [row[:] for row in self.A]  # trabajar sobre copia
-        n, m = self.n, self.m
         pasos = []
-        fila = 0
-
-        pasos.append({"descripcion": "Matriz inicial", "matriz": self._mat_str(A)})
-
+        # (Evitar duplicar "Matriz inicial": lo agrega _forward_elimination)
         # Reutilizar el forward elimination privado
         A, pivotes, pasos_elim = self._forward_elimination(A)
         pasos.extend(pasos_elim)
 
-        return {"pasos": pasos, "solucion": self._resolver_sustitucion(A)}
+        sol = self._resolver_sustitucion(A)
+        # Mensaje coherente con Gauss-Jordan
+        if isinstance(sol, str):
+            mensaje = "El sistema es inconsistente (no tiene solución)."
+        else:
+            if any(v == "libre" for v in sol.values()):
+                mensaje = "El sistema tiene infinitas soluciones (variables libres presentes)."
+            else:
+                mensaje = "El sistema tiene solución única."
+        return {"pasos": pasos, "solucion": sol, "mensaje": mensaje}
 
     def _forward_elimination(self, A):
         """Realiza eliminación hacia adelante (como en Gauss), retorna la matriz transformada,

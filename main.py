@@ -11,7 +11,7 @@ class MatrixCRUDApp:
         self.root.configure(bg="#23272e")
 
         # Centrar la ventana en la pantalla
-        window_width = 1130
+        window_width = 1240
         window_height = 700
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -112,7 +112,7 @@ class MatrixCRUDApp:
         # Selector de método
         ttk.Label(main_frame, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky="e", padx=(0,5))
         self.method_var = tk.StringVar(value="Gauss-Jordan")
-        self.method_combobox = ttk.Combobox(main_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss"], state="readonly", width=14)
+        self.method_combobox = ttk.Combobox(main_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss", "Cramer"], state="readonly", width=14)
         self.method_combobox.grid(row=1, column=3, sticky="w")
         self.method_combobox.bind('<<ComboboxSelected>>', self._on_method_select)
 
@@ -145,6 +145,7 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Independencia", command=self.check_independence, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Transponer", command=self.transpose_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Inversa", command=self.calculate_inverse, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Determinante", command=self.calculate_determinant, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -553,19 +554,60 @@ class MatrixCRUDApp:
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrió un error inesperado: {e}")
 
-    def delete_matrix(self):
+    def calculate_determinant(self):
         selection = self.matrix_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
+            messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz para calcular su determinante.")
             return
 
         matrix_name = self.matrix_listbox.get(selection[0])
-        if messagebox.askyesno("Confirmar", f"¿Estás seguro de que quieres eliminar la matriz '{matrix_name}'?"):
-            if persistencia.eliminar_matriz(matrix_name):
-                messagebox.showinfo("Éxito", f"Matriz '{matrix_name}' eliminada exitosamente.")
-                self.update_matrix_list()
-            else:
-                messagebox.showerror("Error", f"No se pudo eliminar la matriz '{matrix_name}'.")
+        matrix_data = persistencia.cargar_matriz(matrix_name)
+        if not matrix_data or not matrix_data.get('datos'):
+            messagebox.showerror("Error", f"No se pudo cargar la matriz '{matrix_name}'.")
+            return
+
+        datos = matrix_data['datos']
+        n = len(datos)
+        m = len(datos[0])
+
+        # Si es aumentada n x (n+1), tomar sólo los coeficientes
+        if m == n + 1:
+            A = [fila[:-1] for fila in datos]
+            note = " (se usó sólo la matriz de coeficientes)."
+        elif m == n:
+            A = datos
+            note = ""
+        else:
+            messagebox.showerror("Dimensiones inválidas", "Para el determinante se requiere una matriz cuadrada n×n o una aumentada n×(n+1).")
+            return
+
+        try:
+            det = matrices.determinante_por_gauss(A)
+            det_fmt = f"{int(round(det))}" if abs(det - round(det)) < 1e-10 else f"{det:.4f}"
+
+            self.result_text.delete(1.0, tk.END)
+            self.steps_text.delete(1.0, tk.END)
+
+            self.result_text.insert(tk.END, f"det(A) = {det_fmt}{note}\n")
+            formatted_A = self._format_matrix_for_display(A)
+            self.result_text.insert(tk.END, "\nMatriz A usada:\n" + formatted_A)
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error al calcular el determinante: {e}")
+
+    def delete_matrix(self):
+            selection = self.matrix_listbox.curselection()
+            if not selection:
+                messagebox.showwarning("Selección requerida", "Por favor selecciona una matriz de la lista.")
+                return
+
+            matrix_name = self.matrix_listbox.get(selection[0])
+            if messagebox.askyesno("Confirmar", f"¿Estás seguro de que quieres eliminar la matriz '{matrix_name}'?"):
+                if persistencia.eliminar_matriz(matrix_name):
+                    messagebox.showinfo("Éxito", f"Matriz '{matrix_name}' eliminada exitosamente.")
+                    self.update_matrix_list()
+                else:
+                    messagebox.showerror("Error", f"No se pudo eliminar la matriz '{matrix_name}'.")
+
     
     def _on_matrix_select(self, event):
         selection = self.matrix_listbox.curselection()
@@ -593,7 +635,7 @@ class MatrixCRUDApp:
                 return
         
         if not metodo:
-            messagebox.showwarning("Selección requerida", "Por favor selecciona un método de resolución (Gauss o Gauss-Jordan).")
+            messagebox.showwarning("Selección requerida", "Por favor selecciona un método de resolución (Gauss, Gauss-Jordan o Cramer).")
             return
 
         try:
@@ -602,29 +644,29 @@ class MatrixCRUDApp:
                 messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
                 return
             matriz_obj = matrices.Matriz(matriz_data['datos'])
-            if metodo == "Gauss-Jordan":
-                resultado = matriz_obj.gauss_jordan()
-            else:
+            if metodo == "Gauss":
                 resultado = matriz_obj.gauss()
-            # Mostrar la solución y el procedimiento
+            elif metodo == "Gauss-Jordan":
+                resultado = matriz_obj.gauss_jordan()
+            elif metodo == "Cramer":
+                resultado = matriz_obj.cramer()
+            else:
+                messagebox.showerror("Error", f"Método de resolución desconocido: {metodo}")
+                return
             self.result_text.delete(1.0, tk.END)
             self.steps_text.delete(1.0, tk.END)
-            if resultado["solucion"] == "Sin solución" or resultado["solucion"] == "Sistema incompatible, no tiene solución.":
-                self.result_text.insert(tk.END, "El sistema es inconsistente (no tiene solución).\n")
-            else:
-                # Mostrar el mensaje de tipo de solución si existe
-                if "mensaje" in resultado:
-                    self.result_text.insert(tk.END, resultado["mensaje"] + "\n\n")
-                for variable, valor in resultado["solucion"].items():
-                    self.result_text.insert(tk.END, f"{variable} = {valor}\n")
-
-            for idx, paso in enumerate(resultado["pasos"]):
-                self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
-                formatted_step_matrix = self._format_matrix_for_display(paso['matriz'])
-                self.steps_text.insert(tk.END, formatted_step_matrix + "\n")
-
+            # Mostrar el mensaje principal del resultado
+            if "mensaje" in resultado:
+                self.result_text.insert(tk.END, resultado["mensaje"] + "\n\n")
+            # Mostrar los pasos si existen
+            if "pasos" in resultado and resultado["pasos"]:
+                for idx, paso in enumerate(resultado["pasos"]):
+                    self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
+                    if 'matriz' in paso:
+                        formatted_step_matrix = self._format_matrix_for_display(paso['matriz'])
+                        self.steps_text.insert(tk.END, formatted_step_matrix + "\n")
         except Exception as e:
-            messagebox.showerror("Error", f"Error durante la resolución: {e}")
+            messagebox.showerror("Error", f"Error durante la resolución de la matriz: {e}")
     
     def check_independence(self):
         matrix_name = getattr(self, 'selected_matrix', None)
