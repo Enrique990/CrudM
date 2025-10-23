@@ -504,3 +504,80 @@ class Matriz:
 
     def to_list(self):
         return [row[:] for row in self.A]
+
+def determinante_por_gauss(A):
+    """
+    Calcula el determinante de una matriz cuadrada A (lista de listas)
+    mediante reducción a triangular superior por eliminación de Gauss.
+    No modifica A (trabaja sobre una copia). Devuelve un número (float).
+    """
+    eps = 1e-12
+    if A is None or len(A) == 0:
+        raise ValueError("La matriz no puede estar vacía.")
+    n = len(A)
+    # verificar cuadrada
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
+    # trabajar sobre una copia en coma flotante para no alterar la original
+    M = [list(map(float, row[:])) for row in A]
+    det_sign = 1  # guarda el signo que cambia cuando se intercambian filas
+    for i in range(n):
+        # Buscar la fila con el mayor valor absoluto en la columna i (pivote)
+        max_row = max(range(i, n), key=lambda r: abs(M[r][i]))
+        # Si el mejor pivote es (prácticamente) cero, el determinante es 0
+        if abs(M[max_row][i]) < eps:
+            return 0.0
+        # Si hay intercambio de filas, invertimos el signo del determinante
+        if max_row != i:
+            M[i], M[max_row] = M[max_row], M[i]
+            det_sign *= -1
+        pivot = M[i][i]
+        # Eliminar (poner a cero) los elementos debajo del pivote
+        for r in range(i + 1, n):
+            if abs(M[r][i]) < eps:
+                continue
+            factor = M[r][i] / pivot
+            # Restamos factor * fila_pivote a la fila r (no cambia el determinante)
+            for c in range(i, n):
+                M[r][c] -= factor * M[i][c]
+    # El determinante es el producto de la diagonal por el signo de los swaps
+    det = det_sign
+    for i in range(n):
+        det *= M[i][i]
+    return det
+
+
+def cramer(A, b):
+    """
+    Resuelve el sistema A x = b usando la regla de Cramer.
+    - A: matriz de coeficientes (lista de listas) cuadrada n x n
+    - b: vector de resultados (lista de longitud n)
+    Devuelve la lista [x1, x2, ..., xn].
+    Lanza ValueError si no hay solución única (determinante cero) o si dimensiones no coinciden.
+    """
+    eps = 1e-12
+    if A is None or b is None:
+        raise ValueError("A y b son requeridos.")
+    n = len(A)
+    if n == 0:
+        return []
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz A debe ser cuadrada.")
+    if len(b) != n:
+        raise ValueError("El vector b debe tener la misma dimensión que A.")
+    # Determinante de la matriz de coeficientes
+    detA = determinante_por_gauss(A)
+    if abs(detA) < eps:
+        # Si es cero, no hay solución única y la regla de Cramer no aplica
+        raise ValueError("Determinante de A es cero: no existe solución única (regla de Cramer no aplicable).")
+    solucion = []
+    # Para cada variable reemplazamos la columna correspondiente por b y calculamos su determinante
+    for col in range(n):
+        Ai = [row[:] for row in A]  # copia de A
+        for i in range(n):
+            Ai[i][col] = b[i]  # sustituir la columna col por b
+        detAi = determinante_por_gauss(Ai)
+        solucion.append(detAi / detA)  # xi = det(Ai) / det(A)
+    return solucion
