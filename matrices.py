@@ -1,5 +1,6 @@
 # matrices.py
 
+# Clase de matriz para algebra lineal
 class Matriz:
     def __init__(self, datos):
         # Validaciones básicas
@@ -175,6 +176,7 @@ class Matriz:
 
         return A, pivotes, pasos
 
+    # En la independencia tratar de no poner el rango
     def independencia(self):
         """Determina si las columnas (coeficientes) son linealmente independientes.
         Reutiliza _forward_elimination para obtener pivotes y pasos.
@@ -294,6 +296,7 @@ class Matriz:
 
         return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": mensaje}
 
+    # -------------------- MÉTODO TRASPUESTA E INVERSA --------------------
     def trasponer(self):
         """Devuelve una nueva instancia de Matriz que es la traspuesta de la actual.
         No modifica la matriz original.
@@ -305,6 +308,7 @@ class Matriz:
     # alias en inglés por conveniencia
     transpose = trasponer
 
+    # La inversa de la matriz debe validar que es cuadrada
     def inversa(self, mostrar_pasos=True):
         """Calcula la inversa de la matriz usando Gauss-Jordan sobre [A | I].
 
@@ -359,6 +363,8 @@ class Matriz:
 
     # alias en inglés
     inverse = inversa
+    
+    
 
     def _resolver_sustitucion(self, A):
         eps = 1e-10
@@ -442,5 +448,17 @@ class Matriz:
                 solucion[var] = " ".join(partes) if partes else "0"
 
         return solucion
+    
+    # Recordar hacer los determinantes de la matriz por Sarrus
+    
+    # Tambien resolver por el metodo de Cramer 
+    
+    def cramer(self):
+        """ Necesito este metodo para el jueves con la clase del Profesor Ivan"""
+    
+    
+    # Necesito el metodo e Sarrus para el jueves con la clase del Profesor Ivan
+    def sarrus(self):
+        """ Necesito este metodo para el jueves con la clase del Profesor Ivan"""
 
             
