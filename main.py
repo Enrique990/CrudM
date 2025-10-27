@@ -138,8 +138,17 @@ class MatrixCRUDApp:
 
         # Lista de matrices
         ttk.Label(main_frame, text="Matrices almacenadas:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky="w", pady=(0,5))
-        self.matrix_listbox = tk.Listbox(main_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
-        self.matrix_listbox.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(0,10))
+        # Contenedor con scrollbar para la lista de matrices
+        matrix_list_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+        matrix_list_frame.grid(row=5, column=0, columnspan=2, sticky="nsew", pady=(0,10))
+        matrix_list_frame.grid_columnconfigure(0, weight=1)
+        matrix_list_frame.grid_rowconfigure(0, weight=1)
+
+        self.matrix_listbox = tk.Listbox(matrix_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.matrix_listbox.grid(row=0, column=0, sticky="nsew")
+        matrix_scrollbar = ttk.Scrollbar(matrix_list_frame, orient=tk.VERTICAL, command=self.matrix_listbox.yview)
+        matrix_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.matrix_listbox.configure(yscrollcommand=matrix_scrollbar.set)
         self.matrix_listbox.bind('<<ListboxSelect>>', self._on_matrix_select)
 
         # Botones de acción
@@ -255,8 +264,17 @@ class MatrixCRUDApp:
 
         # --- Lista de Conjuntos y Acciones (distribución similar a matrices) ---
         ttk.Label(container, text="Conjuntos de Vectores Almacenados:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky='w', pady=(0,5))
-        self.vector_set_listbox = tk.Listbox(container, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
-        self.vector_set_listbox.grid(row=5, column=0, columnspan=2, sticky='ew', pady=(0,10))
+        # Contenedor con scrollbar para la lista de conjuntos de vectores
+        vector_list_frame = ttk.Frame(container, style='Dark.TFrame')
+        vector_list_frame.grid(row=5, column=0, columnspan=2, sticky='nsew', pady=(0,10))
+        vector_list_frame.grid_columnconfigure(0, weight=1)
+        vector_list_frame.grid_rowconfigure(0, weight=1)
+
+        self.vector_set_listbox = tk.Listbox(vector_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.vector_set_listbox.grid(row=0, column=0, sticky='nsew')
+        vector_scrollbar = ttk.Scrollbar(vector_list_frame, orient=tk.VERTICAL, command=self.vector_set_listbox.yview)
+        vector_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.vector_set_listbox.configure(yscrollcommand=vector_scrollbar.set)
         self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
 
         vector_action_frame = ttk.Frame(container, style='Dark.TFrame')
@@ -691,26 +709,29 @@ class MatrixCRUDApp:
                 b = [fila[-1] for fila in datos]
 
                 try:
-                    soluciones = matrices.cramer(A, b)  # Llamada al módulo matrices (NO a un método de instancia)
+                    resultado = matrices.cramer_con_pasos(A, b, mostrar_pasos=True)
                 except Exception as e:
                     messagebox.showerror("Error", f"Ocurrió un error al resolver por Cramer: {e}")
                     return
 
-                # Mostrar resultados y terminar aquí
+                # Mostrar resultados y pasos
                 self.result_text.delete(1.0, tk.END)
                 self.steps_text.delete(1.0, tk.END)
 
                 self.result_text.insert(tk.END, "Solución por Cramer:\n")
-                for i, x in enumerate(soluciones, start=1):
+                for i, x in enumerate(resultado.get("soluciones", []), start=1):
                     x_fmt = f"{int(round(x))}" if abs(x - round(x)) < 1e-10 else f"{x:.6f}"
                     self.result_text.insert(tk.END, f"x{i} = {x_fmt}\n")
 
-                # Opcional: mostrar A y b usadas
-                self.steps_text.insert(tk.END, "A usada:\n")
-                self.steps_text.insert(tk.END, self._format_matrix_for_display(A) + "\n")
-                b_col = [[val] for val in b]
-                self.steps_text.insert(tk.END, "b usada:\n")
-                self.steps_text.insert(tk.END, self._format_matrix_for_display(b_col) + "\n")
+                if "mensaje" in resultado:
+                    self.result_text.insert(tk.END, "\n" + resultado["mensaje"] + "\n")
+
+                # Mostrar pasos
+                for paso in resultado.get("pasos", []):
+                    self.steps_text.insert(tk.END, f"{paso.get('descripcion','')}\n")
+                    if 'matriz' in paso:
+                        formatted = self._format_matrix_for_display(paso['matriz'])
+                        self.steps_text.insert(tk.END, formatted + "\n")
                 return
 
             # Gauss / Gauss-Jordan

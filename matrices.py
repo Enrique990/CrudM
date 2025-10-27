@@ -673,3 +673,73 @@ def cramer(A, b):
         detAi = determinante_por_gauss(Ai)
         solucion.append(detAi / detA)  # xi = det(Ai) / det(A)
     return solucion
+
+
+def cramer_con_pasos(A, b, mostrar_pasos=True):
+    """
+    Igual que cramer(A, b), pero devuelve además los pasos intermedios usando
+    determinante_por_gauss_con_pasos.
+
+    Retorna un dict:
+      {
+        "soluciones": [x1, x2, ...],
+        "pasos": [{"descripcion": str, "matriz": [[str]]?}, ...],
+        "detA": float,
+        "mensaje": str
+      }
+    """
+    eps = 1e-12
+    if A is None or b is None:
+        raise ValueError("A y b son requeridos.")
+    n = len(A)
+    if n == 0:
+        return {"soluciones": [], "pasos": [], "detA": 1.0, "mensaje": "Sistema vacío."}
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz A debe ser cuadrada.")
+    if len(b) != n:
+        raise ValueError("El vector b debe tener la misma dimensión que A.")
+
+    pasos = []
+    # Paso inicial: mostrar A y b
+    def fmt(x):
+        return str(int(round(x))) if abs(x - round(x)) < 1e-10 else f"{x:.4f}"
+    def mat_fmt(M):
+        return [[fmt(x) for x in fila] for fila in M]
+
+    if mostrar_pasos:
+        pasos.append({"descripcion": "Matriz A (coeficientes)", "matriz": mat_fmt(A)})
+        pasos.append({"descripcion": "Vector b", "matriz": mat_fmt([[bi] for bi in b])})
+
+    # det(A) con pasos
+    detA_res = determinante_por_gauss_con_pasos(A, mostrar_pasos)
+    detA = detA_res.get("determinante", 0.0)
+    if mostrar_pasos:
+        pasos.append({"descripcion": f"Cálculo de det(A) = {fmt(detA)}"})
+        pasos.extend(detA_res.get("pasos", []))
+
+    if abs(detA) < eps:
+        # mantener el contrato de la función original: no solución única
+        raise ValueError("Determinante de A es cero: no existe solución única (regla de Cramer no aplicable).")
+
+    soluciones = []
+    for col in range(n):
+        Ai = [row[:] for row in A]
+        for i in range(n):
+            Ai[i][col] = b[i]
+        if mostrar_pasos:
+            pasos.append({"descripcion": f"Matriz A_{col+1} (columna {col+1} reemplazada por b)", "matriz": mat_fmt(Ai)})
+        detAi_res = determinante_por_gauss_con_pasos(Ai, mostrar_pasos)
+        detAi = detAi_res.get("determinante", 0.0)
+        if mostrar_pasos:
+            pasos.append({"descripcion": f"Cálculo de det(A_{col+1}) = {fmt(detAi)}"})
+            pasos.extend(detAi_res.get("pasos", []))
+            pasos.append({"descripcion": f"x{col+1} = det(A_{col+1}) / det(A) = {fmt(detAi)} / {fmt(detA)} = {fmt(detAi/detA)}"})
+        soluciones.append(detAi / detA)
+
+    return {
+        "soluciones": soluciones,
+        "pasos": pasos if mostrar_pasos else [],
+        "detA": detA,
+        "mensaje": "Solución por Cramer calculada correctamente."
+    }
