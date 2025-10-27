@@ -116,6 +116,16 @@ class MatrixCRUDApp:
     def _on_mousewheel_vectors(self, event):
         self.vector_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
+    # Soporte de scroll con la rueda para la pestaña Operadores
+    def _bound_to_mousewheel_ops(self, event):
+        self.ops_canvas.bind_all("<MouseWheel>", self._on_mousewheel_ops)
+
+    def _unbound_to_mousewheel_ops(self, event):
+        self.ops_canvas.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel_ops(self, event):
+        self.ops_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
     def create_widgets(self):
         # El contenido de este método ahora se dibuja dentro de self.content_container
         main_frame = self.content_container
@@ -351,6 +361,10 @@ class MatrixCRUDApp:
         self.ops_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         ops_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # Bindeo de la rueda del ratón para esta pestaña
+        self.ops_scrollable_frame.bind("<Enter>", self._bound_to_mousewheel_ops)
+        self.ops_scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel_ops)
+
         # Wrapper centrado
         self.ops_center_wrapper = ttk.Frame(self.ops_scrollable_frame, style='Dark.TFrame')
         self.ops_center_wrapper.pack(fill='x', expand=True)
@@ -360,7 +374,8 @@ class MatrixCRUDApp:
         self.ops_content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
 
         container = self.ops_content_container
-        for c in range(4):
+        # Ocho columnas para alinear Nombre / Nº Matrices / Filas / Columnas / Operación en una sola fila
+        for c in range(8):
             container.grid_columnconfigure(c, weight=1)
 
         # Título
@@ -381,17 +396,23 @@ class MatrixCRUDApp:
         ops_rows_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_rows_var, bg="#393e46", fg="#e0e0e0")
         ops_rows_spin.grid(row=2, column=3, sticky='w')
 
-        ttk.Label(container, text="Columnas:", style='Dark.TLabel').grid(row=3, column=2, sticky='e', pady=5)
+        ttk.Label(container, text="Columnas:", style='Dark.TLabel').grid(row=2, column=4, sticky='e')
         self.ops_cols_var = tk.StringVar(value="0")
         ops_cols_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_cols_var, bg="#393e46", fg="#e0e0e0")
-        ops_cols_spin.grid(row=3, column=3, sticky='w')
+        ops_cols_spin.grid(row=2, column=5, sticky='w')
 
-        ttk.Button(container, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=4, column=0, columnspan=4, pady=(10, 20), sticky='ew')
+        # Selector de operación al lado derecho de Filas y Columnas
+        ttk.Label(container, text="Operación:", style='Dark.TLabel').grid(row=2, column=6, sticky='e', padx=(10,5))
+        self.ops_method_var = tk.StringVar(value="Suma")
+        self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicación"], state="readonly", width=16)
+        self.ops_method_combobox.grid(row=2, column=7, sticky='w')
+
+        ttk.Button(container, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=3, column=0, columnspan=8, pady=(10, 20), sticky='ew')
 
         # Lista de conjuntos + acciones
-        ttk.Label(container, text="Conjuntos de Matrices Almacenados:", style='Dark.TLabel').grid(row=5, column=0, columnspan=2, sticky='w', pady=(0,5))
+        ttk.Label(container, text="Conjuntos de Matrices Almacenados:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky='w', pady=(0,5))
         ops_list_frame = ttk.Frame(container, style='Dark.TFrame')
-        ops_list_frame.grid(row=6, column=0, columnspan=2, sticky='nsew', pady=(0,10))
+        ops_list_frame.grid(row=5, column=0, columnspan=2, sticky='nsew', pady=(0,10))
         ops_list_frame.grid_columnconfigure(0, weight=1)
         ops_list_frame.grid_rowconfigure(0, weight=1)
         self.matrix_set_listbox = tk.Listbox(ops_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
@@ -402,26 +423,21 @@ class MatrixCRUDApp:
         self.matrix_set_listbox.bind('<<ListboxSelect>>', self._on_matrix_set_select)
 
         ops_action_frame = ttk.Frame(container, style='Dark.TFrame')
-        ops_action_frame.grid(row=6, column=2, columnspan=2, sticky='ew')
+        ops_action_frame.grid(row=5, column=2, columnspan=6, sticky='ew')
         ttk.Button(ops_action_frame, text="Ver", style='Dark.TButton', command=self.view_matrix_set).pack(side=tk.LEFT, padx=5)
         ttk.Button(ops_action_frame, text="Modificar", style='Dark.TButton', command=self.modify_matrix_set_ui).pack(side=tk.LEFT, padx=5)
         ttk.Button(ops_action_frame, text="Eliminar", style='Dark.TButton', command=self.delete_matrix_set).pack(side=tk.LEFT, padx=5)
-
-        # Selector de operación
-        ttk.Label(container, text="Operación:", style='Dark.TLabel').grid(row=7, column=0, sticky='e', padx=(0,5))
-        self.ops_method_var = tk.StringVar(value="Suma")
-        self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicación"], state="readonly", width=16)
-        self.ops_method_combobox.grid(row=7, column=1, sticky='w')
-        ttk.Button(container, text="Ejecutar", style='Dark.TButton', command=self.run_matrix_operation).grid(row=7, column=2, columnspan=2, sticky='ew')
+        # Botón Resolver al lado derecho de Eliminar
+        ttk.Button(ops_action_frame, text="Resolver", style='Dark.TButton', command=self.run_matrix_operation).pack(side=tk.LEFT, padx=5)
 
         # Área de entradas de matrices
-        ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=8, column=0, columnspan=4, sticky='w', pady=(10,5))
+        ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=6, column=0, columnspan=8, sticky='w', pady=(10,5))
         self.ops_entries_frame = ttk.Frame(container, style='Dark.TFrame')
-        self.ops_entries_frame.grid(row=9, column=0, columnspan=4, sticky='ew', pady=(0,10))
+        self.ops_entries_frame.grid(row=7, column=0, columnspan=8, sticky='ew', pady=(0,10))
 
         # Resultados
         results_container = ttk.Frame(container, style='Dark.TFrame')
-        results_container.grid(row=10, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        results_container.grid(row=8, column=0, columnspan=8, sticky='nsew', pady=(10,0))
         results_container.grid_rowconfigure(1, weight=1)
         results_container.grid_columnconfigure(0, weight=1)
         ttk.Label(results_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
