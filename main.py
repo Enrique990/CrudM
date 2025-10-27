@@ -142,7 +142,21 @@ class MatrixCRUDApp:
         # Selector de método
         ttk.Label(main_frame, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky="e", padx=(0,5))
         self.method_var = tk.StringVar(value="Gauss-Jordan")
-        self.method_combobox = ttk.Combobox(main_frame, textvariable=self.method_var, values=["Gauss-Jordan", "Gauss", "Cramer"], state="readonly", width=14)
+        self.method_combobox = ttk.Combobox(
+            main_frame,
+            textvariable=self.method_var,
+            values=[
+                "Gauss-Jordan",
+                "Gauss",
+                "Cramer",
+                "Transponer",
+                "Inversa",
+                "Determinante",
+                "Independencia",
+            ],
+            state="readonly",
+            width=16,
+        )
         self.method_combobox.grid(row=1, column=3, sticky="w")
         self.method_combobox.bind('<<ComboboxSelected>>', self._on_method_select)
 
@@ -181,10 +195,6 @@ class MatrixCRUDApp:
         ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Independencia", command=self.check_independence, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Transponer", command=self.transpose_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Inversa", command=self.calculate_inverse, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Determinante", command=self.calculate_determinant, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -1104,7 +1114,10 @@ class MatrixCRUDApp:
                 return
         
         if not metodo:
-            messagebox.showwarning("Selección requerida", "Por favor selecciona un método de resolución (Gauss, Gauss-Jordan o Cramer).")
+            messagebox.showwarning(
+                "Selección requerida",
+                "Selecciona un método: Gauss-Jordan, Gauss, Cramer, Transponer, Inversa, Determinante o Independencia.",
+            )
             return
 
         try:
@@ -1119,6 +1132,20 @@ class MatrixCRUDApp:
 
             n = len(datos)
             m = len(datos[0])
+
+            # Métodos directos delegados
+            if metodo == "Transponer":
+                self.transpose_matrix()
+                return
+            if metodo == "Inversa":
+                self.calculate_inverse()
+                return
+            if metodo == "Determinante":
+                self.calculate_determinant()
+                return
+            if metodo == "Independencia":
+                self.check_independence()
+                return
 
             if metodo == "Cramer":
                 # Requiere matriz aumentada n×(n+1)
