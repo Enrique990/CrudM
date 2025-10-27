@@ -637,27 +637,104 @@ class MatrixCRUDApp:
         try:
             self.ops_result_text.delete(1.0, tk.END)
             self.ops_steps_text.delete(1.0, tk.END)
+            # Helpers de formateo local para valores y matrices
+            def fmt_val(v):
+                try:
+                    f = float(v)
+                    s = ("{:.6f}".format(f)).rstrip('0').rstrip('.')
+                    return s if s else "0"
+                except Exception:
+                    return str(v)
+
+            def show_matrix_block(title, mat_list):
+                self.ops_steps_text.insert(tk.END, f"{title}\n")
+                self.ops_steps_text.insert(tk.END, self._format_matrix_for_display(mat_list))
+                self.ops_steps_text.insert(tk.END, "\n")
+
             if op == "Suma":
+                # Mostrar matrices iniciales
+                for idx, m in enumerate(mats, start=1):
+                    show_matrix_block(f"M{idx}:", m.to_list())
+
                 res = mats[0]
-                for M in mats[1:]:
-                    res = res.sumar(M)
+                paso = 1
+                for idx, M in enumerate(mats[1:], start=2):
+                    A = res.to_list()
+                    B = M.to_list()
+                    R = res.sumar(M).to_list()
+                    self.ops_steps_text.insert(tk.END, f"Paso {paso}: R{paso} = {'R'+str(paso-1) if paso>1 else 'M1'} + M{idx}\n")
+                    # Detalle elemento a elemento
+                    for i in range(len(A)):
+                        for j in range(len(A[0])):
+                            self.ops_steps_text.insert(
+                                tk.END,
+                                f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} + {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\n",
+                            )
+                    show_matrix_block("Resultado parcial:", R)
+                    res = matrices.Matriz(R)
+                    paso += 1
+
                 self.ops_result_text.insert(tk.END, "Resultado de la suma:\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
-                self.ops_steps_text.insert(tk.END, f"Se sumaron {len(mats)} matrices de dimensión {data['filas']}x{data['columnas']}.\n")
+
             elif op == "Resta":
+                for idx, m in enumerate(mats, start=1):
+                    show_matrix_block(f"M{idx}:", m.to_list())
+
                 res = mats[0]
-                for M in mats[1:]:
-                    res = res.restar(M)
+                paso = 1
+                for idx, M in enumerate(mats[1:], start=2):
+                    A = res.to_list()
+                    B = M.to_list()
+                    R = res.restar(M).to_list()
+                    self.ops_steps_text.insert(tk.END, f"Paso {paso}: R{paso} = {'R'+str(paso-1) if paso>1 else 'M1'} - M{idx}\n")
+                    for i in range(len(A)):
+                        for j in range(len(A[0])):
+                            self.ops_steps_text.insert(
+                                tk.END,
+                                f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} - {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\n",
+                            )
+                    show_matrix_block("Resultado parcial:", R)
+                    res = matrices.Matriz(R)
+                    paso += 1
+
                 self.ops_result_text.insert(tk.END, "Resultado de la resta (M1 - M2 - ...):\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
-                self.ops_steps_text.insert(tk.END, f"Se restaron en cadena {len(mats)} matrices de dimensión {data['filas']}x{data['columnas']}.\n")
+
             elif op == "Multiplicación":
+                # Mostrar matrices iniciales
+                for idx, m in enumerate(mats, start=1):
+                    show_matrix_block(f"M{idx}:", m.to_list())
+
                 res = mats[0]
-                for M in mats[1:]:
-                    res = res.multiplicar(M)
+                paso = 1
+                for idx, M in enumerate(mats[1:], start=2):
+                    A = res.to_list()
+                    B = M.to_list()
+                    # Compatibilidad
+                    if len(A[0]) != len(B):
+                        raise ValueError(f"Dimensiones incompatibles para multiplicación: {len(A)}x{len(A[0])} * {len(B)}x{len(B[0])}")
+                    n, p, mcols = len(A), len(B[0]), len(A[0])
+                    R = [[0.0 for _ in range(p)] for __ in range(n)]
+                    self.ops_steps_text.insert(tk.END, f"Paso {paso}: R{paso} = {'R'+str(paso-1) if paso>1 else 'M1'} @ M{idx}\n")
+                    for i in range(n):
+                        for j in range(p):
+                            terms = []
+                            s = 0.0
+                            for k in range(mcols):
+                                terms.append(f"{fmt_val(A[i][k])}*{fmt_val(B[k][j])}")
+                                s += float(A[i][k]) * float(B[k][j])
+                            R[i][j] = s
+                            self.ops_steps_text.insert(
+                                tk.END,
+                                f"  r[{i+1},{j+1}] = " + " + ".join(terms) + f" = {fmt_val(s)}\n",
+                            )
+                    show_matrix_block("Resultado parcial:", R)
+                    res = matrices.Matriz(R)
+                    paso += 1
+
                 self.ops_result_text.insert(tk.END, "Resultado de la multiplicación (M1 @ M2 @ ...):\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
-                self.ops_steps_text.insert(tk.END, "Multiplicación en cadena completada. Verifica compatibilidad de dimensiones si hay errores.\n")
             else:
                 messagebox.showerror("Operación desconocida", op)
                 return
