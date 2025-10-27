@@ -643,13 +643,52 @@ class MatrixCRUDApp:
             if matriz_data is None:
                 messagebox.showerror("Error", f"No se encontró la matriz '{matrix_name}'.")
                 return
-            matriz_obj = matrices.Matriz(matriz_data['datos'])
+            datos = matriz_data['datos']
+            if not datos or not datos[0]:
+                messagebox.showerror("Error", "La matriz está vacía y no se puede procesar.")
+                return
+
+            n = len(datos)
+            m = len(datos[0])
+
+            if metodo == "Cramer":
+                # Requiere matriz aumentada n×(n+1)
+                if m != n + 1:
+                    messagebox.showerror("Dimensiones inválidas", "Para Cramer se requiere una matriz aumentada n×(n+1).")
+                    return
+
+                A = [fila[:-1] for fila in datos]
+                b = [fila[-1] for fila in datos]
+
+                try:
+                    soluciones = matrices.cramer(A, b)  # Llamada al módulo matrices (NO a un método de instancia)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Ocurrió un error al resolver por Cramer: {e}")
+                    return
+
+                # Mostrar resultados y terminar aquí
+                self.result_text.delete(1.0, tk.END)
+                self.steps_text.delete(1.0, tk.END)
+
+                self.result_text.insert(tk.END, "Solución por Cramer:\n")
+                for i, x in enumerate(soluciones, start=1):
+                    x_fmt = f"{int(round(x))}" if abs(x - round(x)) < 1e-10 else f"{x:.6f}"
+                    self.result_text.insert(tk.END, f"x{i} = {x_fmt}\n")
+
+                # Opcional: mostrar A y b usadas
+                self.steps_text.insert(tk.END, "A usada:\n")
+                self.steps_text.insert(tk.END, self._format_matrix_for_display(A) + "\n")
+                b_col = [[val] for val in b]
+                self.steps_text.insert(tk.END, "b usada:\n")
+                self.steps_text.insert(tk.END, self._format_matrix_for_display(b_col) + "\n")
+                return
+
+            # Gauss / Gauss-Jordan
+            matriz_obj = matrices.Matriz(datos)
             if metodo == "Gauss":
                 resultado = matriz_obj.gauss()
             elif metodo == "Gauss-Jordan":
                 resultado = matriz_obj.gauss_jordan()
-            elif metodo == "Cramer":
-                resultado = matriz_obj.cramer()
             else:
                 messagebox.showerror("Error", f"Método de resolución desconocido: {metodo}")
                 return
