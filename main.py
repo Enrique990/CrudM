@@ -44,20 +44,20 @@ class MatrixCRUDApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
 
-        # --- Pestaña 1: Calculadora de Matrices (funcionalidad existente) ---
+        # --- Pestaña 1: Operadores de Matrices (primera) ---
+        self.operators_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
+        self.notebook.add(self.operators_tab, text='Operadores de Matrices')
+        self.create_operators_widgets(self.operators_tab)
+
+        # --- Pestaña 2: Calculadora de Matrices ---
         self.calculator_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
         self.notebook.add(self.calculator_tab, text='Calculadora de Matrices')
         self.create_calculator_widgets(self.calculator_tab)
 
-        # --- Pestaña 2: Independencia de Vectores ---
+        # --- Pestaña 3: Independencia de Vectores (última) ---
         self.independence_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
         self.notebook.add(self.independence_tab, text='Independencia de Vectores')
         self.create_independence_widgets(self.independence_tab)
-
-        # --- Pestaña 3: Operadores de Matrices ---
-        self.operators_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
-        self.notebook.add(self.operators_tab, text='Operadores de Matrices')
-        self.create_operators_widgets(self.operators_tab)
 
         self.selected_matrix = None
         self.selected_method = None
@@ -65,6 +65,8 @@ class MatrixCRUDApp:
         self.update_matrix_list()
         self.update_vector_set_list()
         self.update_matrix_set_list()
+        # Sincronizar tamaño del listbox de vectores con el de matrices
+        self._init_listbox_size_sync()
 
     def create_calculator_widgets(self, parent_frame):
         """Crea todos los widgets para la pestaña de la calculadora de matrices."""
@@ -126,6 +128,37 @@ class MatrixCRUDApp:
     def _on_mousewheel_ops(self, event):
         self.ops_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
+    def _init_listbox_size_sync(self):
+        """Mantiene el Listbox de 'Conjuntos de Vectores Almacenados' con exactamente el mismo tamaño
+        (ancho/alto en píxeles) que el Listbox de 'Matrices almacenadas'."""
+        try:
+            # Asegurar que existan los frames de listas
+            if not hasattr(self, 'matrix_list_frame') or not hasattr(self, 'vector_list_frame'):
+                # Reintentar más tarde, por si aún no se crearon los widgets
+                self.root.after(150, self._init_listbox_size_sync)
+                return
+
+            # Evitar que la grilla sobreescriba el tamaño del frame de vectores
+            self.vector_list_frame.grid_propagate(False)
+
+            def sync_size(event=None):
+                try:
+                    self.root.update_idletasks()
+                    w = self.matrix_list_frame.winfo_width()
+                    h = self.matrix_list_frame.winfo_height()
+                    if w > 0 and h > 0:
+                        self.vector_list_frame.configure(width=w, height=h)
+                except Exception:
+                    pass
+
+            # Enlazar cambios de tamaño del frame de matrices para reflejarlos en el de vectores
+            self.matrix_list_frame.bind("<Configure>", sync_size)
+            # Sincronización inicial tras un breve delay
+            self.root.after(200, sync_size)
+        except Exception:
+            # No bloquear la app si algo falla aquí
+            pass
+
     def create_widgets(self):
         # El contenido de este método ahora se dibuja dentro de self.content_container
         main_frame = self.content_container
@@ -180,6 +213,8 @@ class MatrixCRUDApp:
         matrix_list_frame.grid(row=5, column=0, columnspan=2, sticky="nsew", pady=(0,10))
         matrix_list_frame.grid_columnconfigure(0, weight=1)
         matrix_list_frame.grid_rowconfigure(0, weight=1)
+        # Guardar referencia para sincronizar tamaño con el listbox de vectores
+        self.matrix_list_frame = matrix_list_frame
 
         self.matrix_listbox = tk.Listbox(matrix_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_listbox.grid(row=0, column=0, sticky="nsew")
@@ -302,6 +337,8 @@ class MatrixCRUDApp:
         vector_list_frame.grid(row=5, column=0, columnspan=2, sticky='nsew', pady=(0,10))
         vector_list_frame.grid_columnconfigure(0, weight=1)
         vector_list_frame.grid_rowconfigure(0, weight=1)
+        # Guardar referencia para sincronizar tamaño con el listbox de matrices
+        self.vector_list_frame = vector_list_frame
 
         self.vector_set_listbox = tk.Listbox(vector_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.vector_set_listbox.grid(row=0, column=0, sticky='nsew')
@@ -313,9 +350,10 @@ class MatrixCRUDApp:
         vector_action_frame = ttk.Frame(container, style='Dark.TFrame')
         vector_action_frame.grid(row=5, column=2, columnspan=2, sticky='ew')
         ttk.Button(vector_action_frame, text="Ver", command=self.view_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(vector_action_frame, text="Verificar Independencia", command=self.run_independence_check, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(vector_action_frame, text="Modificar", command=self.modify_vector_set_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(vector_action_frame, text="Eliminar", command=self.delete_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        # Ubicar Verificar Independencia junto a Eliminar
+        ttk.Button(vector_action_frame, text="Verificar Independencia", command=self.run_independence_check, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # --- Área de datos de vectores ---
         ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky='w', pady=(10,5))
