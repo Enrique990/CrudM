@@ -9,15 +9,13 @@ class MatrixCRUDApp:
         self.root = root
         self.root.title("Calculadora de Matrices")
         self.root.configure(bg="#23272e")
-
-        # Centrar la ventana en la pantalla
-        window_width = 1240
-        window_height = 700
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
-        center_x = int(screen_width/2 - window_width / 2)
-        center_y = int(screen_height/2 - window_height / 2)
-        self.root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+        
+        # Ejecutar en pantalla completa (estilo Windows maximizado). Para modo kiosco se puede usar attributes('-fullscreen', True)
+        try:
+            self.root.state('zoomed')
+        except Exception:
+            # Fallback si no está disponible 'zoomed'
+            self.root.attributes('-fullscreen', True)
 
         style = ttk.Style()
         style.theme_use('clam')
@@ -67,16 +65,25 @@ class MatrixCRUDApp:
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        # Hacer que el contenido ocupe el ancho del canvas para poder centrar internamente
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.scrollable_frame.bind("<Enter>", self._bound_to_mousewheel)
         self.scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel)
 
-        # Frame contenedor para centrar el contenido
-        self.content_container = ttk.Frame(self.scrollable_frame, style='Dark.TFrame')
-        self.content_container.pack(expand=True, padx=20, pady=20)
+        # Envoltura que ocupa todo el ancho y centra el contenido en columna media
+        self.center_wrapper = ttk.Frame(self.scrollable_frame, style='Dark.TFrame')
+        self.center_wrapper.pack(fill='x', expand=True)
+        self.center_wrapper.grid_columnconfigure(0, weight=1)
+        self.center_wrapper.grid_columnconfigure(1, weight=0)
+        self.center_wrapper.grid_columnconfigure(2, weight=1)
+
+        # Frame contenedor centrado
+        self.content_container = ttk.Frame(self.center_wrapper, style='Dark.TFrame')
+        self.content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
 
         self.create_widgets() # Llama al método original para poblar el contenedor
 
@@ -187,104 +194,112 @@ class MatrixCRUDApp:
         self.steps_text.configure(yscrollcommand=steps_scrollbar.set)
 
     def create_independence_widgets(self, parent_frame):
-        """Crea todos los widgets para la pestaña de independencia de vectores."""
-        # --- Scrollbar para toda la pestaña ---
-        self.vector_canvas = tk.Canvas(parent_frame, bg="#23272e", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent_frame, orient="vertical", command=self.vector_canvas.yview)
+        """Crea todos los widgets para la pestaña de independencia de vectores
+        con la misma estructura de layout/scroll que la pestaña de matrices."""
+
+        # --- Contenedor con scroll (misma estrategia que la pestaña de matrices) ---
+        main_frame = ttk.Frame(parent_frame, style='Dark.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+        self.vector_canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
+        vector_scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.vector_canvas.yview)
         self.vector_scrollable_frame = ttk.Frame(self.vector_canvas, style='Dark.TFrame')
+        self.vector_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.vector_canvas.configure(scrollregion=self.vector_canvas.bbox("all"))
+        )
+        self.vector_canvas_window = self.vector_canvas.create_window((0, 0), window=self.vector_scrollable_frame, anchor="nw")
+        self.vector_canvas.bind("<Configure>", lambda e: self.vector_canvas.itemconfig(self.vector_canvas_window, width=e.width))
+        self.vector_canvas.configure(yscrollcommand=vector_scrollbar.set)
+        self.vector_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vector_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.vector_scrollable_frame.bind("<Configure>", lambda e: self.vector_canvas.configure(scrollregion=self.vector_canvas.bbox("all")))
-        self.vector_canvas.create_window((0, 0), window=self.vector_scrollable_frame, anchor="nw")
-        self.vector_canvas.configure(yscrollcommand=scrollbar.set)
-
-        self.vector_canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
         # Bindeo de la rueda del ratón
         self.vector_scrollable_frame.bind("<Enter>", self._bound_to_mousewheel_vectors)
         self.vector_scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel_vectors)
 
-        container = ttk.Frame(self.vector_scrollable_frame, style='Dark.TFrame', padding=20)
-        container.pack(expand=True, fill='both')
+        # --- Contenedor de contenido centrado ---
+        self.vector_center_wrapper = ttk.Frame(self.vector_scrollable_frame, style='Dark.TFrame')
+        self.vector_center_wrapper.pack(fill='x', expand=True)
+        self.vector_center_wrapper.grid_columnconfigure(0, weight=1)
+        self.vector_center_wrapper.grid_columnconfigure(1, weight=0)
+        self.vector_center_wrapper.grid_columnconfigure(2, weight=1)
 
-        # --- Sección de Controles ---
-        controls_frame = ttk.Frame(container, style='Dark.TFrame')
-        controls_frame.pack(fill='x', pady=(0, 20))
-        controls_frame.grid_columnconfigure(1, weight=1)
+        self.vector_content_container = ttk.Frame(self.vector_center_wrapper, style='Dark.TFrame')
+        self.vector_content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
 
-        ttk.Label(controls_frame, text="Independencia de Vectores", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 15))
+        container = self.vector_content_container
+        # Configurar columnas para que escalen horizontalmente
+        for c in range(4):
+            container.grid_columnconfigure(c, weight=1)
 
-        # --- CRUD para Vectores ---
-        ttk.Label(controls_frame, text="Nombre:", style='Dark.TLabel').grid(row=1, column=0, sticky='w', padx=(0, 5))
-        self.vector_name_entry = ttk.Entry(controls_frame, width=18, style='Entry.TEntry')
-        self.vector_name_entry.grid(row=1, column=1, sticky='w')
+        # Título
+        ttk.Label(container, text="Independencia de Vectores", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 20))
 
-        ttk.Label(controls_frame, text="Nº Vectores:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', padx=(0, 5), pady=5)
+        # --- Controles superiores ---
+        ttk.Label(container, text="Nombre:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
+        self.vector_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
+        self.vector_name_entry.grid(row=1, column=1, sticky='w', padx=(0, 20))
+
+        ttk.Label(container, text="Nº Vectores:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=5)
         self.num_vectors_var = tk.StringVar(value="0")
-        num_vectors_spinbox = tk.Spinbox(controls_frame, from_=1, to=20, width=6, textvariable=self.num_vectors_var, bg="#393e46", fg="#e0e0e0")
-        num_vectors_spinbox.grid(row=2, column=1, sticky='w')
+        num_vectors_spinbox = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.num_vectors_var, bg="#393e46", fg="#e0e0e0")
+        num_vectors_spinbox.grid(row=2, column=1, sticky='w', padx=(0,20))
 
-        ttk.Label(controls_frame, text="Dimensión:", style='Dark.TLabel').grid(row=2, column=2, sticky='w', padx=(10, 5), pady=5)
+        ttk.Label(container, text="Dimensión:", style='Dark.TLabel').grid(row=2, column=2, sticky='e', padx=(0,5))
         self.dim_vectors_var = tk.StringVar(value="0")
-        dim_vectors_spinbox = tk.Spinbox(controls_frame, from_=1, to=20, width=6, textvariable=self.dim_vectors_var, bg="#393e46", fg="#e0e0e0")
+        dim_vectors_spinbox = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.dim_vectors_var, bg="#393e46", fg="#e0e0e0")
         dim_vectors_spinbox.grid(row=2, column=3, sticky='w')
 
-        ttk.Button(controls_frame, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=3, column=0, columnspan=4, pady=(15, 10), sticky='ew')
+        ttk.Button(container, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky='ew')
 
-        # --- Lista de Conjuntos de Vectores ---
-        ttk.Label(container, text="Conjuntos de Vectores Almacenados:", style='Dark.TLabel').pack(fill='x', pady=(10,5))
-        self.vector_set_listbox = tk.Listbox(container, height=5, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
-        self.vector_set_listbox.pack(fill='x', pady=(0,10))
+        # --- Lista de Conjuntos y Acciones (distribución similar a matrices) ---
+        ttk.Label(container, text="Conjuntos de Vectores Almacenados:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky='w', pady=(0,5))
+        self.vector_set_listbox = tk.Listbox(container, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.vector_set_listbox.grid(row=5, column=0, columnspan=2, sticky='ew', pady=(0,10))
         self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
 
-        # --- Botones de Acción para Vectores ---
         vector_action_frame = ttk.Frame(container, style='Dark.TFrame')
-        vector_action_frame.pack(fill='x', pady=(0, 20))
+        vector_action_frame.grid(row=5, column=2, columnspan=2, sticky='ew')
         ttk.Button(vector_action_frame, text="Ver", command=self.view_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(vector_action_frame, text="Verificar Independencia", command=self.run_independence_check, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(vector_action_frame, text="Modificar", command=self.modify_vector_set_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(vector_action_frame, text="Eliminar", command=self.delete_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
-        # --- Título para el área de entradas ---
-        ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').pack(fill='x', pady=(10,5))
-
-        # --- Frame para las entradas de los vectores ---
+        # --- Área de datos de vectores ---
+        ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky='w', pady=(10,5))
         self.vector_entries_frame = ttk.Frame(container, style='Dark.TFrame')
-        self.vector_entries_frame.pack(fill='x', pady=(0, 10))
+        self.vector_entries_frame.grid(row=7, column=0, columnspan=4, sticky='ew', pady=(0,10))
 
-        # --- Frame para resultados ---
+        # --- Área de resultados con scroll (igual estilo que matrices) ---
         results_container = ttk.Frame(container, style='Dark.TFrame')
-        results_container.pack(fill='both', expand=True)
+        results_container.grid(row=8, column=0, columnspan=4, sticky='nsew', pady=(10,0))
         results_container.grid_rowconfigure(1, weight=1)
         results_container.grid_rowconfigure(3, weight=1)
         results_container.grid_columnconfigure(0, weight=1)
 
-        ttk.Label(results_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky="w", pady=(0,5))
-        
-        # Frame para el texto de resultados con scroll
+        ttk.Label(results_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
         solution_frame_vec = ttk.Frame(results_container)
-        solution_frame_vec.grid(row=1, column=0, sticky="nsew")
+        solution_frame_vec.grid(row=1, column=0, sticky='nsew')
         solution_frame_vec.grid_rowconfigure(0, weight=1)
         solution_frame_vec.grid_columnconfigure(0, weight=1)
-        
+
         self.independence_result_text = tk.Text(solution_frame_vec, height=4, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
-        self.independence_result_text.grid(row=0, column=0, sticky="nsew")
+        self.independence_result_text.grid(row=0, column=0, sticky='nsew')
         result_scrollbar_vec = ttk.Scrollbar(solution_frame_vec, orient=tk.VERTICAL, command=self.independence_result_text.yview)
-        result_scrollbar_vec.grid(row=0, column=1, sticky="ns")
+        result_scrollbar_vec.grid(row=0, column=1, sticky='ns')
         self.independence_result_text.configure(yscrollcommand=result_scrollbar_vec.set)
 
-        ttk.Label(results_container, text="Procedimiento", style='Title.TLabel').grid(row=2, column=0, sticky="w", pady=(10,5))
-
-        # Frame para el texto de pasos con scroll
+        ttk.Label(results_container, text="Procedimiento", style='Title.TLabel').grid(row=2, column=0, sticky='w', pady=(10,5))
         steps_frame_vec = ttk.Frame(results_container)
-        steps_frame_vec.grid(row=3, column=0, sticky="nsew")
+        steps_frame_vec.grid(row=3, column=0, sticky='nsew')
         steps_frame_vec.grid_rowconfigure(0, weight=1)
         steps_frame_vec.grid_columnconfigure(0, weight=1)
 
         self.independence_steps_text = tk.Text(steps_frame_vec, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
-        self.independence_steps_text.grid(row=0, column=0, sticky="nsew")
+        self.independence_steps_text.grid(row=0, column=0, sticky='nsew')
         steps_scrollbar_vec = ttk.Scrollbar(steps_frame_vec, orient=tk.VERTICAL, command=self.independence_steps_text.yview)
-        steps_scrollbar_vec.grid(row=0, column=1, sticky="ns")
+        steps_scrollbar_vec.grid(row=0, column=1, sticky='ns')
         self.independence_steps_text.configure(yscrollcommand=steps_scrollbar_vec.set)
 
     def draw_vector_entries(self, num_vectores, dimension, name, is_modification=False, data=None):
