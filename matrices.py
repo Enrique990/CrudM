@@ -553,6 +553,93 @@ def determinante_por_gauss(A):
     return det
 
 
+def determinante_por_gauss_con_pasos(A, mostrar_pasos=True):
+    """
+    Calcula el determinante de una matriz cuadrada A usando eliminación de Gauss
+    y devuelve además los pasos del procedimiento.
+
+    Retorna:
+      {
+        "determinante": float,
+        "pasos": [ {"descripcion": str, "matriz": [[str|float]]}, ... ],
+        "mensaje": str
+      }
+
+    No modifica A.
+    """
+    eps = 1e-12
+    if A is None or len(A) == 0:
+        raise ValueError("La matriz no puede estar vacía.")
+    n = len(A)
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
+
+    # Copia en float
+    M = [list(map(float, row[:])) for row in A]
+
+    def fmt(x):
+        # entero sin decimales vs 4 decimales
+        return str(int(round(x))) if abs(x - round(x)) < 1e-10 else f"{x:.4f}"
+
+    def mat_fmt(M_):
+        return [[fmt(x) for x in fila] for fila in M_]
+
+    pasos = []
+    if mostrar_pasos:
+        pasos.append({"descripcion": "Matriz inicial", "matriz": mat_fmt(M)})
+
+    det_sign = 1
+    for i in range(n):
+        # escoger pivote por valor absoluto máximo
+        max_row = max(range(i, n), key=lambda r: abs(M[r][i]))
+        if abs(M[max_row][i]) < eps:
+            # det=0: registrar razón
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"Columna {i+1}: pivote ≈ 0 ⇒ det(A)=0",
+                    "matriz": mat_fmt(M)
+                })
+            return {"determinante": 0.0, "pasos": pasos if mostrar_pasos else [], "mensaje": "Determinante nulo (pivote cero)."}
+
+        if max_row != i:
+            M[i], M[max_row] = M[max_row], M[i]
+            det_sign *= -1
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"F{i+1} ↔ F{max_row+1} (cambia el signo del determinante)",
+                    "matriz": mat_fmt(M)
+                })
+
+        pivot = M[i][i]
+        # eliminación por debajo del pivote
+        for r in range(i + 1, n):
+            if abs(M[r][i]) < eps:
+                continue
+            factor = M[r][i] / pivot
+            for c in range(i, n):
+                M[r][c] -= factor * M[i][c]
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"F{r+1} → F{r+1} - (" + fmt(factor) + f")*F{i+1}",
+                    "matriz": mat_fmt(M)
+                })
+
+    det = det_sign
+    for i in range(n):
+        det *= M[i][i]
+
+    mensaje = "Determinante calculado por eliminación de Gauss."
+    if mostrar_pasos:
+        diag_prod = " × ".join(fmt(M[i][i]) for i in range(n))
+        signo = "-1" if det_sign < 0 else "1"
+        pasos.append({
+            "descripcion": f"Producto diagonal × signo = (" + diag_prod + f") × {signo}",
+            "matriz": mat_fmt([[M[i][i] if i==j else 0.0 for j in range(n)] for i in range(n)])
+        })
+
+    return {"determinante": det, "pasos": pasos if mostrar_pasos else [], "mensaje": mensaje}
+
 def cramer(A, b):
     """
     Resuelve el sistema A x = b usando la regla de Cramer.

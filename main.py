@@ -582,15 +582,30 @@ class MatrixCRUDApp:
             return
 
         try:
-            det = matrices.determinante_por_gauss(A)
+            resultado = matrices.determinante_por_gauss_con_pasos(A, mostrar_pasos=True)
+
+            det = resultado.get("determinante", 0.0)
             det_fmt = f"{int(round(det))}" if abs(det - round(det)) < 1e-10 else f"{det:.4f}"
 
             self.result_text.delete(1.0, tk.END)
             self.steps_text.delete(1.0, tk.END)
 
+            # Encabezado de resultado
             self.result_text.insert(tk.END, f"det(A) = {det_fmt}{note}\n")
+            if "mensaje" in resultado:
+                self.result_text.insert(tk.END, resultado["mensaje"] + "\n")
+
+            # Mostrar A utilizada
             formatted_A = self._format_matrix_for_display(A)
             self.result_text.insert(tk.END, "\nMatriz A usada:\n" + formatted_A)
+
+            # Mostrar pasos
+            if "pasos" in resultado and resultado["pasos"]:
+                for idx, paso in enumerate(resultado["pasos"], start=1):
+                    self.steps_text.insert(tk.END, f"Paso {idx}: {paso['descripcion']}\n")
+                    if 'matriz' in paso:
+                        formatted_matrix = self._format_matrix_for_display(paso['matriz'])
+                        self.steps_text.insert(tk.END, formatted_matrix + "\n")
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrió un error al calcular el determinante: {e}")
 
