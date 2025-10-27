@@ -1,6 +1,13 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from crud import crear_matriz, actualizar_matriz, crear_conjunto_vectores, actualizar_conjunto_vectores
+from crud import (
+    crear_matriz,
+    actualizar_matriz,
+    crear_conjunto_vectores,
+    actualizar_conjunto_vectores,
+    crear_conjunto_matrices,
+    actualizar_conjunto_matrices,
+)
 import persistencia
 import matrices
 
@@ -47,11 +54,17 @@ class MatrixCRUDApp:
         self.notebook.add(self.independence_tab, text='Independencia de Vectores')
         self.create_independence_widgets(self.independence_tab)
 
+        # --- Pestaña 3: Operadores de Matrices ---
+        self.operators_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
+        self.notebook.add(self.operators_tab, text='Operadores de Matrices')
+        self.create_operators_widgets(self.operators_tab)
+
         self.selected_matrix = None
         self.selected_method = None
 
         self.update_matrix_list()
         self.update_vector_set_list()
+        self.update_matrix_set_list()
 
     def create_calculator_widgets(self, parent_frame):
         """Crea todos los widgets para la pestaña de la calculadora de matrices."""
@@ -319,6 +332,321 @@ class MatrixCRUDApp:
         steps_scrollbar_vec = ttk.Scrollbar(steps_frame_vec, orient=tk.VERTICAL, command=self.independence_steps_text.yview)
         steps_scrollbar_vec.grid(row=0, column=1, sticky='ns')
         self.independence_steps_text.configure(yscrollcommand=steps_scrollbar_vec.set)
+
+    def create_operators_widgets(self, parent_frame):
+        """Crea la pestaña para operar conjuntos de matrices (sumar, restar, multiplicar)."""
+        # Contenedor con scroll y centrado (igual patrón que el resto)
+        main_frame = ttk.Frame(parent_frame, style='Dark.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+        self.ops_canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
+        ops_scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.ops_canvas.yview)
+        self.ops_scrollable_frame = ttk.Frame(self.ops_canvas, style='Dark.TFrame')
+        self.ops_scrollable_frame.bind(
+            "<Configure>", lambda e: self.ops_canvas.configure(scrollregion=self.ops_canvas.bbox("all"))
+        )
+        self.ops_canvas_window = self.ops_canvas.create_window((0, 0), window=self.ops_scrollable_frame, anchor="nw")
+        self.ops_canvas.bind("<Configure>", lambda e: self.ops_canvas.itemconfig(self.ops_canvas_window, width=e.width))
+        self.ops_canvas.configure(yscrollcommand=ops_scrollbar.set)
+        self.ops_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ops_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Wrapper centrado
+        self.ops_center_wrapper = ttk.Frame(self.ops_scrollable_frame, style='Dark.TFrame')
+        self.ops_center_wrapper.pack(fill='x', expand=True)
+        for c in (0, 2):
+            self.ops_center_wrapper.grid_columnconfigure(c, weight=1)
+        self.ops_content_container = ttk.Frame(self.ops_center_wrapper, style='Dark.TFrame')
+        self.ops_content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
+
+        container = self.ops_content_container
+        for c in range(4):
+            container.grid_columnconfigure(c, weight=1)
+
+        # Título
+        ttk.Label(container, text="Operadores de Matrices", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 20))
+
+        # Controles superiores
+        ttk.Label(container, text="Nombre del conjunto:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
+        self.ops_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
+        self.ops_name_entry.grid(row=1, column=1, sticky='w', padx=(0, 20))
+
+        ttk.Label(container, text="Nº Matrices:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=5)
+        self.num_mats_var = tk.StringVar(value="0")
+        num_mats_spin = tk.Spinbox(container, from_=1, to=10, width=6, textvariable=self.num_mats_var, bg="#393e46", fg="#e0e0e0")
+        num_mats_spin.grid(row=2, column=1, sticky='w', padx=(0, 20))
+
+        ttk.Label(container, text="Filas:", style='Dark.TLabel').grid(row=2, column=2, sticky='e')
+        self.ops_rows_var = tk.StringVar(value="0")
+        ops_rows_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_rows_var, bg="#393e46", fg="#e0e0e0")
+        ops_rows_spin.grid(row=2, column=3, sticky='w')
+
+        ttk.Label(container, text="Columnas:", style='Dark.TLabel').grid(row=3, column=2, sticky='e', pady=5)
+        self.ops_cols_var = tk.StringVar(value="0")
+        ops_cols_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_cols_var, bg="#393e46", fg="#e0e0e0")
+        ops_cols_spin.grid(row=3, column=3, sticky='w')
+
+        ttk.Button(container, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=4, column=0, columnspan=4, pady=(10, 20), sticky='ew')
+
+        # Lista de conjuntos + acciones
+        ttk.Label(container, text="Conjuntos de Matrices Almacenados:", style='Dark.TLabel').grid(row=5, column=0, columnspan=2, sticky='w', pady=(0,5))
+        ops_list_frame = ttk.Frame(container, style='Dark.TFrame')
+        ops_list_frame.grid(row=6, column=0, columnspan=2, sticky='nsew', pady=(0,10))
+        ops_list_frame.grid_columnconfigure(0, weight=1)
+        ops_list_frame.grid_rowconfigure(0, weight=1)
+        self.matrix_set_listbox = tk.Listbox(ops_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.matrix_set_listbox.grid(row=0, column=0, sticky='nsew')
+        ops_scrollbar_list = ttk.Scrollbar(ops_list_frame, orient=tk.VERTICAL, command=self.matrix_set_listbox.yview)
+        ops_scrollbar_list.grid(row=0, column=1, sticky='ns')
+        self.matrix_set_listbox.configure(yscrollcommand=ops_scrollbar_list.set)
+        self.matrix_set_listbox.bind('<<ListboxSelect>>', self._on_matrix_set_select)
+
+        ops_action_frame = ttk.Frame(container, style='Dark.TFrame')
+        ops_action_frame.grid(row=6, column=2, columnspan=2, sticky='ew')
+        ttk.Button(ops_action_frame, text="Ver", style='Dark.TButton', command=self.view_matrix_set).pack(side=tk.LEFT, padx=5)
+        ttk.Button(ops_action_frame, text="Modificar", style='Dark.TButton', command=self.modify_matrix_set_ui).pack(side=tk.LEFT, padx=5)
+        ttk.Button(ops_action_frame, text="Eliminar", style='Dark.TButton', command=self.delete_matrix_set).pack(side=tk.LEFT, padx=5)
+
+        # Selector de operación
+        ttk.Label(container, text="Operación:", style='Dark.TLabel').grid(row=7, column=0, sticky='e', padx=(0,5))
+        self.ops_method_var = tk.StringVar(value="Suma")
+        self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicación"], state="readonly", width=16)
+        self.ops_method_combobox.grid(row=7, column=1, sticky='w')
+        ttk.Button(container, text="Ejecutar", style='Dark.TButton', command=self.run_matrix_operation).grid(row=7, column=2, columnspan=2, sticky='ew')
+
+        # Área de entradas de matrices
+        ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=8, column=0, columnspan=4, sticky='w', pady=(10,5))
+        self.ops_entries_frame = ttk.Frame(container, style='Dark.TFrame')
+        self.ops_entries_frame.grid(row=9, column=0, columnspan=4, sticky='ew', pady=(0,10))
+
+        # Resultados
+        results_container = ttk.Frame(container, style='Dark.TFrame')
+        results_container.grid(row=10, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        results_container.grid_rowconfigure(1, weight=1)
+        results_container.grid_columnconfigure(0, weight=1)
+        ttk.Label(results_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
+        solution_frame_ops = ttk.Frame(results_container)
+        solution_frame_ops.grid(row=1, column=0, sticky='nsew')
+        solution_frame_ops.grid_rowconfigure(0, weight=1)
+        solution_frame_ops.grid_columnconfigure(0, weight=1)
+        self.ops_result_text = tk.Text(solution_frame_ops, height=8, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.ops_result_text.grid(row=0, column=0, sticky='nsew')
+        result_scrollbar_ops = ttk.Scrollbar(solution_frame_ops, orient=tk.VERTICAL, command=self.ops_result_text.yview)
+        result_scrollbar_ops.grid(row=0, column=1, sticky='ns')
+        self.ops_result_text.configure(yscrollcommand=result_scrollbar_ops.set)
+
+        ttk.Label(results_container, text="Procedimiento", style='Title.TLabel').grid(row=2, column=0, sticky='w', pady=(10,5))
+        steps_frame_ops = ttk.Frame(results_container)
+        steps_frame_ops.grid(row=3, column=0, sticky='nsew')
+        steps_frame_ops.grid_rowconfigure(0, weight=1)
+        steps_frame_ops.grid_columnconfigure(0, weight=1)
+        self.ops_steps_text = tk.Text(steps_frame_ops, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        self.ops_steps_text.grid(row=0, column=0, sticky='nsew')
+        steps_scrollbar_ops = ttk.Scrollbar(steps_frame_ops, orient=tk.VERTICAL, command=self.ops_steps_text.yview)
+        steps_scrollbar_ops.grid(row=0, column=1, sticky='ns')
+        self.ops_steps_text.configure(yscrollcommand=steps_scrollbar_ops.set)
+
+    def _on_matrix_set_select(self, event):
+        sel = self.matrix_set_listbox.curselection()
+        if sel:
+            self.selected_matrix_set = self.matrix_set_listbox.get(sel[0])
+
+    def update_matrix_set_list(self):
+        if not hasattr(self, 'matrix_set_listbox'):
+            return
+        self.matrix_set_listbox.delete(0, tk.END)
+        data = persistencia.cargar_todos_conjuntos_matrices()
+        if data:
+            for name in data.keys():
+                self.matrix_set_listbox.insert(tk.END, name)
+
+    def create_matrix_set_ui(self):
+        name = self.ops_name_entry.get().strip()
+        if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
+            messagebox.showerror("Nombre inválido", "El nombre del conjunto debe ser una única letra mayúscula (A-Z).")
+            return
+        if name in persistencia.cargar_todos_conjuntos_matrices():
+            messagebox.showerror("Nombre en uso", f"Ya existe un conjunto de matrices con el nombre '{name}'.")
+            return
+        try:
+            num_m = int(self.num_mats_var.get())
+            r = int(self.ops_rows_var.get())
+            c = int(self.ops_cols_var.get())
+            if num_m <= 0 or r <= 0 or c <= 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Error", "Nº de matrices, filas y columnas deben ser enteros positivos.")
+            return
+        self.draw_operator_entries(num_m, r, c, name)
+
+    def draw_operator_entries(self, num_matrices, filas, columnas, name, is_modification=False, data=None):
+        for w in self.ops_entries_frame.winfo_children():
+            w.destroy()
+        if is_modification:
+            self.original_matrix_set_data_for_modification = {
+                'num_matrices': num_matrices,
+                'filas': filas,
+                'columnas': columnas,
+                'datos': [ [row[:] for row in mat] for mat in data ] if data else []
+            }
+        # Construir rejillas por cada matriz
+        self.ops_entries = []
+        for idx in range(num_matrices):
+            grp = ttk.LabelFrame(self.ops_entries_frame, text=f"M{idx+1}", style='Dark.TFrame')
+            grp.grid(row=idx//2, column=idx%2, padx=8, pady=6, sticky='w')
+            mat_entries = []
+            for i in range(filas):
+                row_entries = []
+                for j in range(columnas):
+                    e = ttk.Entry(grp, width=8, style='Entry.TEntry')
+                    default_value = "0"
+                    if data and idx < len(data) and i < len(data[idx]) and j < len(data[idx][i]):
+                        default_value = str(data[idx][i][j])
+                    e.insert(0, default_value)
+                    e.grid(row=i, column=j, padx=2, pady=2)
+                    row_entries.append(e)
+                mat_entries.append(row_entries)
+            self.ops_entries.append(mat_entries)
+
+        # Botonera
+        btn_frame = ttk.Frame(self.ops_entries_frame, style='Dark.TFrame')
+        btn_frame.grid(row=(num_matrices+1)//2 + 1, column=0, columnspan=2, sticky='ew', pady=(10,0))
+        text = "Actualizar Conjunto" if is_modification else "Guardar Conjunto"
+        cmd = (lambda: self.update_matrix_set_data(self.ops_entries, num_matrices, filas, columnas, name)) if is_modification \
+              else (lambda: self.save_matrix_set_data(self.ops_entries, num_matrices, filas, columnas, name))
+        ttk.Button(btn_frame, text=text, style='Dark.TButton', command=cmd).pack(side=tk.LEFT, expand=True, fill='x', padx=2)
+        ttk.Button(btn_frame, text="Cancelar", style='Dark.TButton', command=lambda: [w.destroy() for w in self.ops_entries_frame.winfo_children()]).pack(side=tk.LEFT, expand=True, fill='x', padx=2)
+
+    def _extract_matrix_set_values(self, entries):
+        mats = []
+        for mat in entries:
+            mats.append([[float(e.get()) for e in row] for row in mat])
+        return mats
+
+    def save_matrix_set_data(self, entries, num_matrices, filas, columnas, name):
+        try:
+            datos = self._extract_matrix_set_values(entries)
+            if crear_conjunto_matrices(name, num_matrices, filas, columnas, datos):
+                messagebox.showinfo("Éxito", f"Conjunto de matrices '{name}' guardado.")
+                self.update_matrix_set_list()
+                self.ops_name_entry.delete(0, tk.END)
+                self.num_mats_var.set("0")
+                self.ops_rows_var.set("0")
+                self.ops_cols_var.set("0")
+                for w in self.ops_entries_frame.winfo_children():
+                    w.destroy()
+        except ValueError:
+            messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos.")
+
+    def modify_matrix_set_ui(self):
+        sel = self.matrix_set_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Selección requerida", "Selecciona un conjunto de matrices para modificar.")
+            return
+        name = self.matrix_set_listbox.get(sel[0])
+        data = persistencia.cargar_conjunto_matrices(name)
+        if not data:
+            messagebox.showerror("Error", f"No se pudo cargar el conjunto '{name}'.")
+            return
+        self.draw_operator_entries(data['num_matrices'], data['filas'], data['columnas'], name, is_modification=True, data=data['datos'])
+
+    def update_matrix_set_data(self, entries, num_matrices, filas, columnas, name):
+        try:
+            datos = self._extract_matrix_set_values(entries)
+            orig = self.original_matrix_set_data_for_modification
+            if orig['num_matrices'] == num_matrices and orig['filas'] == filas and orig['columnas'] == columnas and orig['datos'] == datos:
+                for w in self.ops_entries_frame.winfo_children():
+                    w.destroy()
+                return
+            if actualizar_conjunto_matrices(name, datos, num_matrices, filas, columnas):
+                messagebox.showinfo("Éxito", f"Conjunto '{name}' actualizado.")
+                self.update_matrix_set_list()
+                for w in self.ops_entries_frame.winfo_children():
+                    w.destroy()
+            else:
+                messagebox.showerror("Error", f"No se pudo actualizar el conjunto '{name}'.")
+        except ValueError:
+            messagebox.showerror("Error", "Asegúrate de que todos los valores sean números válidos.")
+
+    def delete_matrix_set(self):
+        sel = self.matrix_set_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Selección requerida", "Selecciona un conjunto para eliminar.")
+            return
+        name = self.matrix_set_listbox.get(sel[0])
+        if messagebox.askyesno("Confirmar", f"¿Seguro que quieres eliminar el conjunto '{name}'?"):
+            if persistencia.eliminar_conjunto_matrices(name):
+                messagebox.showinfo("Éxito", f"Conjunto '{name}' eliminado.")
+                self.update_matrix_set_list()
+            else:
+                messagebox.showerror("Error", f"No se pudo eliminar el conjunto '{name}'.")
+
+    def view_matrix_set(self):
+        sel = self.matrix_set_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Selección requerida", "Selecciona un conjunto de matrices para ver.")
+            return
+        name = self.matrix_set_listbox.get(sel[0])
+        data = persistencia.cargar_conjunto_matrices(name)
+        if not data:
+            messagebox.showerror("Error", f"No se encontró el conjunto '{name}'.")
+            return
+        # Limpiar y mostrar
+        for w in self.ops_entries_frame.winfo_children():
+            w.destroy()
+        self.ops_result_text.delete(1.0, tk.END)
+        self.ops_steps_text.delete(1.0, tk.END)
+        info = (f"Conjunto: {data['nombre']}\n"
+                f"Nº Matrices: {data['num_matrices']}\n"
+                f"Dimensiones: {data['filas']}x{data['columnas']}\n\n")
+        # Mostrar cada matriz con formato
+        display = info
+        for idx, mat in enumerate(data['datos'], start=1):
+            display += f"M{idx}:\n" + self._format_matrix_for_display(mat) + "\n"
+        lbl = ttk.Label(self.ops_entries_frame, text=display, style='Result.TLabel', justify=tk.LEFT)
+        lbl.pack(pady=10, padx=10, anchor='w')
+
+    def run_matrix_operation(self):
+        sel = self.matrix_set_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Selección requerida", "Selecciona un conjunto de matrices.")
+            return
+        name = self.matrix_set_listbox.get(sel[0])
+        data = persistencia.cargar_conjunto_matrices(name)
+        if not data:
+            messagebox.showerror("Error", f"No se pudo cargar el conjunto '{name}'.")
+            return
+        mats = [matrices.Matriz(m) for m in data['datos']]
+        op = self.ops_method_var.get()
+        try:
+            self.ops_result_text.delete(1.0, tk.END)
+            self.ops_steps_text.delete(1.0, tk.END)
+            if op == "Suma":
+                res = mats[0]
+                for M in mats[1:]:
+                    res = res.sumar(M)
+                self.ops_result_text.insert(tk.END, "Resultado de la suma:\n")
+                self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
+                self.ops_steps_text.insert(tk.END, f"Se sumaron {len(mats)} matrices de dimensión {data['filas']}x{data['columnas']}.\n")
+            elif op == "Resta":
+                res = mats[0]
+                for M in mats[1:]:
+                    res = res.restar(M)
+                self.ops_result_text.insert(tk.END, "Resultado de la resta (M1 - M2 - ...):\n")
+                self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
+                self.ops_steps_text.insert(tk.END, f"Se restaron en cadena {len(mats)} matrices de dimensión {data['filas']}x{data['columnas']}.\n")
+            elif op == "Multiplicación":
+                res = mats[0]
+                for M in mats[1:]:
+                    res = res.multiplicar(M)
+                self.ops_result_text.insert(tk.END, "Resultado de la multiplicación (M1 @ M2 @ ...):\n")
+                self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
+                self.ops_steps_text.insert(tk.END, "Multiplicación en cadena completada. Verifica compatibilidad de dimensiones si hay errores.\n")
+            else:
+                messagebox.showerror("Operación desconocida", op)
+                return
+        except Exception as e:
+            messagebox.showerror("Error en operación", str(e))
 
     def draw_vector_entries(self, num_vectores, dimension, name, is_modification=False, data=None):
         """Dibuja la cuadrícula para ingresar los datos de los vectores."""

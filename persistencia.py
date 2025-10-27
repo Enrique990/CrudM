@@ -3,6 +3,7 @@ import os
 
 ARCHIVO_MATRICES = "matriz.json"
 ARCHIVO_VECTORES = "vectores.json"
+ARCHIVO_CONJUNTOS_MATRICES = "conjuntos_matrices.json"
 
 def _cargar_todos(archivo):
     if not os.path.exists(archivo):
@@ -88,3 +89,31 @@ def eliminar_conjunto_vectores(nombre):
         return False
     del todos_los_vectores[nombre]
     return guardar_todos_vectores(todos_los_vectores)
+
+# --- Funciones para Conjuntos de Matrices ---
+
+def cargar_todos_conjuntos_matrices():
+    return _cargar_todos(ARCHIVO_CONJUNTOS_MATRICES)
+
+def guardar_conjunto_matrices(nombre, conjunto_data):
+    todos = cargar_todos_conjuntos_matrices()
+    todos[nombre] = conjunto_data
+    return _guardar_todos(todos, ARCHIVO_CONJUNTOS_MATRICES)
+
+def actualizar_conjunto_matrices(nombre, conjunto_data):
+    todos = cargar_todos_conjuntos_matrices()
+    if nombre not in todos:
+        return False
+    todos[nombre] = conjunto_data
+    return _guardar_todos(todos, ARCHIVO_CONJUNTOS_MATRICES)
+
+def cargar_conjunto_matrices(nombre):
+    todos = cargar_todos_conjuntos_matrices()
+    return todos.get(nombre)
+
+def eliminar_conjunto_matrices(nombre):
+    todos = cargar_todos_conjuntos_matrices()
+    if nombre not in todos:
+        return False
+    del todos[nombre]
+    return _guardar_todos(todos, ARCHIVO_CONJUNTOS_MATRICES)

@@ -96,3 +96,36 @@ def actualizar_conjunto_vectores(nombre, nuevos_datos, nuevo_num_vectores, nueva
         return True
     print(f"Error: No se pudo actualizar el conjunto de vectores '{nombre}'.")
     return False
+
+# --- Funciones CRUD para Conjuntos de Matrices (operadores) ---
+
+def crear_conjunto_matrices(nombre, num_matrices, filas, columnas, datos):
+    """Crea y guarda un conjunto de matrices con dimensiones uniformes.
+    - datos: lista de 'num_matrices' matrices, cada una una lista de listas de tamaño filas x columnas.
+    """
+    conjunto = {
+        "nombre": nombre,
+        "num_matrices": num_matrices,
+        "filas": filas,
+        "columnas": columnas,
+        "datos": datos
+    }
+    if persistencia.guardar_conjunto_matrices(nombre, conjunto):
+        print(f"Conjunto de matrices '{nombre}' creado y guardado exitosamente.")
+        return True
+    else:
+        print(f"Error: No se pudo guardar el conjunto de matrices '{nombre}'.")
+        return False
+
+def actualizar_conjunto_matrices(nombre, nuevos_datos, nuevo_num, nuevas_filas, nuevas_columnas):
+    conjunto_actualizado = {
+        "nombre": nombre,
+        "num_matrices": nuevo_num,
+        "filas": nuevas_filas,
+        "columnas": nuevas_columnas,
+        "datos": nuevos_datos
+    }
+    if persistencia.actualizar_conjunto_matrices(nombre, conjunto_actualizado):
+        return True
+    print(f"Error: No se pudo actualizar el conjunto de matrices '{nombre}'.")
+    return False
