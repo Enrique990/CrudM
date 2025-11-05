@@ -100,6 +100,17 @@ class MatrixCRUDApp:
         self.content_container = ttk.Frame(self.center_wrapper, style='Dark.TFrame')
         self.content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
 
+        # --- Panel lateral izquierdo para la lista de Matrices almacenadas ---
+        # Ajuste vertical del layout para que los elementos laterales se estiren en Y
+        self.center_wrapper.grid_rowconfigure(0, weight=1)
+        # Panel izquierdo anclado a la esquina superior izquierda de la pestaña de Calculadora
+        self.calc_left_panel = ttk.Frame(self.center_wrapper, style='Dark.TFrame')
+        # Coordenadas panel izquierdo (Calculadora): row=0, column=0; ajustar sticky/padx/pady si deseas moverlo
+        self.calc_left_panel.grid(row=0, column=0, sticky='nsw', padx=(0,10), pady=(0,0))  # <-- Coordenadas/Tamaño panel lateral (Calculadora)
+        # Configuración para permitir que la lista se estire verticalmente dentro del panel
+        self.calc_left_panel.grid_columnconfigure(0, weight=1)
+        self.calc_left_panel.grid_rowconfigure(1, weight=1)  # <-- La fila 1 contendrá la lista; weight=1 permite estiramiento en Y
+
         self.create_widgets() # Llama al método original para poblar el contenedor
 
     def _bound_to_mousewheel(self, event):
@@ -226,19 +237,25 @@ class MatrixCRUDApp:
         ttk.Button(main_frame, text="Crear matriz", command=self.create_matrix, style='Dark.TButton').grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky="ew")
 
         # Lista de matrices
-        ttk.Label(main_frame, text="Matrices almacenadas:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky="w", pady=(0,5))
-        # Contenedor con scrollbar para la lista de matrices
-        matrix_list_frame = ttk.Frame(main_frame, style='Dark.TFrame')
-        matrix_list_frame.grid(row=5, column=0, columnspan=2, sticky="nsew", pady=(0,10))
+        # --- Lista de Matrices en panel lateral izquierdo (Calculadora) ---
+        # Etiqueta en esquina superior izquierda
+        ttk.Label(self.calc_left_panel, text="Matrices almacenadas:", style='Dark.TLabel')\
+            .grid(row=0, column=0, sticky="nw", pady=(0,5))  # <-- Coordenadas etiqueta (Calculadora)
+
+        # Contenedor con scrollbar para la lista de matrices (panel izquierdo)
+        matrix_list_frame = ttk.Frame(self.calc_left_panel, style='Dark.TFrame')
+        # Colocar la lista justo debajo de la etiqueta y hacer que ocupe todo el alto disponible
+        matrix_list_frame.grid(row=1, column=0, sticky="nsew", pady=(0,10))  # <-- Coordenadas/Tamaño lista (Calculadora)
+        # Permitir estiramiento horizontal/vertical del listbox dentro del frame
         matrix_list_frame.grid_columnconfigure(0, weight=1)
-        matrix_list_frame.grid_rowconfigure(0, weight=1)
+        matrix_list_frame.grid_rowconfigure(0, weight=1)  # <-- Ajusta el estiramiento vertical del listbox
         # Guardar referencia para sincronizar tamaño con el listbox de vectores
         self.matrix_list_frame = matrix_list_frame
 
         self.matrix_listbox = tk.Listbox(matrix_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_listbox.grid(row=0, column=0, sticky="nsew")
         matrix_scrollbar = ttk.Scrollbar(matrix_list_frame, orient=tk.VERTICAL, command=self.matrix_listbox.yview)
-        matrix_scrollbar.grid(row=0, column=1, sticky="ns")
+        matrix_scrollbar.grid(row=0, column=1, sticky="ns")  # <-- Side bar (scroll) asociado a la lista (Calculadora)
         self.matrix_listbox.configure(yscrollcommand=matrix_scrollbar.set)
         self.matrix_listbox.bind('<<ListboxSelect>>', self._on_matrix_select)
 
@@ -324,6 +341,15 @@ class MatrixCRUDApp:
         self.vector_content_container = ttk.Frame(self.vector_center_wrapper, style='Dark.TFrame')
         self.vector_content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
 
+        # --- Panel lateral izquierdo para Conjuntos de Vectores ---
+        # Permite estiramiento vertical del panel lateral
+        self.vector_center_wrapper.grid_rowconfigure(0, weight=1)
+        self.vec_left_panel = ttk.Frame(self.vector_center_wrapper, style='Dark.TFrame')
+        # Coordenadas panel izquierdo (Vectores): esquina superior izquierda
+        self.vec_left_panel.grid(row=0, column=0, sticky='nsw', padx=(0,10), pady=(0,0))  # <-- Coordenadas/Tamaño panel lateral (Vectores)
+        self.vec_left_panel.grid_columnconfigure(0, weight=1)
+        self.vec_left_panel.grid_rowconfigure(1, weight=1)  # <-- La fila 1 contendrá la lista; se estira en Y
+
         container = self.vector_content_container
         # Configurar columnas para que escalen horizontalmente
         for c in range(4):
@@ -350,10 +376,12 @@ class MatrixCRUDApp:
         ttk.Button(container, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky='ew')
 
         # --- Lista de Conjuntos y Acciones (distribución similar a matrices) ---
-        ttk.Label(container, text="Conjuntos de Vectores Almacenados:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky='w', pady=(0,5))
+        # --- Lista de Conjuntos de Vectores en panel lateral izquierdo (Vectores) ---
+        ttk.Label(self.vec_left_panel, text="Conjuntos de Vectores Almacenados:", style='Dark.TLabel')\
+            .grid(row=0, column=0, sticky='nw', pady=(0,5))  # <-- Coordenadas etiqueta (Vectores)
         # Contenedor con scrollbar para la lista de conjuntos de vectores
-        vector_list_frame = ttk.Frame(container, style='Dark.TFrame')
-        vector_list_frame.grid(row=5, column=0, columnspan=2, sticky='nsew', pady=(0,10))
+        vector_list_frame = ttk.Frame(self.vec_left_panel, style='Dark.TFrame')
+        vector_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10))  # <-- Coordenadas/Tamaño lista (Vectores)
         vector_list_frame.grid_columnconfigure(0, weight=1)
         vector_list_frame.grid_rowconfigure(0, weight=1)
         # Guardar referencia para sincronizar tamaño con el listbox de matrices
@@ -362,7 +390,7 @@ class MatrixCRUDApp:
         self.vector_set_listbox = tk.Listbox(vector_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.vector_set_listbox.grid(row=0, column=0, sticky='nsew')
         vector_scrollbar = ttk.Scrollbar(vector_list_frame, orient=tk.VERTICAL, command=self.vector_set_listbox.yview)
-        vector_scrollbar.grid(row=0, column=1, sticky='ns')
+        vector_scrollbar.grid(row=0, column=1, sticky='ns')  # <-- Side bar (scroll) asociado a la lista (Vectores)
         self.vector_set_listbox.configure(yscrollcommand=vector_scrollbar.set)
         self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
 
@@ -440,6 +468,14 @@ class MatrixCRUDApp:
         self.ops_content_container = ttk.Frame(self.ops_center_wrapper, style='Dark.TFrame')
         self.ops_content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
 
+        # --- Panel lateral izquierdo para Conjuntos de Matrices (Operadores) ---
+        self.ops_center_wrapper.grid_rowconfigure(0, weight=1)
+        self.ops_left_panel = ttk.Frame(self.ops_center_wrapper, style='Dark.TFrame')
+        # Coordenadas panel izquierdo (Operadores): esquina superior izquierda
+        self.ops_left_panel.grid(row=0, column=0, sticky='nsw', padx=(0,10), pady=(0,0))  # <-- Coordenadas/Tamaño panel lateral (Operadores)
+        self.ops_left_panel.grid_columnconfigure(0, weight=1)
+        self.ops_left_panel.grid_rowconfigure(1, weight=1)  # <-- La fila 1 contendrá la lista; se estira en Y
+
         container = self.ops_content_container
         # Ocho columnas para alinear Nombre / Nº Matrices / Filas / Columnas / Operación en una sola fila
         for c in range(8):
@@ -477,15 +513,17 @@ class MatrixCRUDApp:
         ttk.Button(container, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=3, column=0, columnspan=8, pady=(10, 20), sticky='ew')
 
         # Lista de conjuntos + acciones
-        ttk.Label(container, text="Conjuntos de Matrices Almacenados:", style='Dark.TLabel').grid(row=4, column=0, columnspan=2, sticky='w', pady=(0,5))
-        ops_list_frame = ttk.Frame(container, style='Dark.TFrame')
-        ops_list_frame.grid(row=5, column=0, columnspan=2, sticky='nsew', pady=(0,10))
+        # --- Lista de Conjuntos de Matrices en panel lateral izquierdo (Operadores) ---
+        ttk.Label(self.ops_left_panel, text="Conjuntos de Matrices Almacenados:", style='Dark.TLabel')\
+            .grid(row=0, column=0, sticky='nw', pady=(0,5))  # <-- Coordenadas etiqueta (Operadores)
+        ops_list_frame = ttk.Frame(self.ops_left_panel, style='Dark.TFrame')
+        ops_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10))  # <-- Coordenadas/Tamaño lista (Operadores)
         ops_list_frame.grid_columnconfigure(0, weight=1)
         ops_list_frame.grid_rowconfigure(0, weight=1)
         self.matrix_set_listbox = tk.Listbox(ops_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_set_listbox.grid(row=0, column=0, sticky='nsew')
         ops_scrollbar_list = ttk.Scrollbar(ops_list_frame, orient=tk.VERTICAL, command=self.matrix_set_listbox.yview)
-        ops_scrollbar_list.grid(row=0, column=1, sticky='ns')
+        ops_scrollbar_list.grid(row=0, column=1, sticky='ns')  # <-- Side bar (scroll) asociado a la lista (Operadores)
         self.matrix_set_listbox.configure(yscrollcommand=ops_scrollbar_list.set)
         self.matrix_set_listbox.bind('<<ListboxSelect>>', self._on_matrix_set_select)
 
