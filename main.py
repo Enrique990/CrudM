@@ -253,6 +253,8 @@ class MatrixCRUDApp:
         matrix_list_frame.grid_rowconfigure(0, weight=1)  # <-- Ajusta el estiramiento vertical del listbox
         # Guardar referencia para sincronizar tamaño con el listbox de vectores
         self.matrix_list_frame = matrix_list_frame
+        matrix_list_frame.grid_propagate(False)
+        matrix_list_frame.configure(width=260)
 
         self.matrix_listbox = tk.Listbox(matrix_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_listbox.grid(row=0, column=0, sticky="nsew")
