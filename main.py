@@ -283,13 +283,15 @@ class MatrixCRUDApp:
         self.matrix_listbox.configure(yscrollcommand=matrix_scrollbar.set)
         self.matrix_listbox.bind('<<ListboxSelect>>', self._on_matrix_select)
 
-        # Botones de acción
+        # Botonera centrada (alinea con "Crear matriz")
         action_frame = ttk.Frame(main_frame, style='Dark.TFrame')
-        action_frame.grid(row=5, column=2, columnspan=2, sticky="ew")
-        ttk.Button(action_frame, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_frame, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        action_frame.grid(row=5, column=0, columnspan=4)
+        action_buttons = ttk.Frame(action_frame, style='Dark.TFrame')
+        action_buttons.pack(anchor='center')
+        ttk.Button(action_buttons, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_buttons, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_buttons, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_buttons, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -427,13 +429,16 @@ class MatrixCRUDApp:
         self.vector_set_listbox.configure(yscrollcommand=vector_scrollbar.set)
         self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
 
+        # Botonera centrada (alinea con "Crear Conjunto de Vectores")
         vector_action_frame = ttk.Frame(container, style='Dark.TFrame')
-        vector_action_frame.grid(row=5, column=2, columnspan=2, sticky='ew')
-        ttk.Button(vector_action_frame, text="Ver", command=self.view_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(vector_action_frame, text="Modificar", command=self.modify_vector_set_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(vector_action_frame, text="Eliminar", command=self.delete_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        vector_action_frame.grid(row=5, column=0, columnspan=4)
+        vector_action_buttons = ttk.Frame(vector_action_frame, style='Dark.TFrame')
+        vector_action_buttons.pack(anchor='center')
+        ttk.Button(vector_action_buttons, text="Ver", command=self.view_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(vector_action_buttons, text="Modificar", command=self.modify_vector_set_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(vector_action_buttons, text="Eliminar", command=self.delete_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         # Ubicar Verificar Independencia junto a Eliminar
-        ttk.Button(vector_action_frame, text="Verificar Independencia", command=self.run_independence_check, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(vector_action_buttons, text="Verificar Independencia", command=self.run_independence_check, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # --- Área de datos de vectores ---
         ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky='w', pady=(10,5))
@@ -572,13 +577,16 @@ class MatrixCRUDApp:
         self.matrix_set_listbox.configure(yscrollcommand=ops_scrollbar_list.set)
         self.matrix_set_listbox.bind('<<ListboxSelect>>', self._on_matrix_set_select)
 
+        # Botonera centrada (alinea con "Crear Conjunto de Matrices")
         ops_action_frame = ttk.Frame(container, style='Dark.TFrame')
-        ops_action_frame.grid(row=5, column=2, columnspan=6, sticky='ew')
-        ttk.Button(ops_action_frame, text="Ver", style='Dark.TButton', command=self.view_matrix_set).pack(side=tk.LEFT, padx=5)
-        ttk.Button(ops_action_frame, text="Modificar", style='Dark.TButton', command=self.modify_matrix_set_ui).pack(side=tk.LEFT, padx=5)
-        ttk.Button(ops_action_frame, text="Eliminar", style='Dark.TButton', command=self.delete_matrix_set).pack(side=tk.LEFT, padx=5)
+        ops_action_frame.grid(row=5, column=0, columnspan=8)
+        ops_action_buttons = ttk.Frame(ops_action_frame, style='Dark.TFrame')
+        ops_action_buttons.pack(anchor='center')
+        ttk.Button(ops_action_buttons, text="Ver", style='Dark.TButton', command=self.view_matrix_set).pack(side=tk.LEFT, padx=5)
+        ttk.Button(ops_action_buttons, text="Modificar", style='Dark.TButton', command=self.modify_matrix_set_ui).pack(side=tk.LEFT, padx=5)
+        ttk.Button(ops_action_buttons, text="Eliminar", style='Dark.TButton', command=self.delete_matrix_set).pack(side=tk.LEFT, padx=5)
         # Botón Resolver al lado derecho de Eliminar
-        ttk.Button(ops_action_frame, text="Resolver", style='Dark.TButton', command=self.run_matrix_operation).pack(side=tk.LEFT, padx=5)
+        ttk.Button(ops_action_buttons, text="Resolver", style='Dark.TButton', command=self.run_matrix_operation).pack(side=tk.LEFT, padx=5)
 
         # Área de entradas de matrices
         ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=6, column=0, columnspan=8, sticky='w', pady=(10,5))
