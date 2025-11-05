@@ -92,13 +92,15 @@ class MatrixCRUDApp:
         # Envoltura que ocupa todo el ancho y centra el contenido en columna media
         self.center_wrapper = ttk.Frame(self.scrollable_frame, style='Dark.TFrame')
         self.center_wrapper.pack(fill='x', expand=True)
-        self.center_wrapper.grid_columnconfigure(0, weight=1)
-        self.center_wrapper.grid_columnconfigure(1, weight=0)
-        self.center_wrapper.grid_columnconfigure(2, weight=1)
+        # Distribución: columna 0 = panel izquierdo (no expandir), columna 1 = contenido (expandir), columna 2 = separador derecho (no expandir)
+        self.center_wrapper.grid_columnconfigure(0, weight=0)
+        self.center_wrapper.grid_columnconfigure(1, weight=1)
+        self.center_wrapper.grid_columnconfigure(2, weight=0)
 
         # Frame contenedor centrado
         self.content_container = ttk.Frame(self.center_wrapper, style='Dark.TFrame')
-        self.content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
+        # Mover el contenido hacia la izquierda con margen de separación respecto al panel lateral
+        self.content_container.grid(row=0, column=1, padx=(0,20), pady=20, sticky='nw')  # <-- Ajusta el margen izquierdo/derecho del contenido (Calculadora)
 
         # --- Panel lateral izquierdo para la lista de Matrices almacenadas ---
         # Ajuste vertical del layout para que los elementos laterales se estiren en Y
@@ -334,12 +336,14 @@ class MatrixCRUDApp:
         # --- Contenedor de contenido centrado ---
         self.vector_center_wrapper = ttk.Frame(self.vector_scrollable_frame, style='Dark.TFrame')
         self.vector_center_wrapper.pack(fill='x', expand=True)
-        self.vector_center_wrapper.grid_columnconfigure(0, weight=1)
-        self.vector_center_wrapper.grid_columnconfigure(1, weight=0)
-        self.vector_center_wrapper.grid_columnconfigure(2, weight=1)
+        # Distribución: 0 = panel izquierdo (no expandir), 1 = contenido (expandir), 2 = separador derecho (no expandir)
+        self.vector_center_wrapper.grid_columnconfigure(0, weight=0)
+        self.vector_center_wrapper.grid_columnconfigure(1, weight=1)
+        self.vector_center_wrapper.grid_columnconfigure(2, weight=0)
 
         self.vector_content_container = ttk.Frame(self.vector_center_wrapper, style='Dark.TFrame')
-        self.vector_content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
+        # Mover contenido a la izquierda con margen respecto al panel lateral
+        self.vector_content_container.grid(row=0, column=1, padx=(0,20), pady=20, sticky='nw')  # <-- Ajusta margen contenido (Vectores)
 
         # --- Panel lateral izquierdo para Conjuntos de Vectores ---
         # Permite estiramiento vertical del panel lateral
@@ -463,10 +467,13 @@ class MatrixCRUDApp:
         # Wrapper centrado
         self.ops_center_wrapper = ttk.Frame(self.ops_scrollable_frame, style='Dark.TFrame')
         self.ops_center_wrapper.pack(fill='x', expand=True)
-        for c in (0, 2):
-            self.ops_center_wrapper.grid_columnconfigure(c, weight=1)
+        # Distribución: 0 = panel izquierdo (no expandir), 1 = contenido (expandir), 2 = separador derecho (no expandir)
+        self.ops_center_wrapper.grid_columnconfigure(0, weight=0)
+        self.ops_center_wrapper.grid_columnconfigure(1, weight=1)
+        self.ops_center_wrapper.grid_columnconfigure(2, weight=0)
         self.ops_content_container = ttk.Frame(self.ops_center_wrapper, style='Dark.TFrame')
-        self.ops_content_container.grid(row=0, column=1, padx=20, pady=20, sticky='n')
+        # Mover contenido a la izquierda con margen respecto al panel lateral
+        self.ops_content_container.grid(row=0, column=1, padx=(0,20), pady=20, sticky='nw')  # <-- Ajusta margen contenido (Operadores)
 
         # --- Panel lateral izquierdo para Conjuntos de Matrices (Operadores) ---
         self.ops_center_wrapper.grid_rowconfigure(0, weight=1)
