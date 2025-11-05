@@ -197,11 +197,11 @@ class MatrixCRUDApp:
 
                     # Aplicar el mismo tamaño inicial a ambos, de forma independiente
                     try:
-                        self.matrix_list_frame.configure(width=w, height=h)
+                        self.matrix_list_frame.configure(width=w)
                     except Exception:
                         pass
                     try:
-                        self.vector_list_frame.configure(width=w, height=h)
+                        self.vector_list_frame.configure(width=w)
                     except Exception:
                         pass
             except Exception:
@@ -274,7 +274,7 @@ class MatrixCRUDApp:
         # Guardar referencia para sincronizar tamaño con el listbox de vectores
         self.matrix_list_frame = matrix_list_frame
         matrix_list_frame.grid_propagate(False)
-        matrix_list_frame.configure(width=260)
+        matrix_list_frame.configure(width=260, height=705)
 
         self.matrix_listbox = tk.Listbox(matrix_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_listbox.grid(row=0, column=0, sticky="nsew")
@@ -412,6 +412,8 @@ class MatrixCRUDApp:
             .grid(row=0, column=0, sticky='nw', pady=(0,5))  # <-- Coordenadas etiqueta (Vectores)
         # Contenedor con scrollbar para la lista de conjuntos de vectores
         vector_list_frame = ttk.Frame(self.vec_left_panel, style='Dark.TFrame')
+        vector_list_frame.grid_propagate(False)
+        vector_list_frame.configure(width=260, height=705)
         vector_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10))  # <-- Coordenadas/Tamaño lista (Vectores)
         vector_list_frame.grid_columnconfigure(0, weight=1)
         vector_list_frame.grid_rowconfigure(0, weight=1)
@@ -558,6 +560,8 @@ class MatrixCRUDApp:
         ttk.Label(self.ops_left_panel, text="Conjuntos de Matrices Almacenados:", style='Dark.TLabel')\
             .grid(row=0, column=0, sticky='nw', pady=(0,5))  # <-- Coordenadas etiqueta (Operadores)
         ops_list_frame = ttk.Frame(self.ops_left_panel, style='Dark.TFrame')
+        ops_list_frame.grid_propagate(False)
+        ops_list_frame.configure(width=260, height=705)
         ops_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10))  # <-- Coordenadas/Tamaño lista (Operadores)
         ops_list_frame.grid_columnconfigure(0, weight=1)
         ops_list_frame.grid_rowconfigure(0, weight=1)
