@@ -70,11 +70,16 @@ class MatrixCRUDApp:
 
     def create_calculator_widgets(self, parent_frame):
         """Crea todos los widgets para la pestaña de la calculadora de matrices."""
-        # Frame principal con scroll
+        # Frame principal con scroll + panel de Procedimiento a la derecha
         main_frame = ttk.Frame(parent_frame, style='Dark.TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
-        self.canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+
+        # Contenedor para el área scrolleable (izquierda)
+        content_stack = ttk.Frame(main_frame, style='Dark.TFrame')
+        content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.canvas = tk.Canvas(content_stack, bg="#23272e", highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(content_stack, orient=tk.VERTICAL, command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas, style='Dark.TFrame')
         self.scrollable_frame.bind(
             "<Configure>",
@@ -88,6 +93,21 @@ class MatrixCRUDApp:
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.scrollable_frame.bind("<Enter>", self._bound_to_mousewheel)
         self.scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel)
+
+        # Panel de Procedimiento a la derecha (fijo, ocupa todo el alto y hasta el borde derecho)
+        self.calc_proc_panel = ttk.Frame(main_frame, style='Dark.TFrame')
+        self.calc_proc_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False, padx=(12, 0), pady=0)
+        # Estructura interna del panel de procedimiento (label + text con scrollbar)
+        ttk.Label(self.calc_proc_panel, text="Procedimiento", style='Title.TLabel').pack(anchor='nw', pady=(10, 5))
+        calc_steps_container = ttk.Frame(self.calc_proc_panel, style='Dark.TFrame')
+        calc_steps_container.pack(fill=tk.BOTH, expand=True)
+        calc_steps_container.rowconfigure(0, weight=1)
+        calc_steps_container.columnconfigure(0, weight=1)
+        self.steps_text = tk.Text(calc_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
+        self.steps_text.grid(row=0, column=0, sticky='nsew')
+        calc_steps_scrollbar = ttk.Scrollbar(calc_steps_container, orient=tk.VERTICAL, command=self.steps_text.yview)
+        calc_steps_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.steps_text.configure(yscrollcommand=calc_steps_scrollbar.set)
 
         # Envoltura que ocupa todo el ancho y centra el contenido en columna media
         self.center_wrapper = ttk.Frame(self.scrollable_frame, style='Dark.TFrame')
@@ -276,7 +296,7 @@ class MatrixCRUDApp:
         self.matrix_frame = ttk.Frame(main_frame, style='Dark.TFrame')
         self.matrix_frame.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(0,10))
 
-        # Área de resultados (solución y pasos) con su propio scroll
+    # Área de resultados (solución) con su propio scroll (los pasos se movieron al panel derecho)
         result_container = ttk.Frame(main_frame, style='Dark.TFrame')
         result_container.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(10,0))
         result_container.grid_rowconfigure(1, weight=1)
@@ -296,30 +316,21 @@ class MatrixCRUDApp:
         result_scrollbar.grid(row=0, column=1, sticky="ns")
         self.result_text.configure(yscrollcommand=result_scrollbar.set)
 
-        ttk.Label(result_container, text="Pasos de solución", style='Title.TLabel').grid(row=2, column=0, sticky="w", pady=(10,5))
-
-        # Frame para el texto de pasos con scroll
-        steps_frame = ttk.Frame(result_container)
-        steps_frame.grid(row=3, column=0, sticky="nsew")
-        steps_frame.grid_rowconfigure(0, weight=1)
-        steps_frame.grid_columnconfigure(0, weight=1)
-
-        self.steps_text = tk.Text(steps_frame, height=16, width=80, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
-        self.steps_text.grid(row=0, column=0, sticky="nsew")
-        steps_scrollbar = ttk.Scrollbar(steps_frame, orient=tk.VERTICAL, command=self.steps_text.yview)
-        steps_scrollbar.grid(row=0, column=1, sticky="ns")
-        self.steps_text.configure(yscrollcommand=steps_scrollbar.set)
+    # (Sección de "Pasos" eliminada aquí; ahora vive en self.calc_proc_panel)
 
     def create_independence_widgets(self, parent_frame):
         """Crea todos los widgets para la pestaña de independencia de vectores
         con la misma estructura de layout/scroll que la pestaña de matrices."""
 
-        # --- Contenedor con scroll (misma estrategia que la pestaña de matrices) ---
+        # --- Contenedor con scroll (izquierda) + Procedimiento a la derecha ---
         main_frame = ttk.Frame(parent_frame, style='Dark.TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-        self.vector_canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
-        vector_scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.vector_canvas.yview)
+        vector_content_stack = ttk.Frame(main_frame, style='Dark.TFrame')
+        vector_content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.vector_canvas = tk.Canvas(vector_content_stack, bg="#23272e", highlightthickness=0)
+        vector_scrollbar = ttk.Scrollbar(vector_content_stack, orient=tk.VERTICAL, command=self.vector_canvas.yview)
         self.vector_scrollable_frame = ttk.Frame(self.vector_canvas, style='Dark.TFrame')
         self.vector_scrollable_frame.bind(
             "<Configure>",
@@ -335,7 +346,21 @@ class MatrixCRUDApp:
         self.vector_scrollable_frame.bind("<Enter>", self._bound_to_mousewheel_vectors)
         self.vector_scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel_vectors)
 
-        # --- Contenedor de contenido centrado ---
+        # Panel de Procedimiento a la derecha (fijo)
+        self.ind_proc_panel = ttk.Frame(main_frame, style='Dark.TFrame')
+        self.ind_proc_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False, padx=(12,0), pady=0)
+        ttk.Label(self.ind_proc_panel, text="Procedimiento", style='Title.TLabel').pack(anchor='nw', pady=(10,5))
+        ind_steps_container = ttk.Frame(self.ind_proc_panel, style='Dark.TFrame')
+        ind_steps_container.pack(fill=tk.BOTH, expand=True)
+        ind_steps_container.rowconfigure(0, weight=1)
+        ind_steps_container.columnconfigure(0, weight=1)
+        self.independence_steps_text = tk.Text(ind_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
+        self.independence_steps_text.grid(row=0, column=0, sticky='nsew')
+        ind_steps_scrollbar = ttk.Scrollbar(ind_steps_container, orient=tk.VERTICAL, command=self.independence_steps_text.yview)
+        ind_steps_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.independence_steps_text.configure(yscrollcommand=ind_steps_scrollbar.set)
+
+    # --- Contenedor de contenido centrado ---
         self.vector_center_wrapper = ttk.Frame(self.vector_scrollable_frame, style='Dark.TFrame')
         self.vector_center_wrapper.pack(fill='x', expand=True)
         # Distribución: 0 = panel izquierdo (no expandir), 1 = contenido (expandir), 2 = separador derecho (no expandir)
@@ -432,26 +457,19 @@ class MatrixCRUDApp:
         result_scrollbar_vec.grid(row=0, column=1, sticky='ns')
         self.independence_result_text.configure(yscrollcommand=result_scrollbar_vec.set)
 
-        ttk.Label(results_container, text="Procedimiento", style='Title.TLabel').grid(row=2, column=0, sticky='w', pady=(10,5))
-        steps_frame_vec = ttk.Frame(results_container)
-        steps_frame_vec.grid(row=3, column=0, sticky='nsew')
-        steps_frame_vec.grid_rowconfigure(0, weight=1)
-        steps_frame_vec.grid_columnconfigure(0, weight=1)
-
-        self.independence_steps_text = tk.Text(steps_frame_vec, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
-        self.independence_steps_text.grid(row=0, column=0, sticky='nsew')
-        steps_scrollbar_vec = ttk.Scrollbar(steps_frame_vec, orient=tk.VERTICAL, command=self.independence_steps_text.yview)
-        steps_scrollbar_vec.grid(row=0, column=1, sticky='ns')
-        self.independence_steps_text.configure(yscrollcommand=steps_scrollbar_vec.set)
+    # (Procedimiento movido al panel derecho)
 
     def create_operators_widgets(self, parent_frame):
         """Crea la pestaña para operar conjuntos de matrices (sumar, restar, multiplicar)."""
-        # Contenedor con scroll y centrado (igual patrón que el resto)
+        # Contenedor con scroll (izquierda) + Procedimiento a la derecha
         main_frame = ttk.Frame(parent_frame, style='Dark.TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-        self.ops_canvas = tk.Canvas(main_frame, bg="#23272e", highlightthickness=0)
-        ops_scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.ops_canvas.yview)
+        ops_content_stack = ttk.Frame(main_frame, style='Dark.TFrame')
+        ops_content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.ops_canvas = tk.Canvas(ops_content_stack, bg="#23272e", highlightthickness=0)
+        ops_scrollbar = ttk.Scrollbar(ops_content_stack, orient=tk.VERTICAL, command=self.ops_canvas.yview)
         self.ops_scrollable_frame = ttk.Frame(self.ops_canvas, style='Dark.TFrame')
         self.ops_scrollable_frame.bind(
             "<Configure>", lambda e: self.ops_canvas.configure(scrollregion=self.ops_canvas.bbox("all"))
@@ -466,7 +484,21 @@ class MatrixCRUDApp:
         self.ops_scrollable_frame.bind("<Enter>", self._bound_to_mousewheel_ops)
         self.ops_scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel_ops)
 
-        # Wrapper centrado
+        # Panel de Procedimiento a la derecha (fijo)
+        self.ops_proc_panel = ttk.Frame(main_frame, style='Dark.TFrame')
+        self.ops_proc_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False, padx=(12,0), pady=0)
+        ttk.Label(self.ops_proc_panel, text="Procedimiento", style='Title.TLabel').pack(anchor='nw', pady=(10,5))
+        ops_steps_container = ttk.Frame(self.ops_proc_panel, style='Dark.TFrame')
+        ops_steps_container.pack(fill=tk.BOTH, expand=True)
+        ops_steps_container.rowconfigure(0, weight=1)
+        ops_steps_container.columnconfigure(0, weight=1)
+        self.ops_steps_text = tk.Text(ops_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
+        self.ops_steps_text.grid(row=0, column=0, sticky='nsew')
+        steps_scrollbar_ops_right = ttk.Scrollbar(ops_steps_container, orient=tk.VERTICAL, command=self.ops_steps_text.yview)
+        steps_scrollbar_ops_right.grid(row=0, column=1, sticky='ns')
+        self.ops_steps_text.configure(yscrollcommand=steps_scrollbar_ops_right.set)
+
+    # Wrapper centrado
         self.ops_center_wrapper = ttk.Frame(self.ops_scrollable_frame, style='Dark.TFrame')
         self.ops_center_wrapper.pack(fill='x', expand=True)
         # Distribución: 0 = panel izquierdo (no expandir), 1 = contenido (expandir), 2 = separador derecho (no expandir)
@@ -565,16 +597,7 @@ class MatrixCRUDApp:
         result_scrollbar_ops.grid(row=0, column=1, sticky='ns')
         self.ops_result_text.configure(yscrollcommand=result_scrollbar_ops.set)
 
-        ttk.Label(results_container, text="Procedimiento", style='Title.TLabel').grid(row=2, column=0, sticky='w', pady=(10,5))
-        steps_frame_ops = ttk.Frame(results_container)
-        steps_frame_ops.grid(row=3, column=0, sticky='nsew')
-        steps_frame_ops.grid_rowconfigure(0, weight=1)
-        steps_frame_ops.grid_columnconfigure(0, weight=1)
-        self.ops_steps_text = tk.Text(steps_frame_ops, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
-        self.ops_steps_text.grid(row=0, column=0, sticky='nsew')
-        steps_scrollbar_ops = ttk.Scrollbar(steps_frame_ops, orient=tk.VERTICAL, command=self.ops_steps_text.yview)
-        steps_scrollbar_ops.grid(row=0, column=1, sticky='ns')
-        self.ops_steps_text.configure(yscrollcommand=steps_scrollbar_ops.set)
+    # (Procedimiento movido al panel derecho)
 
     def _on_matrix_set_select(self, event):
         sel = self.matrix_set_listbox.curselection()
