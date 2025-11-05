@@ -65,8 +65,8 @@ class MatrixCRUDApp:
         self.update_matrix_list()
         self.update_vector_set_list()
         self.update_matrix_set_list()
-        # Sincronizar tamaño del listbox de vectores con el de matrices
-        self._init_listbox_size_sync()
+        # Fijar el tamaño inicial de ambos listboxes una sola vez (sin sincronizaciones posteriores)
+        self._apply_initial_listbox_size()
 
     def create_calculator_widgets(self, parent_frame):
         """Crea todos los widgets para la pestaña de la calculadora de matrices."""
@@ -128,36 +128,55 @@ class MatrixCRUDApp:
     def _on_mousewheel_ops(self, event):
         self.ops_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
-    def _init_listbox_size_sync(self):
-        """Mantiene el Listbox de 'Conjuntos de Vectores Almacenados' con exactamente el mismo tamaño
-        (ancho/alto en píxeles) que el Listbox de 'Matrices almacenadas'."""
-        try:
-            # Asegurar que existan los frames de listas
-            if not hasattr(self, 'matrix_list_frame') or not hasattr(self, 'vector_list_frame'):
-                # Reintentar más tarde, por si aún no se crearon los widgets
-                self.root.after(150, self._init_listbox_size_sync)
-                return
+    def _apply_initial_listbox_size(self):
+        """Establece una vez un tamaño fijo para ambos listboxes (matrices y conjuntos de vectores)
+        para que luzcan iguales pero sin quedar vinculados entre sí."""
+        def apply_once(attempt=0):
+            try:
+                # Verificar que existan los frames necesarios
+                if not hasattr(self, 'matrix_list_frame') or not hasattr(self, 'vector_list_frame'):
+                    if attempt < 10:
+                        self.root.after(150, lambda: apply_once(attempt+1))
+                    return
 
-            # Evitar que la grilla sobreescriba el tamaño del frame de vectores
-            self.vector_list_frame.grid_propagate(False)
+                self.root.update_idletasks()
 
-            def sync_size(event=None):
-                try:
-                    self.root.update_idletasks()
-                    w = self.matrix_list_frame.winfo_width()
-                    h = self.matrix_list_frame.winfo_height()
-                    if w > 0 and h > 0:
+                # Tomar el tamaño actual visible del frame de matrices como referencia visual
+                w = self.matrix_list_frame.winfo_width()
+                h = self.matrix_list_frame.winfo_height()
+
+                # Si aún no hay tamaño calculado, reintentar unas veces
+                if (w <= 0 or h <= 0) and attempt < 10:
+                    self.root.after(150, lambda: apply_once(attempt+1))
+                    return
+
+                # Fijar tamaños en ambos frames sin dejar eventos enlazados (no habrá sincronización dinámica)
+                if w > 0 and h > 0:
+                    # Evitar que la grilla reescale los frames
+                    try:
+                        self.matrix_list_frame.grid_propagate(False)
+                    except Exception:
+                        pass
+                    try:
+                        self.vector_list_frame.grid_propagate(False)
+                    except Exception:
+                        pass
+
+                    # Aplicar el mismo tamaño inicial a ambos, de forma independiente
+                    try:
+                        self.matrix_list_frame.configure(width=w, height=h)
+                    except Exception:
+                        pass
+                    try:
                         self.vector_list_frame.configure(width=w, height=h)
-                except Exception:
-                    pass
+                    except Exception:
+                        pass
+            except Exception:
+                # Silenciar para no afectar la app
+                pass
 
-            # Enlazar cambios de tamaño del frame de matrices para reflejarlos en el de vectores
-            self.matrix_list_frame.bind("<Configure>", sync_size)
-            # Sincronización inicial tras un breve delay
-            self.root.after(200, sync_size)
-        except Exception:
-            # No bloquear la app si algo falla aquí
-            pass
+        # Ejecutar con un pequeño retraso para asegurar que el layout esté calculado
+        self.root.after(200, apply_once)
 
     def create_widgets(self):
         # El contenido de este método ahora se dibuja dentro de self.content_container
