@@ -1015,7 +1015,7 @@ class MatrixCRUDApp:
             elif i == num_rows - 1:
                 line += "/ "
             else:
-                line += "|"
+                line += " |"
             
             formatted_str += line + "\n"
             
@@ -1076,9 +1076,9 @@ class MatrixCRUDApp:
             self.independence_steps_text.delete(1.0, tk.END)
 
             # Formatear los datos para mostrarlos
-            info_str = (f"Conjunto: {vector_set_data['nombre']}\n"
-                        f"Nº de Vectores: {vector_set_data['num_vectores']}\n"
-                        f"Dimensión: {vector_set_data['dimension']}\n\n")
+            info_str = (f"\nConjunto: {vector_set_data['nombre']}\n"
+                        f"\nNº de Vectores: {vector_set_data['num_vectores']}\n"
+                        f"\nDimensión: {vector_set_data['dimension']}\n\n")
             
             # Transponer los datos para mostrarlos como columnas
             datos_transpuestos = list(map(list, zip(*vector_set_data['datos'])))
@@ -1104,15 +1104,27 @@ class MatrixCRUDApp:
                 matriz_obj = matrices.Matriz(matrix_data['datos'])
                 matriz_transpuesta_obj = matriz_obj.trasponer()
 
+                # Limpiar área de entrada y áreas de resultado
                 self.clear_matrix_frame()
-                self.show_result("")
+                try:
+                    self.result_text.delete(1.0, tk.END)
+                    self.steps_text.delete(1.0, tk.END)
+                except Exception:
+                    # En caso de que las áreas de resultado no existan por alguna razón
+                    pass
 
                 info_str = (f"Transpuesta de la Matriz: {matrix_data['nombre']}\n"
                             f"Nuevas Dimensiones: {matriz_transpuesta_obj.n}x{matriz_transpuesta_obj.m}\n\n")
                 matrix_str = self._format_matrix_for_display(matriz_transpuesta_obj.A)
-                
-                display_label = ttk.Label(self.matrix_frame, text=info_str + matrix_str, style='Result.TLabel', justify=tk.LEFT)
-                display_label.pack(pady=10, padx=10, anchor='w')
+
+                # Insertar el resultado en la sección "Resultado"
+                try:
+                    self.result_text.insert(tk.END, info_str)
+                    self.result_text.insert(tk.END, matrix_str)
+                except Exception as e:
+                    # Fallback: si no existe result_text, mostrar en el frame de datos
+                    display_label = ttk.Label(self.matrix_frame, text=info_str + matrix_str, style='Result.TLabel', justify=tk.LEFT)
+                    display_label.pack(pady=10, padx=10, anchor='w')
 
             except Exception as e:
                 messagebox.showerror("Error", f"Ocurrió un error al transponer la matriz: {e}")
