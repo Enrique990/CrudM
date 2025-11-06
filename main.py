@@ -226,7 +226,7 @@ class MatrixCRUDApp:
 
         # Selector de método
         ttk.Label(main_frame, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky="e", padx=(0,5))
-        self.method_var = tk.StringVar(value="Gauss-Jordan")
+        self.method_var = tk.StringVar(value=" ")
         self.method_combobox = ttk.Combobox(
             main_frame,
             textvariable=self.method_var,
@@ -304,7 +304,7 @@ class MatrixCRUDApp:
         result_container.grid_rowconfigure(1, weight=1)
         result_container.grid_columnconfigure(0, weight=1)
 
-        ttk.Label(result_container, text="Solución", style='Title.TLabel').grid(row=0, column=0, sticky="w", pady=(0,5))
+        ttk.Label(result_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky="w", pady=(0,5))
         
         # Frame para el texto de resultados con scroll
         solution_frame = ttk.Frame(result_container)
@@ -312,7 +312,7 @@ class MatrixCRUDApp:
         solution_frame.grid_rowconfigure(0, weight=1)
         solution_frame.grid_columnconfigure(0, weight=1)
 
-        self.result_text = tk.Text(solution_frame, height=8, width=80, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.result_text = tk.Text(solution_frame, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.result_text.grid(row=0, column=0, sticky="nsew")
         result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.result_text.yview)
         result_scrollbar.grid(row=0, column=1, sticky="ns")
@@ -458,7 +458,7 @@ class MatrixCRUDApp:
         solution_frame_vec.grid_rowconfigure(0, weight=1)
         solution_frame_vec.grid_columnconfigure(0, weight=1)
 
-        self.independence_result_text = tk.Text(solution_frame_vec, height=4, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.independence_result_text = tk.Text(solution_frame_vec, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.independence_result_text.grid(row=0, column=0, sticky='nsew')
         result_scrollbar_vec = ttk.Scrollbar(solution_frame_vec, orient=tk.VERTICAL, command=self.independence_result_text.yview)
         result_scrollbar_vec.grid(row=0, column=1, sticky='ns')
@@ -554,7 +554,7 @@ class MatrixCRUDApp:
 
         # Selector de operación al lado derecho de Filas y Columnas
         ttk.Label(container, text="Operación:", style='Dark.TLabel').grid(row=2, column=6, sticky='e', padx=(10,5))
-        self.ops_method_var = tk.StringVar(value="Suma")
+        self.ops_method_var = tk.StringVar(value=" ")
         self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicación"], state="readonly", width=16)
         self.ops_method_combobox.grid(row=2, column=7, sticky='w')
 
@@ -603,7 +603,7 @@ class MatrixCRUDApp:
         solution_frame_ops.grid(row=1, column=0, sticky='nsew')
         solution_frame_ops.grid_rowconfigure(0, weight=1)
         solution_frame_ops.grid_columnconfigure(0, weight=1)
-        self.ops_result_text = tk.Text(solution_frame_ops, height=8, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.ops_result_text = tk.Text(solution_frame_ops, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.ops_result_text.grid(row=0, column=0, sticky='nsew')
         result_scrollbar_ops = ttk.Scrollbar(solution_frame_ops, orient=tk.VERTICAL, command=self.ops_result_text.yview)
         result_scrollbar_ops.grid(row=0, column=1, sticky='ns')
@@ -819,7 +819,7 @@ class MatrixCRUDApp:
                                 tk.END,
                                 f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} + {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\n",
                             )
-                    show_matrix_block("Resultado parcial:", R)
+                    show_matrix_block("\nResultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
 
@@ -843,7 +843,7 @@ class MatrixCRUDApp:
                                 tk.END,
                                 f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} - {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\n",
                             )
-                    show_matrix_block("Resultado parcial:", R)
+                    show_matrix_block("\nResultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
 
@@ -878,7 +878,7 @@ class MatrixCRUDApp:
                                 tk.END,
                                 f"  r[{i+1},{j+1}] = " + " + ".join(terms) + f" = {fmt_val(s)}\n",
                             )
-                    show_matrix_block("Resultado parcial:", R)
+                    show_matrix_block("\nResultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
 
