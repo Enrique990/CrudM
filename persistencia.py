@@ -3,6 +3,7 @@ import os
 
 ARCHIVO_MATRICES = "matriz.json"
 ARCHIVO_VECTORES = "vectores.json"
+ARCHIVO_CONJUNTOS_MATRICES = "conjuntos_matrices.json"
 
 def _cargar_todos(archivo):
     if not os.path.exists(archivo):
@@ -23,6 +24,14 @@ def _guardar_todos(datos, archivo):
         print(f"Error al guardar en el archivo {archivo}: {e}")
         return False
 
+# Refactorización: helper para guardar todas las matrices
+def guardar_todas_matrices(matrices_data):
+    return _guardar_todos(matrices_data, ARCHIVO_MATRICES)
+
+# Refactorización: helper para guardar todos los conjuntos de vectores
+def guardar_todos_vectores(vectores_data):
+    return _guardar_todos(vectores_data, ARCHIVO_VECTORES)
+
 # --- Funciones para Matrices ---
 
 def cargar_todas_matrices():
@@ -31,7 +40,15 @@ def cargar_todas_matrices():
 def guardar_matriz(nombre, matriz_data):
     todas_las_matrices = cargar_todas_matrices()
     todas_las_matrices[nombre] = matriz_data
-    return _guardar_todos(todas_las_matrices, ARCHIVO_MATRICES)
+    return guardar_todas_matrices(todas_las_matrices)
+
+# Refactorización: actualización centralizada de matrices
+def actualizar_matriz(nombre, matriz_data):
+    todas_las_matrices = cargar_todas_matrices()
+    if nombre not in todas_las_matrices:
+        return False
+    todas_las_matrices[nombre] = matriz_data
+    return guardar_todas_matrices(todas_las_matrices)
 
 def cargar_matriz(nombre):
     todas_las_matrices = cargar_todas_matrices()
@@ -42,7 +59,7 @@ def eliminar_matriz(nombre):
     if nombre not in todas_las_matrices:
         return False
     del todas_las_matrices[nombre]
-    return _guardar_todos(todas_las_matrices, ARCHIVO_MATRICES)
+    return guardar_todas_matrices(todas_las_matrices)
 
 # --- Funciones para Vectores ---
 
@@ -52,7 +69,15 @@ def cargar_todos_vectores():
 def guardar_conjunto_vectores(nombre, vector_data):
     todos_los_vectores = cargar_todos_vectores()
     todos_los_vectores[nombre] = vector_data
-    return _guardar_todos(todos_los_vectores, ARCHIVO_VECTORES)
+    return guardar_todos_vectores(todos_los_vectores)
+
+# Refactorización: actualización centralizada de conjuntos de vectores
+def actualizar_conjunto_vectores(nombre, vector_data):
+    todos_los_vectores = cargar_todos_vectores()
+    if nombre not in todos_los_vectores:
+        return False
+    todos_los_vectores[nombre] = vector_data
+    return guardar_todos_vectores(todos_los_vectores)
 
 def cargar_conjunto_vectores(nombre):
     todos_los_vectores = cargar_todos_vectores()
@@ -63,4 +88,32 @@ def eliminar_conjunto_vectores(nombre):
     if nombre not in todos_los_vectores:
         return False
     del todos_los_vectores[nombre]
-    return _guardar_todos(todos_los_vectores, ARCHIVO_VECTORES)
+    return guardar_todos_vectores(todos_los_vectores)
+
+# --- Funciones para Conjuntos de Matrices ---
+
+def cargar_todos_conjuntos_matrices():
+    return _cargar_todos(ARCHIVO_CONJUNTOS_MATRICES)
+
+def guardar_conjunto_matrices(nombre, conjunto_data):
+    todos = cargar_todos_conjuntos_matrices()
+    todos[nombre] = conjunto_data
+    return _guardar_todos(todos, ARCHIVO_CONJUNTOS_MATRICES)
+
+def actualizar_conjunto_matrices(nombre, conjunto_data):
+    todos = cargar_todos_conjuntos_matrices()
+    if nombre not in todos:
+        return False
+    todos[nombre] = conjunto_data
+    return _guardar_todos(todos, ARCHIVO_CONJUNTOS_MATRICES)
+
+def cargar_conjunto_matrices(nombre):
+    todos = cargar_todos_conjuntos_matrices()
+    return todos.get(nombre)
+
+def eliminar_conjunto_matrices(nombre):
+    todos = cargar_todos_conjuntos_matrices()
+    if nombre not in todos:
+        return False
+    del todos[nombre]
+    return _guardar_todos(todos, ARCHIVO_CONJUNTOS_MATRICES)

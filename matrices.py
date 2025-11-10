@@ -121,17 +121,22 @@ class Matriz:
     # -------------------- MÉTODO GAUSS --------------------
     def gauss(self):
         A = [row[:] for row in self.A]  # trabajar sobre copia
-        n, m = self.n, self.m
         pasos = []
-        fila = 0
-
-        pasos.append({"descripcion": "Matriz inicial", "matriz": self._mat_str(A)})
-
+        # (Evitar duplicar "Matriz inicial": lo agrega _forward_elimination)
         # Reutilizar el forward elimination privado
         A, pivotes, pasos_elim = self._forward_elimination(A)
         pasos.extend(pasos_elim)
 
-        return {"pasos": pasos, "solucion": self._resolver_sustitucion(A)}
+        sol = self._resolver_sustitucion(A)
+        # Mensaje coherente con Gauss-Jordan
+        if isinstance(sol, str):
+            mensaje = "El sistema es inconsistente (no tiene solución)."
+        else:
+            if any(v == "libre" for v in sol.values()):
+                mensaje = "El sistema tiene infinitas soluciones (variables libres presentes)."
+            else:
+                mensaje = "El sistema tiene solución única."
+        return {"pasos": pasos, "solucion": sol, "mensaje": mensaje}
 
     def _forward_elimination(self, A):
         """Realiza eliminación hacia adelante (como en Gauss), retorna la matriz transformada,
@@ -461,4 +466,298 @@ class Matriz:
     def sarrus(self):
         """ Necesito este metodo para el jueves con la clase del Profesor Ivan"""
 
-            
+    # -------------------- OPERADOR DE MATRICES --------------------
+    def _ensure_matrix_like(self, other):
+        if isinstance(other, Matriz):
+            return other
+        if isinstance(other, (list, tuple)):
+            return Matriz([list(row) for row in other])
+        raise ValueError("El operando debe ser una Matriz o una lista de listas numéricas.")
+
+    def sumar(self, other):
+        B = self._ensure_matrix_like(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Dimensiones incompatibles para suma: deben ser iguales.")
+        C = [[self.A[i][j] + B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(C)
+
+    def restar(self, other):
+        B = self._ensure_matrix_like(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Dimensiones incompatibles para resta: deben ser iguales.")
+        C = [[self.A[i][j] - B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(C)
+
+    def multiplicar(self, other):
+        # Escalar
+        if isinstance(other, (int, float)):
+            C = [[self.A[i][j] * other for j in range(self.m)] for i in range(self.n)]
+            return Matriz(C)
+        B = self._ensure_matrix_like(other)
+        if self.m != B.n:
+            raise ValueError(f"Dimensiones incompatibles para multiplicación: {self.n}x{self.m} * {B.n}x{B.m}")
+        C = [[0.0 for _ in range(B.m)] for __ in range(self.n)]
+        for i in range(self.n):
+            for j in range(B.m):
+                s = 0.0
+                for k in range(self.m):
+                    s += self.A[i][k] * B.A[k][j]
+                C[i][j] = s
+        return Matriz(C)
+
+    # Sobrecargas convenientes
+    # Sirve para usar los operadores +, -, @, * directamente
+    
+    def __add__(self, other):
+        return self.sumar(other)
+
+    def __sub__(self, other):
+        return self.restar(other)
+
+    def __matmul__(self, other):
+        return self.multiplicar(other)
+
+    def __mul__(self, other):
+        return self.multiplicar(other)
+
+    def __rmul__(self, other):
+        if isinstance(other, (int, float)):
+            return self.multiplicar(other)
+        return NotImplemented
+
+    def to_list(self):
+        return [row[:] for row in self.A]
+
+def determinante_por_gauss(A):
+    """
+    Calcula el determinante de una matriz cuadrada A (lista de listas)
+    mediante reducción a triangular superior por eliminación de Gauss.
+    No modifica A (trabaja sobre una copia). Devuelve un número (float).
+    """
+    eps = 1e-12
+    if A is None or len(A) == 0:
+        raise ValueError("La matriz no puede estar vacía.")
+    n = len(A)
+    # verificar cuadrada
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
+    # trabajar sobre una copia en coma flotante para no alterar la original
+    M = [list(map(float, row[:])) for row in A]
+    det_sign = 1  # guarda el signo que cambia cuando se intercambian filas
+    for i in range(n):
+        # Buscar la fila con el mayor valor absoluto en la columna i (pivote)
+        max_row = max(range(i, n), key=lambda r: abs(M[r][i]))
+        # Si el mejor pivote es (prácticamente) cero, el determinante es 0
+        if abs(M[max_row][i]) < eps:
+            return 0.0
+        # Si hay intercambio de filas, invertimos el signo del determinante
+        if max_row != i:
+            M[i], M[max_row] = M[max_row], M[i]
+            det_sign *= -1
+        pivot = M[i][i]
+        # Eliminar (poner a cero) los elementos debajo del pivote
+        for r in range(i + 1, n):
+            if abs(M[r][i]) < eps:
+                continue
+            factor = M[r][i] / pivot
+            # Restamos factor * fila_pivote a la fila r (no cambia el determinante)
+            for c in range(i, n):
+                M[r][c] -= factor * M[i][c]
+    # El determinante es el producto de la diagonal por el signo de los swaps
+    det = det_sign
+    for i in range(n):
+        det *= M[i][i]
+    return det
+
+
+def determinante_por_gauss_con_pasos(A, mostrar_pasos=True):
+    """
+    Calcula el determinante de una matriz cuadrada A usando eliminación de Gauss
+    y devuelve además los pasos del procedimiento.
+
+    Retorna:
+      {
+        "determinante": float,
+        "pasos": [ {"descripcion": str, "matriz": [[str|float]]}, ... ],
+        "mensaje": str
+      }
+
+    No modifica A.
+    """
+    eps = 1e-12
+    if A is None or len(A) == 0:
+        raise ValueError("La matriz no puede estar vacía.")
+    n = len(A)
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
+
+    # Copia en float
+    M = [list(map(float, row[:])) for row in A]
+
+    def fmt(x):
+        # entero sin decimales vs 4 decimales
+        return str(int(round(x))) if abs(x - round(x)) < 1e-10 else f"{x:.4f}"
+
+    def mat_fmt(M_):
+        return [[fmt(x) for x in fila] for fila in M_]
+
+    pasos = []
+    if mostrar_pasos:
+        pasos.append({"descripcion": "Matriz inicial", "matriz": mat_fmt(M)})
+
+    det_sign = 1
+    for i in range(n):
+        # escoger pivote por valor absoluto máximo
+        max_row = max(range(i, n), key=lambda r: abs(M[r][i]))
+        if abs(M[max_row][i]) < eps:
+            # det=0: registrar razón
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"Columna {i+1}: pivote ≈ 0 ⇒ det(A)=0",
+                    "matriz": mat_fmt(M)
+                })
+            return {"determinante": 0.0, "pasos": pasos if mostrar_pasos else [], "mensaje": "Determinante nulo (pivote cero)."}
+
+        if max_row != i:
+            M[i], M[max_row] = M[max_row], M[i]
+            det_sign *= -1
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"F{i+1} ↔ F{max_row+1} (cambia el signo del determinante)",
+                    "matriz": mat_fmt(M)
+                })
+
+        pivot = M[i][i]
+        # eliminación por debajo del pivote
+        for r in range(i + 1, n):
+            if abs(M[r][i]) < eps:
+                continue
+            factor = M[r][i] / pivot
+            for c in range(i, n):
+                M[r][c] -= factor * M[i][c]
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"F{r+1} → F{r+1} - (" + fmt(factor) + f")*F{i+1}",
+                    "matriz": mat_fmt(M)
+                })
+
+    det = det_sign
+    for i in range(n):
+        det *= M[i][i]
+
+    mensaje = "Determinante calculado por eliminación de Gauss."
+    if mostrar_pasos:
+        diag_prod = " × ".join(fmt(M[i][i]) for i in range(n))
+        signo = "-1" if det_sign < 0 else "1"
+        pasos.append({
+            "descripcion": f"Producto diagonal × signo = (" + diag_prod + f") × {signo}",
+            "matriz": mat_fmt([[M[i][i] if i==j else 0.0 for j in range(n)] for i in range(n)])
+        })
+
+    return {"determinante": det, "pasos": pasos if mostrar_pasos else [], "mensaje": mensaje}
+
+def cramer(A, b):
+    """
+    Resuelve el sistema A x = b usando la regla de Cramer.
+    - A: matriz de coeficientes (lista de listas) cuadrada n x n
+    - b: vector de resultados (lista de longitud n)
+    Devuelve la lista [x1, x2, ..., xn].
+    Lanza ValueError si no hay solución única (determinante cero) o si dimensiones no coinciden.
+    """
+    eps = 1e-12
+    if A is None or b is None:
+        raise ValueError("A y b son requeridos.")
+    n = len(A)
+    if n == 0:
+        return []
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz A debe ser cuadrada.")
+    if len(b) != n:
+        raise ValueError("El vector b debe tener la misma dimensión que A.")
+    # Determinante de la matriz de coeficientes
+    detA = determinante_por_gauss(A)
+    if abs(detA) < eps:
+        # Si es cero, no hay solución única y la regla de Cramer no aplica
+        raise ValueError("Determinante de A es cero: no existe solución única (regla de Cramer no aplicable).")
+    solucion = []
+    # Para cada variable reemplazamos la columna correspondiente por b y calculamos su determinante
+    for col in range(n):
+        Ai = [row[:] for row in A]  # copia de A
+        for i in range(n):
+            Ai[i][col] = b[i]  # sustituir la columna col por b
+        detAi = determinante_por_gauss(Ai)
+        solucion.append(detAi / detA)  # xi = det(Ai) / det(A)
+    return solucion
+
+
+def cramer_con_pasos(A, b, mostrar_pasos=True):
+    """
+    Igual que cramer(A, b), pero devuelve además los pasos intermedios usando
+    determinante_por_gauss_con_pasos.
+
+    Retorna un dict:
+      {
+        "soluciones": [x1, x2, ...],
+        "pasos": [{"descripcion": str, "matriz": [[str]]?}, ...],
+        "detA": float,
+        "mensaje": str
+      }
+    """
+    eps = 1e-12
+    if A is None or b is None:
+        raise ValueError("A y b son requeridos.")
+    n = len(A)
+    if n == 0:
+        return {"soluciones": [], "pasos": [], "detA": 1.0, "mensaje": "Sistema vacío."}
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz A debe ser cuadrada.")
+    if len(b) != n:
+        raise ValueError("El vector b debe tener la misma dimensión que A.")
+
+    pasos = []
+    # Paso inicial: mostrar A y b
+    def fmt(x):
+        return str(int(round(x))) if abs(x - round(x)) < 1e-10 else f"{x:.4f}"
+    def mat_fmt(M):
+        return [[fmt(x) for x in fila] for fila in M]
+
+    if mostrar_pasos:
+        pasos.append({"descripcion": "Matriz A (coeficientes)", "matriz": mat_fmt(A)})
+        pasos.append({"descripcion": "Vector b", "matriz": mat_fmt([[bi] for bi in b])})
+
+    # det(A) con pasos
+    detA_res = determinante_por_gauss_con_pasos(A, mostrar_pasos)
+    detA = detA_res.get("determinante", 0.0)
+    if mostrar_pasos:
+        pasos.append({"descripcion": f"Cálculo de det(A) = {fmt(detA)}"})
+        pasos.extend(detA_res.get("pasos", []))
+
+    if abs(detA) < eps:
+        # mantener el contrato de la función original: no solución única
+        raise ValueError("Determinante de A es cero: no existe solución única (regla de Cramer no aplicable).")
+
+    soluciones = []
+    for col in range(n):
+        Ai = [row[:] for row in A]
+        for i in range(n):
+            Ai[i][col] = b[i]
+        if mostrar_pasos:
+            pasos.append({"descripcion": f"Matriz A_{col+1} (columna {col+1} reemplazada por b)", "matriz": mat_fmt(Ai)})
+        detAi_res = determinante_por_gauss_con_pasos(Ai, mostrar_pasos)
+        detAi = detAi_res.get("determinante", 0.0)
+        if mostrar_pasos:
+            pasos.append({"descripcion": f"Cálculo de det(A_{col+1}) = {fmt(detAi)}"})
+            pasos.extend(detAi_res.get("pasos", []))
+            pasos.append({"descripcion": f"x{col+1} = det(A_{col+1}) / det(A) = {fmt(detAi)} / {fmt(detA)} = {fmt(detAi/detA)}"})
+        soluciones.append(detAi / detA)
+
+    return {
+        "soluciones": soluciones,
+        "pasos": pasos if mostrar_pasos else [],
+        "detA": detA,
+        "mensaje": "Solución por Cramer calculada correctamente."
+    }
