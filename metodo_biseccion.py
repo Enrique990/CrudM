@@ -247,7 +247,13 @@ def _format_number(x: Any) -> str:
         return str(x)
 
 
-def find_bracketing_interval(f: Any, x0: float = 0.0, step: float = 1.0, max_steps: int = 50) -> Dict[str, Any]:
+def find_bracketing_interval(f: Any, x0: float = 0.0, step: float = 1.0, max_steps: int = 50, samples: int = 50) -> Dict[str, Any]:
+    """Expandir alrededor de x0 y muestrear puntos internos para buscar cambio de signo.
+
+    Este enfoque es más robusto para funciones con dominios restringidos
+    (ej: ln) donde los extremos del intervalo pueden ser inválidos, pero
+    existe un cambio de signo entre puntos interiores (ej: entre 1 y 2).
+    """
     fun = _to_callable(f)
     pasos: List[Dict[str, Any]] = []
 
@@ -255,23 +261,84 @@ def find_bracketing_interval(f: Any, x0: float = 0.0, step: float = 1.0, max_ste
     b = Fraction(x0) + Fraction(step)
     current_step = Fraction(step)
 
+    # First try a set of heuristic ranges (positive-first) which helps functions
+    # like ln(x) that are undefined at/near zero.
+    candidate_ranges = [
+        (Fraction('0.1'), Fraction(1)),
+        (Fraction(1), Fraction(2)),
+        (Fraction(2), Fraction(5)),
+        (Fraction(5), Fraction(10)),
+        (Fraction(-1), Fraction(1)),
+        (Fraction(-10), Fraction(10)),
+    ]
+
+    for low, high in candidate_ranges:
+        finite_points = []
+        err_records = []
+        for j in range(samples):
+            if samples == 1:
+                xj = low
+            else:
+                xj = low + (high - low) * Fraction(j, samples - 1)
+            try:
+                yj = fun(xj)
+                finite_points.append((xj, yj))
+            except Exception as e:
+                err_records.append((xj, str(e)))
+        # check adjacent finite points
+        for k in range(len(finite_points) - 1):
+            x1, y1 = finite_points[k]
+            x2, y2 = finite_points[k + 1]
+            try:
+                if y1 * y2 < 0:
+                    pasos.append({"iter": 0, "a": _format_number(low), "b": _format_number(high), "fa": _format_number(finite_points[0][1]) if finite_points else '', "fb": _format_number(finite_points[-1][1]) if finite_points else ''})
+                    return {"interval": (x1, x2), "pasos": pasos, "mensaje": "Intervalo con cambio de signo encontrado (heurístico)."}
+            except Exception:
+                continue
+
     for i in range(max_steps):
-        try:
-            fa = fun(a)
-            fb = fun(b)
-        except Exception as e:
-            return {"interval": None, "pasos": pasos, "mensaje": f"Error evaluando f en búsqueda de intervalo: {e}"}
+        # build samples inside [a,b]
+        finite_points: List[tuple] = []  # list of (x, y) for successfully evaluated samples
+        err_records: List[tuple] = []
+        for j in range(samples):
+            # x_j = a + (b-a) * j/(samples-1)
+            if samples == 1:
+                xj = a
+            else:
+                xj = a + (b - a) * Fraction(j, samples - 1)
+            try:
+                yj = fun(xj)
+                finite_points.append((xj, yj))
+            except Exception as e:
+                err_records.append((xj, str(e)))
 
-        pasos.append({"iter": i + 1, "a": _format_number(a), "b": _format_number(b), "fa": _format_number(fa), "fb": _format_number(fb)})
+        # record a summary paso: show endpoints and first few errors if any
+        paso = {"iter": i + 1, "a": _format_number(a), "b": _format_number(b)}
+        if finite_points:
+            paso["fa"] = _format_number(finite_points[0][1])
+            paso["fb"] = _format_number(finite_points[-1][1])
+        else:
+            paso["fa"] = f"ERR:{err_records[0][1]}" if err_records else "ERR:eval"
+            paso["fb"] = f"ERR:{err_records[-1][1]}" if err_records else "ERR:eval"
+        pasos.append(paso)
 
-        if fa == 0:
-            return {"interval": (a, a), "pasos": pasos, "mensaje": f"Se encontró raíz exacta en a={_format_number(a)}"}
-        if fb == 0:
-            return {"interval": (b, b), "pasos": pasos, "mensaje": f"Se encontró raíz exacta en b={_format_number(b)}"}
+        # check for exact zero among finite points
+        for xj, yj in finite_points:
+            if yj == 0:
+                return {"interval": (xj, xj), "pasos": pasos, "mensaje": f"Se encontró raíz exacta en x={_format_number(xj)}"}
 
-        if fa * fb < 0:
-            return {"interval": (a, b), "pasos": pasos, "mensaje": "Intervalo con cambio de signo encontrado."}
+        # check adjacent finite sample pairs for sign change
+        for k in range(len(finite_points) - 1):
+            x1, y1 = finite_points[k]
+            x2, y2 = finite_points[k + 1]
+            try:
+                if y1 * y2 < 0:
+                    return {"interval": (x1, x2), "pasos": pasos, "mensaje": "Intervalo con cambio de signo encontrado."}
+            except Exception:
+                # skip problematic multiplications
+                continue
 
+        # expand and try again
         a -= current_step
         b += current_step
         current_step *= 2
@@ -468,7 +535,8 @@ class MetodoBiseccion:
         """Alias amigable que usa la función top-level `find_bracketing_interval` si está disponible."""
         try:
             if 'find_bracketing_interval' in globals():
-                return find_bracketing_interval(f, x0=x0, step=step, max_steps=max_steps)
+                # call top-level, prefer more samples for robustness
+                return find_bracketing_interval(f, x0=x0, step=step, max_steps=max_steps, samples=100)
         except Exception:
             pass
         # fallback simple: reuse find_sign_change_interval
