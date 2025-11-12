@@ -729,21 +729,53 @@ class MatrixCRUDApp:
     def _num_run(self):
         method = self.num_method_var.get()
         expr = self.num_expr_entry.get().strip()
-        try:
-            tol = MetodoBiseccion.parse_tolerance(self.num_tol_entry.get())
-        except Exception as e:
-            messagebox.showerror("Entrada inválida", f"Tolerancia inválida: {e}")
-            return
+        tol_input = self.num_tol_entry.get().strip()
         a_txt = self.num_a_entry.get().strip()
         b_txt = self.num_b_entry.get().strip()
         a = b = None
+
+        # Si faltan datos en los campos y hay una ecuación seleccionada, recuperar del almacenamiento
+        selected_data = None
+        if (not expr or not tol_input or not a_txt or not b_txt) and getattr(self, 'selected_equation', None):
+            try:
+                from persistencia import cargar_ecuacion
+                selected_data = cargar_ecuacion(self.selected_equation)
+            except Exception:
+                selected_data = None
+
+        # Determinar expresión
+        if not expr and selected_data:
+            expr = (selected_data or {}).get('expr', '')
+        if not expr:
+            messagebox.showerror('Error', 'Debes ingresar una expresión o seleccionar una ecuación de la lista.')
+            return
+
+        # Determinar tolerancia
+        tol = None
+        if tol_input:
+            try:
+                tol = MetodoBiseccion.parse_tolerance(tol_input)
+            except Exception as e:
+                messagebox.showerror('Entrada inválida', f'Tolerancia inválida: {e}')
+                return
+        elif selected_data and selected_data.get('tol') is not None:
+            tol = selected_data.get('tol')
+        else:
+            messagebox.showerror('Entrada inválida', 'Debes ingresar una tolerancia o seleccionar una ecuación con tolerancia guardada.')
+            return
+
+        # Determinar a y b usando prioridad: campos -> seleccionada -> auto-intervalo
         try:
             if a_txt:
                 a = self._num_parse_number_str(a_txt)
+            elif selected_data and selected_data.get('a') is not None:
+                a = float(selected_data.get('a'))
             if b_txt:
                 b = self._num_parse_number_str(b_txt)
+            elif selected_data and selected_data.get('b') is not None:
+                b = float(selected_data.get('b'))
         except Exception as e:
-            messagebox.showerror("Entrada inválida", f"Error con los extremos: {e}")
+            messagebox.showerror('Entrada inválida', f'Error con los extremos: {e}')
             return
 
         if a is None or b is None:
@@ -776,19 +808,20 @@ class MatrixCRUDApp:
             messagebox.showerror('Error', f"Error durante bisección: {e}")
             return
 
-        # Guardar resultado y resetear modo
+        # Guardar resultado y resetear modo (no modificar entradas)
         self.num_state['last_result'] = res
         self.num_state['decimal_mode'] = False
         self.num_toggle_btn.config(text='Mostrar decimales')
         # Render principal en sección Resultado
         self._num_render_result(res, as_decimal=False)
-        # Mostrar datos de la ecuación y procedimiento (pasos) explícitamente si existe widget
+        # Mostrar detalles solo en la sección "Datos de la ecuación"
         if hasattr(self, 'num_eq_data_text'):
             self.num_eq_data_text.delete(1.0, tk.END)
             self.num_eq_data_text.insert(tk.END, f"Ejecutado método: {method}\n")
             self.num_eq_data_text.insert(tk.END, f"f(x): {expr}\n")
-            self.num_eq_data_text.insert(tk.END, f"a: {a}\n")
-            self.num_eq_data_text.insert(tk.END, f"b: {b}\n")
+            if a is not None and b is not None:
+                self.num_eq_data_text.insert(tk.END, f"a: {a}\n")
+                self.num_eq_data_text.insert(tk.END, f"b: {b}\n")
             self.num_eq_data_text.insert(tk.END, f"tolerancia: {tol}\n")
             sol = (res or {}).get('solucion')
             if sol:
@@ -802,42 +835,16 @@ class MatrixCRUDApp:
         sel = self.eq_listbox.curselection()
         if not sel:
             return
-        name = self.eq_listbox.get(sel[0])
-        self.selected_equation = name
-        # Al seleccionar, precargar los campos para que "Resolver" funcione sin necesidad de presionar "Modificar"
-        try:
-            from persistencia import cargar_ecuacion
-            data = cargar_ecuacion(name) or {}
-            # Prellenar sin entrar en modo edición
-            if hasattr(self, 'num_name_entry'):
-                self.num_name_entry.delete(0, 'end'); self.num_name_entry.insert(0, name)
-            if hasattr(self, 'num_method_var'):
-                self.num_method_var.set(data.get('metodo', 'Bisección'))
-            if hasattr(self, 'num_expr_entry'):
-                self.num_expr_entry.delete(0, 'end'); self.num_expr_entry.insert(0, data.get('expr', ''))
-            if hasattr(self, 'num_a_entry'):
-                self.num_a_entry.delete(0, 'end')
-                if data.get('a') is not None:
-                    self.num_a_entry.insert(0, str(data.get('a')))
-            if hasattr(self, 'num_b_entry'):
-                self.num_b_entry.delete(0, 'end')
-                if data.get('b') is not None:
-                    self.num_b_entry.insert(0, str(data.get('b')))
-            if hasattr(self, 'num_tol_entry'):
-                self.num_tol_entry.delete(0, 'end')
-                if data.get('tol') is not None:
-                    self.num_tol_entry.insert(0, str(data.get('tol')))
-            # Limpiar modo edición previo y botón temporal si existiera
-            self._num_editing_name = None
-            if hasattr(self, '_num_update_temp_btn') and self._num_update_temp_btn:
-                try:
-                    self._num_update_temp_btn.destroy()
-                except Exception:
-                    pass
-                self._num_update_temp_btn = None
-        except Exception:
-            # Si algo falla, no bloquear la selección
-            pass
+        # Solo guardar el nombre seleccionado; no rellenar campos de entrada
+        self.selected_equation = self.eq_listbox.get(sel[0])
+        # Salir de modo edición si estuviera activo (y quitar botón temporal)
+        self._num_editing_name = None
+        if hasattr(self, '_num_update_temp_btn') and self._num_update_temp_btn:
+            try:
+                self._num_update_temp_btn.destroy()
+            except Exception:
+                pass
+            self._num_update_temp_btn = None
 
     def update_equation_list(self):
         if not hasattr(self, 'eq_listbox'):
