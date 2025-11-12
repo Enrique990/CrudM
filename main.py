@@ -172,6 +172,32 @@ class MatrixCRUDApp:
     def _on_mousewheel_ops(self, event):
         self.ops_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
+    # Soporte de scroll con la rueda para la pestaña Métodos numéricos (zona izquierda scrolleable)
+    def _bound_to_mousewheel_num(self, event):
+        try:
+            self.num_canvas.bind_all("<MouseWheel>", self._on_mousewheel_num)
+        except Exception:
+            pass
+
+    def _unbound_to_mousewheel_num(self, event):
+        try:
+            self.num_canvas.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
+
+    def _on_mousewheel_num(self, event):
+        try:
+            self.num_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        except Exception:
+            pass
+
+    # Scroll con la rueda sobre el Treeview de procedimiento (panel derecho)
+    def _on_mousewheel_num_tree(self, event):
+        try:
+            self.num_tree.yview_scroll(int(-1*(event.delta/120)), 'units')
+        except Exception:
+            pass
+
     def _apply_initial_listbox_size(self):
         """Establece una vez un tamaño fijo para ambos listboxes (matrices y conjuntos de vectores)
         para que luzcan iguales pero sin quedar vinculados entre sí."""
@@ -285,7 +311,7 @@ class MatrixCRUDApp:
         # Guardar referencia para sincronizar tamaño con el listbox de vectores
         self.matrix_list_frame = matrix_list_frame
         matrix_list_frame.grid_propagate(False)
-        matrix_list_frame.configure(width=260, height=705)
+        matrix_list_frame.configure(width=260, height=690)
 
         self.matrix_listbox = tk.Listbox(matrix_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_listbox.grid(row=0, column=0, sticky="nsew")
@@ -426,7 +452,7 @@ class MatrixCRUDApp:
         # Contenedor con scrollbar para la lista de conjuntos de vectores
         vector_list_frame = ttk.Frame(self.vec_left_panel, style='Dark.TFrame')
         vector_list_frame.grid_propagate(False)
-        vector_list_frame.configure(width=260, height=705)
+        vector_list_frame.configure(width=260, height=690)
         vector_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10), padx=(20,0))  # <-- Coordenadas/Tamaño lista (Vectores)
         vector_list_frame.grid_columnconfigure(0, weight=1)
         vector_list_frame.grid_rowconfigure(0, weight=1)
@@ -492,6 +518,9 @@ class MatrixCRUDApp:
         self.num_scrollable_frame.bind(
             "<Configure>", lambda e: self.num_canvas.configure(scrollregion=self.num_canvas.bbox("all"))
         )
+        # Habilitar scroll con la rueda del ratón para toda la zona scrolleable
+        self.num_scrollable_frame.bind("<Enter>", self._bound_to_mousewheel_num)
+        self.num_scrollable_frame.bind("<Leave>", self._unbound_to_mousewheel_num)
         self.num_canvas_window = self.num_canvas.create_window((0, 0), window=self.num_scrollable_frame, anchor="nw")
         self.num_canvas.bind("<Configure>", lambda e: self.num_canvas.itemconfig(self.num_canvas_window, width=e.width))
         self.num_canvas.configure(yscrollcommand=num_scrollbar.set)
@@ -522,6 +551,9 @@ class MatrixCRUDApp:
         num_steps_scrollbar = ttk.Scrollbar(num_steps_container, orient=tk.VERTICAL, command=self.num_tree.yview)
         num_steps_scrollbar.grid(row=0, column=1, sticky='ns')
         self.num_tree.configure(yscrollcommand=num_steps_scrollbar.set)
+        # Habilitar scroll con rueda sobre el Treeview
+        self.num_tree.bind("<Enter>", lambda e: self.num_tree.bind_all("<MouseWheel>", self._on_mousewheel_num_tree))
+        self.num_tree.bind("<Leave>", lambda e: self.num_tree.unbind_all("<MouseWheel>"))
 
         # Wrapper centrado similar a otras pestañas
         self.num_center_wrapper = ttk.Frame(self.num_scrollable_frame, style='Dark.TFrame')
@@ -542,15 +574,27 @@ class MatrixCRUDApp:
         eq_list_frame = ttk.Frame(self.num_left_panel, style='Dark.TFrame')
         eq_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10), padx=(20,0))
         eq_list_frame.grid_propagate(False)
-        eq_list_frame.configure(width=260, height=705)
+        eq_list_frame.configure(width=260, height=690)
         eq_list_frame.grid_columnconfigure(0, weight=1)
         eq_list_frame.grid_rowconfigure(0, weight=1)
         self.eq_list_frame = eq_list_frame
-        self.eq_listbox = tk.Listbox(eq_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.eq_listbox = tk.Listbox(
+            eq_list_frame,
+            height=6,
+            font=('Segoe UI', 11),
+            bg="#393e46",
+            fg="#e0e0e0",
+            selectbackground="#00adb5",
+            selectforeground="#23272e",
+            borderwidth=0,
+            highlightthickness=0,
+            exportselection=0
+        )
         self.eq_listbox.grid(row=0, column=0, sticky='nsew')
-        eq_scrollbar = ttk.Scrollbar(eq_list_frame, orient=tk.VERTICAL, command=self.eq_listbox.yview)
-        eq_scrollbar.grid(row=0, column=1, sticky='ns')
-        self.eq_listbox.configure(yscrollcommand=eq_scrollbar.set)
+        # Solo scrollbar vertical al lado (como en otras pestañas)
+        eq_vscroll = ttk.Scrollbar(eq_list_frame, orient=tk.VERTICAL, command=self.eq_listbox.yview)
+        eq_vscroll.grid(row=0, column=1, sticky='ns')
+        self.eq_listbox.configure(yscrollcommand=eq_vscroll.set)
         self.eq_listbox.bind('<<ListboxSelect>>', self._on_equation_select)
 
         container = self.num_content_container
@@ -618,40 +662,45 @@ class MatrixCRUDApp:
 
         # Sección de Datos de la ecuación justo encima de Resultado
         eqdata_container = ttk.Frame(container, style='Dark.TFrame')
-        eqdata_container.grid(row=8, column=0, columnspan=4, sticky='nsew', pady=(10,0))
-        eqdata_container.grid_rowconfigure(1, weight=1)
+        # Margen más pequeño como en Independencia de Vectores
+        # Importante: no expandir verticalmente esta sección para evitar huecos vacíos
+        eqdata_container.grid(row=8, column=0, columnspan=4, sticky='ew', pady=(4,0))
+        # No configurar weight en la fila para que no se estire en Y
         eqdata_container.grid_columnconfigure(0, weight=1)
         ttk.Label(eqdata_container, text="Datos de la ecuación", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
         eqdata_frame = ttk.Frame(eqdata_container)
-        eqdata_frame.grid(row=1, column=0, sticky='nsew')
-        eqdata_frame.grid_rowconfigure(0, weight=1)
+        # No usar 'nsew' ni weight vertical para evitar que crezca sin contenido
+        eqdata_frame.grid(row=1, column=0, sticky='ew')
         eqdata_frame.grid_columnconfigure(0, weight=1)
-        self.num_eq_data_text = tk.Text(eqdata_frame, height=8, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        # Text sin barra lateral; altura mínima y autoajuste por contenido
+        self.num_eq_data_text = tk.Text(eqdata_frame, height=1, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
         self.num_eq_data_text.grid(row=0, column=0, sticky='nsew')
-        eqdata_scrollbar = ttk.Scrollbar(eqdata_frame, orient=tk.VERTICAL, command=self.num_eq_data_text.yview)
-        eqdata_scrollbar.grid(row=0, column=1, sticky='ns')
-        self.num_eq_data_text.configure(yscrollcommand=eqdata_scrollbar.set)
+        # Inicializar en altura mínima
+        try:
+            self._num_eqdata_autosize(min_lines=1, max_lines=8)
+        except Exception:
+            pass
 
         # Resultado (igual estilo que otras pestañas)
         result_container = ttk.Frame(container, style='Dark.TFrame')
+        # Mantener mismo margen vertical superior que en "Datos del conjunto" de la pestaña de Vectores
         result_container.grid(row=9, column=0, columnspan=4, sticky='nsew', pady=(10,0))
         result_container.grid_rowconfigure(1, weight=1)
         result_container.grid_columnconfigure(0, weight=1)
         ttk.Label(result_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
-        solution_frame = ttk.Frame(result_container)
-        solution_frame.grid(row=1, column=0, sticky='nsew')
-        solution_frame.grid_rowconfigure(0, weight=1)
-        solution_frame.grid_columnconfigure(0, weight=1)
-        self.num_result_text = tk.Text(solution_frame, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        # Mismo patrón que en las otras pestañas: frame local + Text + Scrollbar
+        solution_frame_num = ttk.Frame(result_container)
+        solution_frame_num.grid(row=1, column=0, sticky='nsew')
+        solution_frame_num.grid_rowconfigure(0, weight=1)
+        solution_frame_num.grid_columnconfigure(0, weight=1)
+        self.num_result_text = tk.Text(solution_frame_num, height=11, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.num_result_text.grid(row=0, column=0, sticky='nsew')
-        result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.num_result_text.yview)
-        result_scrollbar.grid(row=0, column=1, sticky='ns')
-        self.num_result_text.configure(yscrollcommand=result_scrollbar.set)
 
         # Estado de modificación
         self._num_editing_name = None
         # Cargar lista inicial
         self.update_equation_list()
+        # (Se quita la sincronización especial de alturas para usar mismos parámetros que otras pestañas)
 
     # ---------- Helpers de la pestaña numérica ----------
     def _num_parse_number_str(self, s: str) -> float:
@@ -725,6 +774,50 @@ class MatrixCRUDApp:
                 fc_v = self._num_fmt_dec(self._num_to_float_from_str(fc_v)) if fc_v is not None else ''
                 err_v = self._num_fmt_dec(self._num_to_float_from_str(err_v)) if err_v is not None else ''
             self.num_tree.insert('', 'end', values=(paso.get('iter'), a_v, b_v, c_v, fa_v, fb_v, fc_v, err_v))
+
+    def _num_eqdata_autosize(self, min_lines: int = 1, max_lines: int = 8):
+        """Ajusta la altura del Text de 'Datos de la ecuación' al contenido.
+        - min_lines: altura mínima cuando está vacío o con poco contenido.
+        - max_lines: tope para evitar que empuje al resto del layout.
+        """
+        try:
+            if not hasattr(self, 'num_eq_data_text'):
+                return
+            txt = self.num_eq_data_text
+            content = txt.get("1.0", "end-1c")
+            lines = (content.count("\n") + 1) if content else 1
+            lines = max(min_lines, min(lines, max_lines))
+            txt.configure(height=lines)
+        except Exception:
+            pass
+
+    def _num_sync_result_height(self, attempt: int = 0):
+        """Ajusta la altura del frame de resultado de Métodos numéricos
+        para que coincida con la altura visible del resultado en la pestaña
+        de Independencia de Vectores. Reintenta algunas veces hasta que
+        ambos widgets tengan tamaños calculados.
+        """
+        try:
+            if not hasattr(self, 'num_solution_frame') or not hasattr(self, 'independence_result_text'):
+                return
+            self.root.update_idletasks()
+            target_h = self.independence_result_text.winfo_height()
+            if target_h <= 1 and attempt < 10:
+                # Aún no hay layout definitivo; reintentar
+                self.root.after(200, lambda: self._num_sync_result_height(attempt+1))
+                return
+            if target_h > 1:
+                try:
+                    self.num_solution_frame.grid_propagate(False)
+                except Exception:
+                    pass
+                try:
+                    self.num_solution_frame.configure(height=target_h)
+                except Exception:
+                    pass
+        except Exception:
+            # Silenciar para no romper la UI
+            pass
 
     def _num_run(self):
         method = self.num_method_var.get()
@@ -814,21 +907,14 @@ class MatrixCRUDApp:
         self.num_toggle_btn.config(text='Mostrar decimales')
         # Render principal en sección Resultado
         self._num_render_result(res, as_decimal=False)
-        # Mostrar detalles solo en la sección "Datos de la ecuación"
+        # Mantener limpia la sección de datos al resolver
         if hasattr(self, 'num_eq_data_text'):
-            self.num_eq_data_text.delete(1.0, tk.END)
-            self.num_eq_data_text.insert(tk.END, f"Ejecutado método: {method}\n")
-            self.num_eq_data_text.insert(tk.END, f"f(x): {expr}\n")
-            if a is not None and b is not None:
-                self.num_eq_data_text.insert(tk.END, f"a: {a}\n")
-                self.num_eq_data_text.insert(tk.END, f"b: {b}\n")
-            self.num_eq_data_text.insert(tk.END, f"tolerancia: {tol}\n")
-            sol = (res or {}).get('solucion')
-            if sol:
-                self.num_eq_data_text.insert(tk.END, f"Raíz: {sol.get('root')} | iteraciones: {sol.get('iteraciones')}\n")
-            mensaje = (res or {}).get('mensaje')
-            if mensaje:
-                self.num_eq_data_text.insert(tk.END, f"Mensaje: {mensaje}\n")
+            try:
+                self.num_eq_data_text.delete(1.0, tk.END)
+                # Volver a altura mínima para que no quede espacio vacío
+                self.num_eq_data_text.configure(height=1)
+            except Exception:
+                pass
 
     # ---------- CRUD Ecuaciones ----------
     def _on_equation_select(self, event):
@@ -916,6 +1002,11 @@ class MatrixCRUDApp:
             self.num_eq_data_text.insert(tk.END, f"a: {data.get('a')}\n")
             self.num_eq_data_text.insert(tk.END, f"b: {data.get('b')}\n")
             self.num_eq_data_text.insert(tk.END, f"tolerancia: {data.get('tol')}\n")
+            # Ajustar altura al contenido mostrado
+            try:
+                self._num_eqdata_autosize(min_lines=1, max_lines=8)
+            except Exception:
+                pass
         else:
             # Fallback por si no se creó el widget
             self.num_result_text.delete(1.0, tk.END)
@@ -1141,7 +1232,7 @@ class MatrixCRUDApp:
             .grid(row=0, column=0, sticky='nw', pady=(12,5), padx=(20,0))  # <-- Coordenadas etiqueta (Operadores)
         ops_list_frame = ttk.Frame(self.ops_left_panel, style='Dark.TFrame')
         ops_list_frame.grid_propagate(False)
-        ops_list_frame.configure(width=260, height=705)
+        ops_list_frame.configure(width=260, height=690)
         ops_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10), padx=(20,0))  # <-- Coordenadas/Tamaño lista (Operadores)
         ops_list_frame.grid_columnconfigure(0, weight=1)
         ops_list_frame.grid_rowconfigure(0, weight=1)
