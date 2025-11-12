@@ -800,8 +800,44 @@ class MatrixCRUDApp:
     # ---------- CRUD Ecuaciones ----------
     def _on_equation_select(self, event):
         sel = self.eq_listbox.curselection()
-        if sel:
-            self.selected_equation = self.eq_listbox.get(sel[0])
+        if not sel:
+            return
+        name = self.eq_listbox.get(sel[0])
+        self.selected_equation = name
+        # Al seleccionar, precargar los campos para que "Resolver" funcione sin necesidad de presionar "Modificar"
+        try:
+            from persistencia import cargar_ecuacion
+            data = cargar_ecuacion(name) or {}
+            # Prellenar sin entrar en modo edición
+            if hasattr(self, 'num_name_entry'):
+                self.num_name_entry.delete(0, 'end'); self.num_name_entry.insert(0, name)
+            if hasattr(self, 'num_method_var'):
+                self.num_method_var.set(data.get('metodo', 'Bisección'))
+            if hasattr(self, 'num_expr_entry'):
+                self.num_expr_entry.delete(0, 'end'); self.num_expr_entry.insert(0, data.get('expr', ''))
+            if hasattr(self, 'num_a_entry'):
+                self.num_a_entry.delete(0, 'end')
+                if data.get('a') is not None:
+                    self.num_a_entry.insert(0, str(data.get('a')))
+            if hasattr(self, 'num_b_entry'):
+                self.num_b_entry.delete(0, 'end')
+                if data.get('b') is not None:
+                    self.num_b_entry.insert(0, str(data.get('b')))
+            if hasattr(self, 'num_tol_entry'):
+                self.num_tol_entry.delete(0, 'end')
+                if data.get('tol') is not None:
+                    self.num_tol_entry.insert(0, str(data.get('tol')))
+            # Limpiar modo edición previo y botón temporal si existiera
+            self._num_editing_name = None
+            if hasattr(self, '_num_update_temp_btn') and self._num_update_temp_btn:
+                try:
+                    self._num_update_temp_btn.destroy()
+                except Exception:
+                    pass
+                self._num_update_temp_btn = None
+        except Exception:
+            # Si algo falla, no bloquear la selección
+            pass
 
     def update_equation_list(self):
         if not hasattr(self, 'eq_listbox'):
