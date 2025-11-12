@@ -1,132 +1,13 @@
-"""Restauración: versión original basada en sympy/numpy/pandas.
+"""Combina una implementación Fraction-aware del método de bisección con
+una capa de compatibilidad orientada a GUI.
 
-Este archivo restaura la versión previa (backup) solicitada por el usuario.
-Provee la clase MetodoBiseccion con métodos:
- - parse_expression
- - parse_tolerance
- - find_sign_change_interval
- - biseccion
-
-La implementación usa sympy para parseo simbólico y lambdify con numpy
-para evaluaciones numéricas. Devuelve las iteraciones como lista de dicts
-para que la UI pueda convertirlo a DataFrame si lo desea.
+Este archivo expone funciones top-level `find_bracketing_interval` y
+`bisection` (implementaciones que usan Fraction para mayor exactitud),
+y la clase `MetodoBiseccion` al final del archivo como wrapper amigable
+para las interfaces (parse_expression, plot_data, biseccion_dict, ...).
 """
 
-import sympy as sp
-import numpy as np
-import pandas as pd
-from typing import Callable, Optional, Tuple, List, Dict
 
-class MetodoBiseccion:
-	def __init__(self, max_iter: int = 100):
-		self.max_iter = max_iter
-
-	# -------------------
-	# Parsing / utilidades
-	# -------------------
-	@staticmethod
-	def _normalize_expr(expr_str: str) -> str:
-		if '=' in expr_str:
-			left, right = expr_str.split('=', 1)
-			expr_str = f"({left}) - ({right})"
-		return expr_str.replace('^', '**')
-
-	@staticmethod
-	def parse_expression(expr_str: str):
-		txt = MetodoBiseccion._normalize_expr(expr_str)
-		x = sp.Symbol('x')
-		try:
-			sym_f = sp.sympify(txt)
-		except Exception as e:
-			raise ValueError(f"Expresión inválida: {e}")
-		try:
-			f_num = sp.lambdify(x, sym_f, modules=['numpy'])
-		except Exception as e:
-			raise ValueError(f"No se pudo crear función numérica: {e}")
-		return sym_f, f_num
-
-	@staticmethod
-	def parse_tolerance(tol_str: str) -> float:
-		s = tol_str.strip().lower().replace('×', 'x')
-		if 'e' in s and not s.startswith('10'):
-			return float(s)
-		if '10^' in s:
-			base, exp = s.split('10^', 1)
-			return float(base or 1) * 10 ** float(exp)
-		if '10-' in s:
-			base, exp = s.split('10-', 1)
-			return float(base or 1) * 10 ** (-float(exp))
-		if 'x10^' in s:
-			base, exp = s.split('x10^', 1)
-			return float(base or 1) * 10 ** float(exp)
-		return float(s)
-
-	# -------------------
-	# Búsqueda de intervalo
-	# -------------------
-	def find_sign_change_interval(self, expr_str: str, ranges=None, samples: int = 400) -> Optional[Tuple[float, float]]:
-		if ranges is None:
-			ranges = [(-1, 1), (-10, 10), (-100, 100), (-1000, 1000)]
-		sym_f, f_num = None, None
-		try:
-			sym_f, f_num = self.parse_expression(expr_str)
-		except Exception:
-			return None
-		for low, high in ranges:
-			xs = np.linspace(low, high, samples)
-			try:
-				ys = np.array(f_num(xs), dtype=float)
-			except Exception:
-				continue
-			finite = np.isfinite(ys)
-			for i in range(len(xs)-1):
-				if not (finite[i] and finite[i+1]):
-					continue
-				yi, yj = ys[i], ys[i+1]
-				if yi == 0:
-					return float(xs[i]), float(xs[i])
-				if yi * yj < 0:
-					return float(xs[i]), float(xs[i+1])
-		return None
-
-	# -------------------
-	# Método de bisección
-	# -------------------
-	def biseccion(self, expr_or_callable, a: float, b: float, tol: float):
-		# expr_or_callable puede ser cadena o callable
-		if isinstance(expr_or_callable, str):
-			_, f = self.parse_expression(expr_or_callable)
-		elif callable(expr_or_callable):
-			f = expr_or_callable
-		else:
-			raise ValueError("expr_or_callable debe ser una cadena o una función callable")
-
-		# evaluar extremos
-		fa = float(f(a))
-		fb = float(f(b))
-		if not np.isfinite(fa) or not np.isfinite(fb):
-			raise ValueError("f(a) o f(b) no es finito")
-		if fa * fb > 0:
-			raise ValueError("f(a) y f(b) deben tener signos opuestos")
-
-		rows: List[Dict] = []
-		for i in range(self.max_iter):
-			c = (a + b) / 2.0
-			fc = float(f(c))
-			prod = fa * fc
-			rows.append({'Iteración': i, 'a': a, 'b': b, 'c': c, 'f(a)': fa, 'f(b)': fb, 'f(c)': fc, 'f(a)*f(c)': prod})
-			if abs(fc) < tol or abs(b - a) / 2.0 < tol:
-				break
-			if prod < 0:
-				b = c
-				fb = fc
-			else:
-				a = c
-				fa = fc
-		raiz = (a + b) / 2.0
-		error = abs(fc)
-		# devuelve lista de dicts (UI puede convertir a DataFrame)
-		return rows, raiz, error
 """Implementación Fraction-aware del método de bisección.
 
 Reemplaza la versión previa basada en sympy/numpy/pandas. Esta implementación
@@ -419,6 +300,47 @@ class MetodoBiseccion:
     """
     def __init__(self, max_iter: int = 100):
         self.max_iter = max_iter
+
+    def parse_expression(self, expr_str: str):
+        """Parsea una expresión en cadena y devuelve (sympy_expr, numpy_callable).
+
+        Útil para la interfaz de graficado que espera un callable vectorizable.
+        """
+        txt = expr_str.replace('^', '**')
+        x = sp.Symbol('x')
+        try:
+            sym_f = sp.sympify(txt)
+        except Exception as e:
+            raise ValueError(f"Expresión inválida: {e}")
+        try:
+            f_num = sp.lambdify(x, sym_f, modules=['numpy'])
+        except Exception as e:
+            raise ValueError(f"No se pudo crear función numérica: {e}")
+        return sym_f, f_num
+
+    def plot_data(self, expr_or_callable, a: float, b: float, n: int = 400):
+        """Devuelve (xs, ys) para graficar la función en [a,b].
+
+        - Si `expr_or_callable` es cadena, se parsea con `parse_expression`.
+        - Crea arrays numpy y sustituye evaluaciones inválidas por np.nan.
+        """
+        if isinstance(expr_or_callable, str):
+            _, f = self.parse_expression(expr_or_callable)
+        elif callable(expr_or_callable):
+            f = expr_or_callable
+        else:
+            raise ValueError('expr_or_callable debe ser cadena o callable')
+
+        xs = np.linspace(a, b, n)
+        ys = np.empty_like(xs, dtype=float)
+        for i, xv in enumerate(xs):
+            try:
+                yv = f(xv)
+                # ensure scalar float
+                ys[i] = float(yv)
+            except Exception:
+                ys[i] = np.nan
+        return xs, ys
 
     @staticmethod
     def parse_tolerance(tol_str: str) -> float:
