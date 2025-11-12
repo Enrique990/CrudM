@@ -68,6 +68,13 @@ class MatrixCRUDApp:
 
         # Estado para la pestaña de métodos numéricos
         self.mb_num = MetodoBiseccion(max_iter=100)
+        # Intentar cargar el solver de Falsa Posición (requiere sympy y numpy)
+        self.mb_fp = None
+        try:
+            from metodo_falsa_posicion import FalsePositionSolver as _FPS
+            self.mb_fp = _FPS(max_iter=100)
+        except Exception:
+            self.mb_fp = None
         self.num_state = {'last_result': None, 'decimal_mode': False}
 
         self.selected_matrix = None
@@ -610,7 +617,7 @@ class MatrixCRUDApp:
         self.num_name_entry.grid(row=1, column=1, sticky='w', padx=(0,20))
         ttk.Label(container, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
         self.num_method_var = tk.StringVar(value="Bisección")
-        self.num_method_combobox = ttk.Combobox(container, textvariable=self.num_method_var, values=["Bisección"], state="readonly", width=16)
+        self.num_method_combobox = ttk.Combobox(container, textvariable=self.num_method_var, values=["Bisección", "Falsa Posición"], state="readonly", width=16)
         self.num_method_combobox.grid(row=1, column=3, sticky='w')
 
     # Fila 2: Expresión
@@ -657,6 +664,9 @@ class MatrixCRUDApp:
         eq_toggle_buttons.pack(anchor='center')
         # Guardamos referencia para poder colocar el botón de "Actualizar ecuación" a su derecha cuando se modifique
         self.eq_toggle_buttons = eq_toggle_buttons
+        # Botón de gráfica (al lado izquierdo de "Mostrar decimales")
+        self.num_plot_btn = ttk.Button(eq_toggle_buttons, text="Gráfica", command=self._num_plot_function, style='Dark.TButton')
+        self.num_plot_btn.pack(side=tk.LEFT, padx=5)
         self.num_toggle_btn = ttk.Button(eq_toggle_buttons, text="Mostrar decimales", command=self._num_toggle_decimal, style='Dark.TButton')
         self.num_toggle_btn.pack(side=tk.LEFT, padx=5)
 
@@ -894,11 +904,37 @@ class MatrixCRUDApp:
         try:
             if method == 'Bisección':
                 res = self.mb_num.biseccion_dict(expr, a, b, tol, max_iter=self.mb_num.max_iter, mostrar_pasos=True)
+            elif method == 'Falsa Posición':
+                if self.mb_fp is None:
+                    messagebox.showinfo('Dependencia faltante', 'El método Falsa Posición requiere sympy y numpy.\nInstálalos e inténtalo de nuevo.')
+                    return
+                # Adaptar a formato común { 'solucion': {...}, 'pasos': [...] }
+                rows, result = self.mb_fp.solve(expr, a, b, tol)
+                pasos = []
+                for r in rows:
+                    pasos.append({
+                        'iter': r.get('Iteración'),
+                        'a': r.get('a'),
+                        'b': r.get('b'),
+                        'c': r.get('c'),
+                        'fa': r.get('f(a)'),
+                        'fb': r.get('f(b)'),
+                        'fc': r.get('f(c)'),
+                        'error': r.get('error')
+                    })
+                res = {
+                    'solucion': {
+                        'root': result.get('root'),
+                        'iteraciones': result.get('iterations')
+                    },
+                    'pasos': pasos,
+                    'mensaje': None
+                }
             else:
                 messagebox.showerror('Método no soportado', method)
                 return
         except Exception as e:
-            messagebox.showerror('Error', f"Error durante bisección: {e}")
+            messagebox.showerror('Error', f"Error durante {method}: {e}")
             return
 
         # Guardar resultado y resetear modo (no modificar entradas)
@@ -915,6 +951,109 @@ class MatrixCRUDApp:
                 self.num_eq_data_text.configure(height=1)
             except Exception:
                 pass
+
+    def _num_plot_function(self):
+        """Abre una ventana con el gráfico de f(x) para la ecuación actual.
+        Usa [a,b] si está disponible; intenta detectar intervalo si no.
+        """
+        # Resolver expresión: de la entrada o de la ecuación seleccionada
+        expr = self.num_expr_entry.get().strip()
+        selected_data = None
+        if (not expr) and getattr(self, 'selected_equation', None):
+            try:
+                from persistencia import cargar_ecuacion
+                selected_data = cargar_ecuacion(self.selected_equation)
+            except Exception:
+                selected_data = None
+            if selected_data:
+                expr = (selected_data or {}).get('expr', '')
+        if not expr:
+            messagebox.showwarning('Falta expresión', 'Ingresa una expresión f(x) o selecciona una ecuación.')
+            return
+
+        # Determinar a y b si existen
+        a_txt = self.num_a_entry.get().strip()
+        b_txt = self.num_b_entry.get().strip()
+        a = b = None
+        try:
+            if a_txt:
+                a = self._num_parse_number_str(a_txt)
+            elif selected_data and selected_data.get('a') is not None:
+                a = float(selected_data.get('a'))
+            if b_txt:
+                b = self._num_parse_number_str(b_txt)
+            elif selected_data and selected_data.get('b') is not None:
+                b = float(selected_data.get('b'))
+        except Exception:
+            a = b = None
+
+        # Preparar función numérica usando el parser del solver de Falsa Posición
+        # Construir función numérica: preferir parser del solver; si no, fallback con math/numexpr
+        try:
+            from metodo_falsa_posicion import FalsePositionSolver as _FPS
+            _, fnum = _FPS.parse_expression(expr)
+        except Exception:
+            # Fallback: eval con math en entorno controlado
+            import math
+            allowed = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
+            allowed.update({'pi': math.pi, 'e': math.e})
+            def fnum(x):
+                return eval(expr.replace('^','**'), {'__builtins__': {}}, {**allowed, 'x': x})
+
+        # Intervalo: usar [a,b] si válido; si no, intentar detectar uno; si falla, usar [-10,10]
+        if a is None or b is None:
+            try:
+                interval = self.mb_fp.find_sign_change_interval(expr)
+            except Exception:
+                interval = None
+            if interval is not None:
+                a, b = interval
+        if a is None or b is None or a == b:
+            a, b = -10.0, 10.0
+        if a > b:
+            a, b = b, a
+
+        # Intentar importar matplotlib y embeber en Toplevel
+        try:
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        except Exception:
+            messagebox.showinfo('Dependencia faltante', 'Para mostrar la gráfica necesitas instalar matplotlib.\nSugerencia: pip install matplotlib')
+            return
+
+        import numpy as np
+        xs = np.linspace(a, b, 600)
+        ys = []
+        for x in xs:
+            try:
+                y = float(fnum(x))
+            except Exception:
+                y = np.nan
+            ys.append(y)
+        ys = np.array(ys, dtype=float)
+
+        win = tk.Toplevel(self.root)
+        win.title('Gráfica de f(x)')
+        win.configure(bg="#23272e")
+        try:
+            win.geometry('820x520')
+        except Exception:
+            pass
+
+        fig = Figure(figsize=(7.6, 4.6), dpi=100)
+        ax = fig.add_subplot(111)
+        ax.plot(xs, ys, color='#00adb5', linewidth=2)
+        ax.axhline(0, color='#888888', linewidth=1)
+        ax.axvline(0, color='#888888', linewidth=1)
+        ax.grid(True, linestyle='--', alpha=0.3)
+        ax.set_xlabel('x')
+        ax.set_ylabel('f(x)')
+        ax.set_title('f(x) = ' + expr)
+        fig.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=win)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     # ---------- CRUD Ecuaciones ----------
     def _on_equation_select(self, event):
