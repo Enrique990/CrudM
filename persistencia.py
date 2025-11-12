@@ -4,6 +4,7 @@ import os
 ARCHIVO_MATRICES = "matriz.json"
 ARCHIVO_VECTORES = "vectores.json"
 ARCHIVO_CONJUNTOS_MATRICES = "conjuntos_matrices.json"
+ARCHIVO_ECUACIONES = "ecuaciones.json"
 
 def _cargar_todos(archivo):
     if not os.path.exists(archivo):
@@ -31,6 +32,10 @@ def guardar_todas_matrices(matrices_data):
 # Refactorización: helper para guardar todos los conjuntos de vectores
 def guardar_todos_vectores(vectores_data):
     return _guardar_todos(vectores_data, ARCHIVO_VECTORES)
+
+# Refactorización: helper para guardar todas las ecuaciones
+def guardar_todas_ecuaciones(ecuaciones_data):
+    return _guardar_todos(ecuaciones_data, ARCHIVO_ECUACIONES)
 
 # --- Funciones para Matrices ---
 
@@ -117,3 +122,31 @@ def eliminar_conjunto_matrices(nombre):
         return False
     del todos[nombre]
     return _guardar_todos(todos, ARCHIVO_CONJUNTOS_MATRICES)
+
+# --- Funciones para Ecuaciones (Métodos numéricos) ---
+
+def cargar_todas_ecuaciones():
+    return _cargar_todos(ARCHIVO_ECUACIONES)
+
+def guardar_ecuacion(nombre, ecuacion_data):
+    todas = cargar_todas_ecuaciones()
+    todas[nombre] = ecuacion_data
+    return guardar_todas_ecuaciones(todas)
+
+def actualizar_ecuacion(nombre, ecuacion_data):
+    todas = cargar_todas_ecuaciones()
+    if nombre not in todas:
+        return False
+    todas[nombre] = ecuacion_data
+    return guardar_todas_ecuaciones(todas)
+
+def cargar_ecuacion(nombre):
+    todas = cargar_todas_ecuaciones()
+    return todas.get(nombre)
+
+def eliminar_ecuacion(nombre):
+    todas = cargar_todas_ecuaciones()
+    if nombre not in todas:
+        return False
+    del todas[nombre]
+    return guardar_todas_ecuaciones(todas)

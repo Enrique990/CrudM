@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import math
 from crud import (
     crear_matriz,
     actualizar_matriz,
@@ -10,6 +11,7 @@ from crud import (
 )
 import persistencia
 import matrices
+from metodo_biseccion import MetodoBiseccion
 
 class MatrixCRUDApp:
     def __init__(self, root):
@@ -58,6 +60,15 @@ class MatrixCRUDApp:
         self.independence_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
         self.notebook.add(self.independence_tab, text='Independencia de Vectores')
         self.create_independence_widgets(self.independence_tab)
+
+        # --- Nueva Pestaña: Métodos numéricos ---
+        self.numeric_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
+        self.notebook.add(self.numeric_tab, text='Métodos numéricos')
+        self.create_numeric_widgets(self.numeric_tab)
+
+        # Estado para la pestaña de métodos numéricos
+        self.mb_num = MetodoBiseccion(max_iter=100)
+        self.num_state = {'last_result': None, 'decimal_mode': False}
 
         self.selected_matrix = None
         self.selected_method = None
@@ -465,6 +476,527 @@ class MatrixCRUDApp:
         self.independence_result_text.configure(yscrollcommand=result_scrollbar_vec.set)
 
     # (Procedimiento movido al panel derecho)
+
+    def create_numeric_widgets(self, parent_frame):
+        """Crea la pestaña 'Métodos numéricos' con el mismo layout base."""
+        # Contenedor con scroll (izquierda) + Procedimiento a la derecha
+        main_frame = ttk.Frame(parent_frame, style='Dark.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+        num_content_stack = ttk.Frame(main_frame, style='Dark.TFrame')
+        num_content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.num_canvas = tk.Canvas(num_content_stack, bg="#23272e", highlightthickness=0)
+        num_scrollbar = ttk.Scrollbar(num_content_stack, orient=tk.VERTICAL, command=self.num_canvas.yview)
+        self.num_scrollable_frame = ttk.Frame(self.num_canvas, style='Dark.TFrame')
+        self.num_scrollable_frame.bind(
+            "<Configure>", lambda e: self.num_canvas.configure(scrollregion=self.num_canvas.bbox("all"))
+        )
+        self.num_canvas_window = self.num_canvas.create_window((0, 0), window=self.num_scrollable_frame, anchor="nw")
+        self.num_canvas.bind("<Configure>", lambda e: self.num_canvas.itemconfig(self.num_canvas_window, width=e.width))
+        self.num_canvas.configure(yscrollcommand=num_scrollbar.set)
+        self.num_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        num_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Panel de Procedimiento a la derecha (con tabla)
+        self.num_proc_panel = ttk.Frame(main_frame, style='Dark.TFrame')
+        self.num_proc_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False, padx=(12,0), pady=0)
+        # Hacer el panel de procedimiento un poco más estrecho
+        try:
+            self.num_proc_panel.configure(width=560)
+            self.num_proc_panel.pack_propagate(False)
+        except Exception:
+            pass
+        ttk.Label(self.num_proc_panel, text="Procedimiento", style='Title.TLabel').pack(anchor='nw', pady=(10,5))
+        num_steps_container = ttk.Frame(self.num_proc_panel, style='Dark.TFrame')
+        num_steps_container.pack(fill=tk.BOTH, expand=True)
+        num_steps_container.rowconfigure(0, weight=1)
+        num_steps_container.columnconfigure(0, weight=1)
+        cols = ('iter','a','b','c','fa','fb','fc','error')
+        self.num_tree = ttk.Treeview(num_steps_container, columns=cols, show='headings', height=20)
+        for c in cols:
+            self.num_tree.heading(c, text=c)
+            width = 60 if c == 'iter' else 70
+            self.num_tree.column(c, width=width, anchor='center')
+        self.num_tree.grid(row=0, column=0, sticky='nsew')
+        num_steps_scrollbar = ttk.Scrollbar(num_steps_container, orient=tk.VERTICAL, command=self.num_tree.yview)
+        num_steps_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.num_tree.configure(yscrollcommand=num_steps_scrollbar.set)
+
+        # Wrapper centrado similar a otras pestañas
+        self.num_center_wrapper = ttk.Frame(self.num_scrollable_frame, style='Dark.TFrame')
+        self.num_center_wrapper.pack(fill='x', expand=True)
+        self.num_center_wrapper.grid_columnconfigure(0, weight=0)
+        self.num_center_wrapper.grid_columnconfigure(1, weight=1)
+        self.num_center_wrapper.grid_columnconfigure(2, weight=0)
+
+        self.num_content_container = ttk.Frame(self.num_center_wrapper, style='Dark.TFrame')
+        self.num_content_container.grid(row=0, column=1, padx=(0,20), pady=20, sticky='nw')
+
+        # Panel izquierdo para CRUD de ecuaciones (como otras pestañas)
+        self.num_left_panel = ttk.Frame(self.num_center_wrapper, style='Dark.TFrame')
+        self.num_left_panel.grid(row=0, column=0, sticky='nsw', padx=(0,10), pady=(0,0))
+        self.num_left_panel.grid_propagate(False)
+        self.num_left_panel.configure(width=260, height=705)
+        ttk.Label(self.num_left_panel, text="Ecuaciones almacenadas:", style='Dark.TLabel').grid(row=0, column=0, sticky='nw', pady=(12,5), padx=(20,0))
+        eq_list_frame = ttk.Frame(self.num_left_panel, style='Dark.TFrame')
+        eq_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10), padx=(20,0))
+        eq_list_frame.grid_propagate(False)
+        eq_list_frame.configure(width=260, height=705)
+        eq_list_frame.grid_columnconfigure(0, weight=1)
+        eq_list_frame.grid_rowconfigure(0, weight=1)
+        self.eq_list_frame = eq_list_frame
+        self.eq_listbox = tk.Listbox(eq_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
+        self.eq_listbox.grid(row=0, column=0, sticky='nsew')
+        eq_scrollbar = ttk.Scrollbar(eq_list_frame, orient=tk.VERTICAL, command=self.eq_listbox.yview)
+        eq_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.eq_listbox.configure(yscrollcommand=eq_scrollbar.set)
+        self.eq_listbox.bind('<<ListboxSelect>>', self._on_equation_select)
+
+        container = self.num_content_container
+        for c in range(4):
+            container.grid_columnconfigure(c, weight=1)
+
+        # Título
+        ttk.Label(container, text="Métodos numéricos", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0,20))
+
+    # Fila 1: Nombre + Método (alineado como en otras pestañas)
+        ttk.Label(container, text="Nombre de la ecuación:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
+        self.num_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
+        self.num_name_entry.grid(row=1, column=1, sticky='w', padx=(0,20))
+        ttk.Label(container, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
+        self.num_method_var = tk.StringVar(value="Bisección")
+        self.num_method_combobox = ttk.Combobox(container, textvariable=self.num_method_var, values=["Bisección"], state="readonly", width=16)
+        self.num_method_combobox.grid(row=1, column=3, sticky='w')
+
+    # Fila 2: Expresión
+        ttk.Label(container, text="Expresión f(x):", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=5)
+        self.num_expr_entry = ttk.Entry(container, width=28, style='Entry.TEntry')
+        self.num_expr_entry.grid(row=2, column=1, sticky='w', padx=(0,20))
+        # Mantener balance con columnas
+        ttk.Label(container, text="", style='Dark.TLabel').grid(row=2, column=2, sticky='e')
+        ttk.Label(container, text="", style='Dark.TLabel').grid(row=2, column=3, sticky='w')
+
+    # Fila 3: a, b
+        ttk.Label(container, text="a:", style='Dark.TLabel').grid(row=3, column=0, sticky='w')
+        self.num_a_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
+        self.num_a_entry.grid(row=3, column=1, sticky='w')
+        ttk.Label(container, text="b:", style='Dark.TLabel').grid(row=3, column=2, sticky='e', padx=(0,5))
+        self.num_b_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
+        self.num_b_entry.grid(row=3, column=3, sticky='w')
+
+    # Fila 4: tol
+        ttk.Label(container, text="tolerancia:", style='Dark.TLabel').grid(row=4, column=0, sticky='w')
+        self.num_tol_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
+        self.num_tol_entry.grid(row=4, column=1, sticky='w')
+
+        # Botón largo centrado tipo "Crear Conjunto de Vectores"
+        ttk.Button(container, text="Crear ecuación", command=self.create_equation, style='Dark.TButton')\
+            .grid(row=5, column=0, columnspan=4, pady=(10, 20), sticky='ew')
+
+        # Botonera de acciones CRUD centrada (como en otras pestañas)
+        eq_action_frame = ttk.Frame(container, style='Dark.TFrame')
+        eq_action_frame.grid(row=6, column=0, columnspan=4)
+        eq_action_buttons = ttk.Frame(eq_action_frame, style='Dark.TFrame')
+        eq_action_buttons.pack(anchor='center')
+        ttk.Button(eq_action_buttons, text="Ver", command=self.view_equation, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(eq_action_buttons, text="Modificar", command=self.modify_equation_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(eq_action_buttons, text="Eliminar", command=self.delete_equation, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(eq_action_buttons, text="Resolver", command=self._num_run, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(eq_action_buttons, text="Auto-intervalo", command=self._num_auto_interval, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+
+        # Fila separada para el botón de Mostrar decimales, centrado
+        eq_toggle_frame = ttk.Frame(container, style='Dark.TFrame')
+        # Añadimos margen superior para que no quede pegado a la hilera anterior de botones
+        eq_toggle_frame.grid(row=7, column=0, columnspan=4, pady=(14,0))
+        eq_toggle_buttons = ttk.Frame(eq_toggle_frame, style='Dark.TFrame')
+        eq_toggle_buttons.pack(anchor='center')
+        # Guardamos referencia para poder colocar el botón de "Actualizar ecuación" a su derecha cuando se modifique
+        self.eq_toggle_buttons = eq_toggle_buttons
+        self.num_toggle_btn = ttk.Button(eq_toggle_buttons, text="Mostrar decimales", command=self._num_toggle_decimal, style='Dark.TButton')
+        self.num_toggle_btn.pack(side=tk.LEFT, padx=5)
+
+        # Sección de Datos de la ecuación justo encima de Resultado
+        eqdata_container = ttk.Frame(container, style='Dark.TFrame')
+        eqdata_container.grid(row=8, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        eqdata_container.grid_rowconfigure(1, weight=1)
+        eqdata_container.grid_columnconfigure(0, weight=1)
+        ttk.Label(eqdata_container, text="Datos de la ecuación", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
+        eqdata_frame = ttk.Frame(eqdata_container)
+        eqdata_frame.grid(row=1, column=0, sticky='nsew')
+        eqdata_frame.grid_rowconfigure(0, weight=1)
+        eqdata_frame.grid_columnconfigure(0, weight=1)
+        self.num_eq_data_text = tk.Text(eqdata_frame, height=8, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        self.num_eq_data_text.grid(row=0, column=0, sticky='nsew')
+        eqdata_scrollbar = ttk.Scrollbar(eqdata_frame, orient=tk.VERTICAL, command=self.num_eq_data_text.yview)
+        eqdata_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.num_eq_data_text.configure(yscrollcommand=eqdata_scrollbar.set)
+
+        # Resultado (igual estilo que otras pestañas)
+        result_container = ttk.Frame(container, style='Dark.TFrame')
+        result_container.grid(row=9, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        result_container.grid_rowconfigure(1, weight=1)
+        result_container.grid_columnconfigure(0, weight=1)
+        ttk.Label(result_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
+        solution_frame = ttk.Frame(result_container)
+        solution_frame.grid(row=1, column=0, sticky='nsew')
+        solution_frame.grid_rowconfigure(0, weight=1)
+        solution_frame.grid_columnconfigure(0, weight=1)
+        self.num_result_text = tk.Text(solution_frame, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.num_result_text.grid(row=0, column=0, sticky='nsew')
+        result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.num_result_text.yview)
+        result_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.num_result_text.configure(yscrollcommand=result_scrollbar.set)
+
+        # Estado de modificación
+        self._num_editing_name = None
+        # Cargar lista inicial
+        self.update_equation_list()
+
+    # ---------- Helpers de la pestaña numérica ----------
+    def _num_parse_number_str(self, s: str) -> float:
+        s = (s or "").strip()
+        if not s:
+            raise ValueError("valor vacío")
+        try:
+            return float(s)
+        except Exception:
+            pass
+        try:
+            val = eval(s, {"__builtins__": {}}, {'pi': math.pi, 'e': math.e})
+            return float(val)
+        except Exception as e:
+            raise ValueError(f"No se pudo interpretar el número: '{s}' ({e})")
+
+    def _num_to_float_from_str(self, s):
+        from fractions import Fraction as _F
+        if s is None:
+            return None
+        if isinstance(s, (int, float)):
+            return float(s)
+        s = str(s)
+        if s.startswith('ERR:'):
+            return None
+        try:
+            if '/' in s:
+                return float(_F(s))
+            return float(s)
+        except Exception:
+            return None
+
+    def _num_fmt_dec(self, x):
+        try:
+            return f"{float(x):.6f}"
+        except Exception:
+            return ''
+
+    def _num_render_result(self, result: dict, as_decimal: bool):
+        # Render de resultado y pasos con toggle decimales/fracciones
+        self.num_result_text.delete(1.0, tk.END)
+        # repoblar tabla
+        for item in self.num_tree.get_children():
+            self.num_tree.delete(item)
+
+        sol = (result or {}).get('solucion')
+        mensaje = (result or {}).get('mensaje')
+        if sol:
+            root_s = sol.get('root')
+            if as_decimal:
+                dec = self._num_to_float_from_str(root_s)
+                root_label = f"Raíz: {root_s} ({self._num_fmt_dec(dec)}) | iter={sol.get('iteraciones')}"
+            else:
+                root_label = f"Raíz: {root_s} | iter={sol.get('iteraciones')}"
+            self.num_result_text.insert(tk.END, root_label + "\n")
+        if mensaje:
+            self.num_result_text.insert(tk.END, str(mensaje) + "\n")
+
+        # Pasos (en panel derecho)
+        pasos = (result or {}).get('pasos', [])
+        for paso in pasos:
+            a_v = paso.get('a'); b_v = paso.get('b'); c_v = paso.get('c')
+            fa_v = paso.get('fa'); fb_v = paso.get('fb'); fc_v = paso.get('fc')
+            err_v = paso.get('error') if 'error' in paso else paso.get('prod')
+            if as_decimal:
+                a_v = self._num_fmt_dec(self._num_to_float_from_str(a_v)) if a_v is not None else ''
+                b_v = self._num_fmt_dec(self._num_to_float_from_str(b_v)) if b_v is not None else ''
+                c_v = self._num_fmt_dec(self._num_to_float_from_str(c_v)) if c_v is not None else ''
+                fa_v = self._num_fmt_dec(self._num_to_float_from_str(fa_v)) if fa_v is not None else ''
+                fb_v = self._num_fmt_dec(self._num_to_float_from_str(fb_v)) if fb_v is not None else ''
+                fc_v = self._num_fmt_dec(self._num_to_float_from_str(fc_v)) if fc_v is not None else ''
+                err_v = self._num_fmt_dec(self._num_to_float_from_str(err_v)) if err_v is not None else ''
+            self.num_tree.insert('', 'end', values=(paso.get('iter'), a_v, b_v, c_v, fa_v, fb_v, fc_v, err_v))
+
+    def _num_run(self):
+        method = self.num_method_var.get()
+        expr = self.num_expr_entry.get().strip()
+        try:
+            tol = MetodoBiseccion.parse_tolerance(self.num_tol_entry.get())
+        except Exception as e:
+            messagebox.showerror("Entrada inválida", f"Tolerancia inválida: {e}")
+            return
+        a_txt = self.num_a_entry.get().strip()
+        b_txt = self.num_b_entry.get().strip()
+        a = b = None
+        try:
+            if a_txt:
+                a = self._num_parse_number_str(a_txt)
+            if b_txt:
+                b = self._num_parse_number_str(b_txt)
+        except Exception as e:
+            messagebox.showerror("Entrada inválida", f"Error con los extremos: {e}")
+            return
+
+        if a is None or b is None:
+            # intentar auto-intervalo
+            try:
+                res = self.mb_num.find_bracketing_interval(expr)
+            except Exception as e:
+                res = {"interval": None, "mensaje": str(e)}
+            interval = None
+            if isinstance(res, dict):
+                interval = res.get('interval')
+            elif isinstance(res, tuple) and len(res) >= 2:
+                interval = (res[0], res[1])
+            if interval is None:
+                messagebox.showwarning('Intervalo', (res.get('mensaje') if isinstance(res, dict) else 'No se encontró intervalo válido.'))
+                return
+            try:
+                a = float(interval[0]); b = float(interval[1])
+            except Exception:
+                messagebox.showwarning('Intervalo', f"Intervalo encontrado: {interval} (no se pudo convertir a float)")
+                return
+
+        try:
+            if method == 'Bisección':
+                res = self.mb_num.biseccion_dict(expr, a, b, tol, max_iter=self.mb_num.max_iter, mostrar_pasos=True)
+            else:
+                messagebox.showerror('Método no soportado', method)
+                return
+        except Exception as e:
+            messagebox.showerror('Error', f"Error durante bisección: {e}")
+            return
+
+        # Guardar resultado y resetear modo
+        self.num_state['last_result'] = res
+        self.num_state['decimal_mode'] = False
+        self.num_toggle_btn.config(text='Mostrar decimales')
+        # Render principal en sección Resultado
+        self._num_render_result(res, as_decimal=False)
+        # Mostrar datos de la ecuación y procedimiento (pasos) explícitamente si existe widget
+        if hasattr(self, 'num_eq_data_text'):
+            self.num_eq_data_text.delete(1.0, tk.END)
+            self.num_eq_data_text.insert(tk.END, f"Ejecutado método: {method}\n")
+            self.num_eq_data_text.insert(tk.END, f"f(x): {expr}\n")
+            self.num_eq_data_text.insert(tk.END, f"a: {a}\n")
+            self.num_eq_data_text.insert(tk.END, f"b: {b}\n")
+            self.num_eq_data_text.insert(tk.END, f"tolerancia: {tol}\n")
+            sol = (res or {}).get('solucion')
+            if sol:
+                self.num_eq_data_text.insert(tk.END, f"Raíz: {sol.get('root')} | iteraciones: {sol.get('iteraciones')}\n")
+            mensaje = (res or {}).get('mensaje')
+            if mensaje:
+                self.num_eq_data_text.insert(tk.END, f"Mensaje: {mensaje}\n")
+
+    # ---------- CRUD Ecuaciones ----------
+    def _on_equation_select(self, event):
+        sel = self.eq_listbox.curselection()
+        if sel:
+            self.selected_equation = self.eq_listbox.get(sel[0])
+
+    def update_equation_list(self):
+        if not hasattr(self, 'eq_listbox'):
+            return
+        from persistencia import cargar_todas_ecuaciones
+        data = cargar_todas_ecuaciones()
+        self.eq_listbox.delete(0, tk.END)
+        if data:
+            for name in data.keys():
+                self.eq_listbox.insert(tk.END, name)
+
+    def create_equation(self):
+        from persistencia import cargar_todas_ecuaciones, guardar_ecuacion
+        name = self.num_name_entry.get().strip()
+        if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
+            messagebox.showerror("Nombre inválido", "El nombre debe ser una única letra mayúscula (A-Z).")
+            return
+        all_eq = cargar_todas_ecuaciones()
+        if name in all_eq:
+            messagebox.showerror("Nombre en uso", f"Ya existe una ecuación con el nombre '{name}'.")
+            return
+        data = self._collect_equation_form()
+        if not data:
+            return
+        if guardar_ecuacion(name, data):
+            messagebox.showinfo("Éxito", f"Ecuación '{name}' guardada.")
+            self.update_equation_list()
+
+    def _collect_equation_form(self):
+        method = self.num_method_var.get()
+        expr = self.num_expr_entry.get().strip()
+        if not expr:
+            messagebox.showerror("Error", "Debes ingresar una expresión f(x).")
+            return None
+        try:
+            tol = MetodoBiseccion.parse_tolerance(self.num_tol_entry.get())
+        except Exception as e:
+            messagebox.showerror("Entrada inválida", f"Tolerancia inválida: {e}")
+            return None
+        a_txt = self.num_a_entry.get().strip()
+        b_txt = self.num_b_entry.get().strip()
+        a = self._num_parse_number_str(a_txt) if a_txt else None
+        b = self._num_parse_number_str(b_txt) if b_txt else None
+        return {
+            'metodo': method,
+            'expr': expr,
+            'a': a,
+            'b': b,
+            'tol': tol,
+        }
+
+    def view_equation(self):
+        from persistencia import cargar_ecuacion
+        sel = self.eq_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Selección requerida", "Selecciona una ecuación para ver.")
+            return
+        name = self.eq_listbox.get(sel[0])
+        data = cargar_ecuacion(name)
+        if not data:
+            messagebox.showerror("Error", f"No se pudo cargar la ecuación '{name}'.")
+            return
+        # Mostrar en sección Datos de la ecuación (no en Resultado)
+        if hasattr(self, 'num_eq_data_text'):
+            self.num_eq_data_text.delete(1.0, tk.END)
+            self.num_eq_data_text.insert(tk.END, f"Ecuación: {name}\n")
+            self.num_eq_data_text.insert(tk.END, f"Método: {data.get('metodo')}\n")
+            self.num_eq_data_text.insert(tk.END, f"f(x): {data.get('expr')}\n")
+            self.num_eq_data_text.insert(tk.END, f"a: {data.get('a')}\n")
+            self.num_eq_data_text.insert(tk.END, f"b: {data.get('b')}\n")
+            self.num_eq_data_text.insert(tk.END, f"tolerancia: {data.get('tol')}\n")
+        else:
+            # Fallback por si no se creó el widget
+            self.num_result_text.delete(1.0, tk.END)
+            self.num_result_text.insert(tk.END, f"[Datos ecuación]\nEcuación: {name}\nMétodo: {data.get('metodo')}\n" \
+                                         f"f(x): {data.get('expr')}\n" \
+                                         f"a: {data.get('a')}\n" \
+                                         f"b: {data.get('b')}\n" \
+                                         f"tolerancia: {data.get('tol')}\n")
+
+    def modify_equation_ui(self):
+        from persistencia import cargar_ecuacion
+        sel = self.eq_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Selección requerida", "Selecciona una ecuación para modificar.")
+            return
+        name = self.eq_listbox.get(sel[0])
+        data = cargar_ecuacion(name)
+        if not data:
+            messagebox.showerror("Error", f"No se pudo cargar la ecuación '{name}'.")
+            return
+        # Prellenar campos
+        self.num_name_entry.delete(0, 'end'); self.num_name_entry.insert(0, name)
+        self.num_method_var.set(data.get('metodo','Bisección'))
+        self.num_expr_entry.delete(0, 'end'); self.num_expr_entry.insert(0, data.get('expr',''))
+        self.num_a_entry.delete(0, 'end'); self.num_b_entry.delete(0, 'end')
+        if data.get('a') is not None:
+            self.num_a_entry.insert(0, str(data.get('a')))
+        if data.get('b') is not None:
+            self.num_b_entry.insert(0, str(data.get('b')))
+        self.num_tol_entry.delete(0, 'end'); self.num_tol_entry.insert(0, str(data.get('tol','1e-6')))
+        self._num_editing_name = name
+        # Cambiar botón Crear a Actualizar temporalmente
+        # Creamos un botón efímero
+        if hasattr(self, '_num_update_temp_btn') and self._num_update_temp_btn:
+            try:
+                self._num_update_temp_btn.destroy()
+            except Exception:
+                pass
+        # Botón de actualizar aparece a la derecha de "Mostrar decimales" en la misma fila
+        parent_for_update = getattr(self, 'eq_toggle_buttons', self.num_content_container)
+        self._num_update_temp_btn = ttk.Button(parent_for_update, text='Actualizar ecuación', style='Dark.TButton', command=self.update_equation_data)
+        try:
+            # Si el padre es el contenedor de toggle, usar pack a la derecha del botón de decimales
+            if parent_for_update is self.eq_toggle_buttons:
+                self._num_update_temp_btn.pack(side=tk.LEFT, padx=5)
+            else:
+                # Fallback si no existe el contenedor aún
+                self._num_update_temp_btn.grid(row=7, column=0, columnspan=4, pady=(8,0))
+        except Exception:
+            # En caso de cualquier problema, usar grid en una fila segura
+            try:
+                self._num_update_temp_btn.grid(row=7, column=0, columnspan=4, pady=(8,0))
+            except Exception:
+                pass
+
+    def update_equation_data(self):
+        from persistencia import actualizar_ecuacion
+        if not self._num_editing_name:
+            return
+        new_name = self.num_name_entry.get().strip()
+        if new_name != self._num_editing_name:
+            messagebox.showerror('Nombre no editable', 'Para simplificar, el nombre no se puede cambiar al actualizar. (Elimina y vuelve a crear si quieres renombrar).')
+            return
+        data = self._collect_equation_form()
+        if not data:
+            return
+        if actualizar_ecuacion(self._num_editing_name, data):
+            messagebox.showinfo('Éxito', f"Ecuación '{self._num_editing_name}' actualizada.")
+            self.update_equation_list()
+        if hasattr(self, '_num_update_temp_btn') and self._num_update_temp_btn:
+            try:
+                self._num_update_temp_btn.destroy()
+            except Exception:
+                pass
+        self._num_editing_name = None
+
+    def delete_equation(self):
+        from persistencia import eliminar_ecuacion
+        sel = self.eq_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Selección requerida", "Selecciona una ecuación para eliminar.")
+            return
+        name = self.eq_listbox.get(sel[0])
+        if messagebox.askyesno('Confirmar', f"¿Seguro que quieres eliminar la ecuación '{name}'?"):
+            if eliminar_ecuacion(name):
+                messagebox.showinfo('Éxito', f"Ecuación '{name}' eliminada.")
+                self.update_equation_list()
+
+    def _num_auto_interval(self):
+        expr = self.num_expr_entry.get().strip()
+        try:
+            res = self.mb_num.find_bracketing_interval(expr)
+        except Exception as e:
+            messagebox.showerror('Error', f'Error buscando intervalo: {e}')
+            return
+        interval = None
+        if isinstance(res, dict):
+            interval = res.get('interval')
+            mensaje = res.get('mensaje')
+        elif isinstance(res, tuple) and len(res) >= 2:
+            interval = (res[0], res[1])
+            mensaje = None
+        else:
+            mensaje = None
+        if interval is None:
+            messagebox.showinfo('Intervalo', mensaje or 'No se encontró intervalo con cambio de signo.')
+            return
+        try:
+            a_found = float(interval[0]); b_found = float(interval[1])
+        except Exception:
+            messagebox.showinfo('Intervalo', f'Intervalo encontrado: {interval}\n(No se pudo convertir a float)')
+            return
+        use = messagebox.askyesno('Intervalo encontrado', f"Se encontró intervalo: a={a_found}, b={b_found}\n¿Usar este intervalo?")
+        if use:
+            self.num_a_entry.delete(0, 'end'); self.num_a_entry.insert(0, str(a_found))
+            self.num_b_entry.delete(0, 'end'); self.num_b_entry.insert(0, str(b_found))
+
+    def _num_toggle_decimal(self):
+        if not self.num_state.get('last_result'):
+            messagebox.showinfo('Info', 'No hay resultados para convertir. Ejecuta el método primero.')
+            return
+        self.num_state['decimal_mode'] = not self.num_state['decimal_mode']
+        self._num_render_result(self.num_state['last_result'], as_decimal=self.num_state['decimal_mode'])
+        self.num_toggle_btn.config(text='Mostrar fracciones' if self.num_state['decimal_mode'] else 'Mostrar decimales')
 
     def create_operators_widgets(self, parent_frame):
         """Crea la pestaña para operar conjuntos de matrices (sumar, restar, multiplicar)."""

@@ -34,7 +34,13 @@ except Exception:
 
 def main():
     p = argparse.ArgumentParser(description='CLI para probar MetodoBiseccion')
-    p.add_argument('--expr', '-f', required=True, help='Expresión en x (ej: "x**3-2*x-5" o "cos(x)=x")')
+    # Hacer --expr opcional con un valor por defecto para que el script pueda correr sin parámetros
+    p.add_argument(
+        '--expr', '-f',
+        required=False,
+        default='x**3-2*x-5',
+        help='Expresión en x (ej: "x**3-2*x-5" o "cos(x)=x"). Por defecto: x**3-2*x-5'
+    )
     p.add_argument('--a', type=float, help='Extremo izquierdo a')
     p.add_argument('--b', type=float, help='Extremo derecho b')
     p.add_argument('--tol', default='1e-6', help='Tolerancia (ej: 1e-6, 10^-6, x10^ - formato flexible)')
@@ -60,8 +66,13 @@ def main():
     a = args.a
     b = args.b
 
-    if (a is None or b is None) and args.auto_interval:
-        print("Intentando detectar un intervalo con cambio de signo...")
+    # Si no se proporcionan a/b, intentamos detectar un intervalo automáticamente
+    # ya sea porque el usuario lo pidió con --auto-interval o porque faltan a/b.
+    if (a is None or b is None):
+        if not args.auto_interval:
+            print("No se proporcionaron --a y --b; intentando auto-interval por defecto…")
+        else:
+            print("Intentando detectar un intervalo con cambio de signo…")
         # prefer the more robust bracketing routine which samples interior points and
         # tolerates domain errors (use compatibility wrapper which calls top-level)
         try:
@@ -78,11 +89,16 @@ def main():
             a, b = interval
             print(f"Intervalo detectado: a={a}, b={b}")
         else:
-            print("No se encontró un intervalo con cambio de signo en los rangos probados.")
-            sys.exit(4)
+            # Si falla el auto-interval y estamos usando la expresión por defecto, usa un intervalo conocido
+            if expr == 'x**3-2*x-5':
+                a, b = 1.0, 3.0
+                print("No se detectó intervalo automáticamente; usando intervalo por defecto a=1, b=3 para la expresión por defecto.")
+            else:
+                print("No se encontró un intervalo con cambio de signo en los rangos probados.")
+                sys.exit(4)
 
     if a is None or b is None:
-        print("Debes proporcionar --a y --b o usar --auto-interval para que se detecten automáticamente.")
+        print("Debes proporcionar --a y --b o permitir la detección automática de intervalo.")
         sys.exit(5)
 
     # GUI mode: launch a minimal Tkinter interface or run an auto-test (non-interactive)
@@ -143,8 +159,10 @@ def main():
 
             if csv_file:
                 try:
-                    import pandas as pd
-                    pd.DataFrame(result.get('pasos', [])).to_csv(csv_file, index=False)
+                    if pd is not None:
+                        pd.DataFrame(result.get('pasos', [])).to_csv(csv_file, index=False)
+                    else:
+                        raise RuntimeError('pandas no está disponible')
                 except Exception as e:
                     messagebox.showwarning("CSV", f"No se pudo escribir CSV: {e}")
 
@@ -156,13 +174,13 @@ def main():
                 print(f"  Raíz: {res.get('solucion', {}).get('root')}")
                 print(f"  Mensaje: {res.get('mensaje')}")
                 print(f"  Pasos: {len(res.get('pasos', []))}")
-                try:
-                    import pandas as pd
-                    df = pd.DataFrame(res.get('pasos', []))
-                    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                        print(df)
-                except Exception:
-                    pass
+                if pd is not None:
+                    try:
+                        df = pd.DataFrame(res.get('pasos', []))
+                        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                            print(df)
+                    except Exception:
+                        pass
                 sys.exit(0)
             except Exception as e:
                 print(f"Error en GUI auto-test: {e}")
