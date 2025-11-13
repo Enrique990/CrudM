@@ -1052,6 +1052,89 @@ class MatrixCRUDApp:
         fig.tight_layout()
 
         canvas = FigureCanvasTkAgg(fig, master=win)
+        # --- Interactividad: tooltip con coordenadas y punto seleccionado ---
+        try:
+            # dibujar líneas de intervalo (si existen)
+            if a is not None:
+                ax.axvline(a, color='green', linestyle='--', linewidth=1)
+            if b is not None:
+                ax.axvline(b, color='red', linestyle='--', linewidth=1)
+
+            # anotación flotante (tooltip) y punto seleccionado
+            annot = ax.annotate(
+                "", xy=(0, 0), xytext=(15, 15), textcoords="offset points",
+                bbox=dict(boxstyle="round", fc="w"), arrowprops=dict(arrowstyle="->")
+            )
+            annot.set_visible(False)
+            sel_point, = ax.plot([], [], marker='o', color='orange', ms=6)
+
+            def nearest_index(x_val):
+                import numpy as _np
+                if x_val is None:
+                    return None
+                i = _np.searchsorted(xs, x_val)
+                cand = []
+                if i > 0:
+                    cand.append(i - 1)
+                if i < len(xs):
+                    cand.append(i)
+                if not cand:
+                    return None
+                best = min(cand, key=lambda j: abs(xs[j] - x_val))
+                return best
+
+            x_range = xs.max() - xs.min() if len(xs) else 1.0
+            x_threshold = x_range * 0.02  # 2% del rango
+
+            def on_move(event):
+                if event.inaxes != ax:
+                    if annot.get_visible():
+                        annot.set_visible(False)
+                        sel_point.set_data([], [])
+                        canvas.draw_idle()
+                    return
+                idx = nearest_index(event.xdata)
+                if idx is None:
+                    if annot.get_visible():
+                        annot.set_visible(False)
+                        sel_point.set_data([], [])
+                        canvas.draw_idle()
+                    return
+                dx = abs(xs[idx] - event.xdata) if event.xdata is not None else float('inf')
+                if dx <= x_threshold:
+                    xpt = xs[idx]
+                    ypt = ys[idx]
+                    annot.xy = (xpt, ypt)
+                    annot.set_text(f"x={xpt:.5f}\ny={ypt:.5f}")
+                    annot.get_bbox_patch().set_alpha(0.9)
+                    annot.set_visible(True)
+                    sel_point.set_data([xpt], [ypt])
+                    canvas.draw_idle()
+                    return
+                # cerca de los extremos a/b
+                if a is not None and abs(event.xdata - a) <= x_threshold:
+                    annot.xy = (a, 0)
+                    annot.set_text(f"a = {a:.5f}")
+                    annot.set_visible(True)
+                    sel_point.set_data([], [])
+                    canvas.draw_idle()
+                    return
+                if b is not None and abs(event.xdata - b) <= x_threshold:
+                    annot.xy = (b, 0)
+                    annot.set_text(f"b = {b:.5f}")
+                    annot.set_visible(True)
+                    sel_point.set_data([], [])
+                    canvas.draw_idle()
+                    return
+                if annot.get_visible():
+                    annot.set_visible(False)
+                    sel_point.set_data([], [])
+                    canvas.draw_idle()
+
+            fig.canvas.mpl_connect("motion_notify_event", on_move)
+        except Exception:
+            # no romper la función si algo falla en la interactividad
+            pass
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
