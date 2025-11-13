@@ -143,7 +143,7 @@ class MatrixCRUDApp:
         calc_steps_container.pack(fill=tk.BOTH, expand=True)
         calc_steps_container.rowconfigure(0, weight=1)
         calc_steps_container.columnconfigure(0, weight=1)
-        self.steps_text = tk.Text(calc_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
+        self.steps_text = tk.Text(calc_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50, wrap='word')
         self.steps_text.grid(row=0, column=0, sticky='nsew')
         calc_steps_scrollbar = ttk.Scrollbar(calc_steps_container, orient=tk.VERTICAL, command=self.steps_text.yview, style='Invisible.Vertical.TScrollbar')
         try:
@@ -366,6 +366,7 @@ class MatrixCRUDApp:
         ttk.Button(action_buttons, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_buttons, text="Limpiar", command=self.clear_calculator_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Área para ingresar datos de la matriz
         ttk.Label(main_frame, text="Datos de la matriz:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky="w", pady=(10,5))
@@ -391,7 +392,7 @@ class MatrixCRUDApp:
         except Exception:
             pass
 
-        self.result_text = tk.Text(solution_frame, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.result_text = tk.Text(solution_frame, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0, wrap='word')
         self.result_text.grid(row=0, column=0, sticky="nsew")
         # Scrollbar invisible (ttk) para Resultado (Calculadora)
         result_scrollbar = ttk.Scrollbar(
@@ -449,7 +450,7 @@ class MatrixCRUDApp:
         ind_steps_container.pack(fill=tk.BOTH, expand=True)
         ind_steps_container.rowconfigure(0, weight=1)
         ind_steps_container.columnconfigure(0, weight=1)
-        self.independence_steps_text = tk.Text(ind_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
+        self.independence_steps_text = tk.Text(ind_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50, wrap='word')
         self.independence_steps_text.grid(row=0, column=0, sticky='nsew')
         ind_steps_scrollbar = ttk.Scrollbar(ind_steps_container, orient=tk.VERTICAL, command=self.independence_steps_text.yview, style='Invisible.Vertical.TScrollbar')
         try:
@@ -540,6 +541,7 @@ class MatrixCRUDApp:
         ttk.Button(vector_action_buttons, text="Eliminar", command=self.delete_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         # Ubicar Verificar Independencia junto a Eliminar
         ttk.Button(vector_action_buttons, text="Verificar Independencia", command=self.run_independence_check, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(vector_action_buttons, text="Limpiar", command=self.clear_independence_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # --- Área de datos de vectores ---
         ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=6, column=0, columnspan=4, sticky='w', pady=(10,5))
@@ -559,7 +561,7 @@ class MatrixCRUDApp:
         solution_frame_vec.grid_rowconfigure(0, weight=1)
         solution_frame_vec.grid_columnconfigure(0, weight=1)
 
-        self.independence_result_text = tk.Text(solution_frame_vec, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.independence_result_text = tk.Text(solution_frame_vec, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0, wrap='word')
         self.independence_result_text.grid(row=0, column=0, sticky='nsew')
         result_scrollbar_vec = ttk.Scrollbar(solution_frame_vec, orient=tk.VERTICAL, command=self.independence_result_text.yview, style='Invisible.Vertical.TScrollbar')
         try:
@@ -733,6 +735,7 @@ class MatrixCRUDApp:
         ttk.Button(eq_action_buttons, text="Eliminar", command=self.delete_equation, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(eq_action_buttons, text="Resolver", command=self._num_run, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(eq_action_buttons, text="Auto-intervalo", command=self._num_auto_interval, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(eq_action_buttons, text="Limpiar", command=self.clear_numeric_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # Fila separada para el botón de Mostrar decimales, centrado
         eq_toggle_frame = ttk.Frame(container, style='Dark.TFrame')
@@ -761,7 +764,7 @@ class MatrixCRUDApp:
         eqdata_frame.grid(row=1, column=0, sticky='ew')
         eqdata_frame.grid_columnconfigure(0, weight=1)
         # Text sin barra lateral; altura mínima y autoajuste por contenido
-        self.num_eq_data_text = tk.Text(eqdata_frame, height=1, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0)
+        self.num_eq_data_text = tk.Text(eqdata_frame, height=1, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, wrap='word')
         self.num_eq_data_text.grid(row=0, column=0, sticky='nsew')
         # Inicializar en altura mínima
         try:
@@ -781,7 +784,7 @@ class MatrixCRUDApp:
         solution_frame_num.grid(row=1, column=0, sticky='nsew')
         solution_frame_num.grid_rowconfigure(0, weight=1)
         solution_frame_num.grid_columnconfigure(0, weight=1)
-        self.num_result_text = tk.Text(solution_frame_num, height=11, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.num_result_text = tk.Text(solution_frame_num, height=11, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0, wrap='word')
         self.num_result_text.grid(row=0, column=0, sticky='nsew')
         # Scrollbar vertical para el resultado (estilo invisible como el resto)
         num_result_scroll = ttk.Scrollbar(solution_frame_num, orient=tk.VERTICAL, command=self.num_result_text.yview, style='Invisible.Vertical.TScrollbar')
@@ -1529,7 +1532,7 @@ class MatrixCRUDApp:
         ops_steps_container.pack(fill=tk.BOTH, expand=True)
         ops_steps_container.rowconfigure(0, weight=1)
         ops_steps_container.columnconfigure(0, weight=1)
-        self.ops_steps_text = tk.Text(ops_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
+        self.ops_steps_text = tk.Text(ops_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50, wrap='word')
         self.ops_steps_text.grid(row=0, column=0, sticky='nsew')
         steps_scrollbar_ops_right = ttk.Scrollbar(ops_steps_container, orient=tk.VERTICAL, command=self.ops_steps_text.yview, style='Invisible.Vertical.TScrollbar')
         try:
@@ -1625,6 +1628,7 @@ class MatrixCRUDApp:
         ttk.Button(ops_action_buttons, text="Eliminar", style='Dark.TButton', command=self.delete_matrix_set).pack(side=tk.LEFT, padx=5)
         # Botón Resolver al lado derecho de Eliminar
         ttk.Button(ops_action_buttons, text="Resolver", style='Dark.TButton', command=self.run_matrix_operation).pack(side=tk.LEFT, padx=5)
+        ttk.Button(ops_action_buttons, text="Limpiar", style='Dark.TButton', command=self.clear_ops_tab).pack(side=tk.LEFT, padx=5)
 
         # Área de entradas de matrices
         ttk.Label(container, text="Datos del conjunto:", style='Title.TLabel').grid(row=6, column=0, columnspan=8, sticky='w', pady=(10,5))
@@ -1641,7 +1645,7 @@ class MatrixCRUDApp:
         solution_frame_ops.grid(row=1, column=0, sticky='nsew')
         solution_frame_ops.grid_rowconfigure(0, weight=1)
         solution_frame_ops.grid_columnconfigure(0, weight=1)
-        self.ops_result_text = tk.Text(solution_frame_ops, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
+        self.ops_result_text = tk.Text(solution_frame_ops, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0, wrap='word')
         self.ops_result_text.grid(row=0, column=0, sticky='nsew')
         result_scrollbar_ops = ttk.Scrollbar(solution_frame_ops, orient=tk.VERTICAL, command=self.ops_result_text.yview, style='Invisible.Vertical.TScrollbar')
         try:
@@ -2706,6 +2710,137 @@ class MatrixCRUDApp:
         self.result_text.delete(1.0, tk.END)
         self.steps_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, text)
+
+    # ---------------- Botones Limpiar por pestaña ----------------
+    def clear_calculator_tab(self):
+        try:
+            self.name_entry.delete(0, tk.END)
+        except Exception:
+            pass
+        try:
+            self.method_var.set(" ")
+        except Exception:
+            pass
+        try:
+            self.rows_var.set("0"); self.cols_var.set("0")
+        except Exception:
+            pass
+        try:
+            self.clear_matrix_frame()
+        except Exception:
+            pass
+        try:
+            self.result_text.delete(1.0, tk.END)
+            self.steps_text.delete(1.0, tk.END)
+        except Exception:
+            pass
+        try:
+            self.matrix_listbox.selection_clear(0, tk.END)
+        except Exception:
+            pass
+        self.selected_matrix = None
+        self.selected_method = None
+
+    def clear_independence_tab(self):
+        try:
+            self.vector_name_entry.delete(0, tk.END)
+        except Exception:
+            pass
+        try:
+            self.num_vectors_var.set("0"); self.dim_vectors_var.set("0")
+        except Exception:
+            pass
+        try:
+            self.clear_vector_entries_frame()
+        except Exception:
+            pass
+        try:
+            self.independence_result_text.delete(1.0, tk.END)
+            self.independence_steps_text.delete(1.0, tk.END)
+        except Exception:
+            pass
+        try:
+            self.vector_set_listbox.selection_clear(0, tk.END)
+        except Exception:
+            pass
+        self.selected_vector_set = None
+
+    def clear_ops_tab(self):
+        try:
+            self.ops_name_entry.delete(0, tk.END)
+        except Exception:
+            pass
+        try:
+            self.num_mats_var.set("0"); self.ops_rows_var.set("0"); self.ops_cols_var.set("0")
+        except Exception:
+            pass
+        try:
+            self.ops_method_var.set(" ")
+        except Exception:
+            pass
+        try:
+            for w in self.ops_entries_frame.winfo_children():
+                w.destroy()
+        except Exception:
+            pass
+        try:
+            self.ops_result_text.delete(1.0, tk.END)
+            self.ops_steps_text.delete(1.0, tk.END)
+        except Exception:
+            pass
+        try:
+            self.matrix_set_listbox.selection_clear(0, tk.END)
+        except Exception:
+            pass
+        self.selected_matrix_set = None
+
+    def clear_numeric_tab(self):
+        try:
+            self.num_name_entry.delete(0, tk.END)
+        except Exception:
+            pass
+        try:
+            self.num_method_var.set("Bisección")
+        except Exception:
+            pass
+        for ent in [getattr(self, 'num_expr_entry', None), getattr(self, 'num_a_entry', None), getattr(self, 'num_b_entry', None), getattr(self, 'num_tol_entry', None)]:
+            try:
+                if ent is not None:
+                    ent.delete(0, tk.END)
+            except Exception:
+                pass
+        try:
+            self.eq_listbox.selection_clear(0, tk.END)
+        except Exception:
+            pass
+        self.selected_equation = None
+        self._num_editing_name = None
+        try:
+            if hasattr(self, '_num_update_temp_btn') and self._num_update_temp_btn:
+                self._num_update_temp_btn.destroy()
+                self._num_update_temp_btn = None
+        except Exception:
+            pass
+        try:
+            # limpiar resultado y tabla de pasos
+            self.num_result_text.delete(1.0, tk.END)
+            for item in self.num_tree.get_children():
+                self.num_tree.delete(item)
+        except Exception:
+            pass
+        try:
+            self.num_eq_data_text.delete(1.0, tk.END)
+            # restaurar altura mínima
+            self._num_eqdata_autosize(min_lines=1, max_lines=8)
+        except Exception:
+            pass
+        # resetear estado
+        try:
+            self.num_state['last_result'] = None
+            self.num_state['decimal_mode'] = False
+            self.num_toggle_btn.config(text='Mostrar decimales')
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     root = tk.Tk()
