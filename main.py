@@ -756,20 +756,64 @@ class MatrixCRUDApp:
         for item in self.num_tree.get_children():
             self.num_tree.delete(item)
 
+        # configurar estilos visuales dentro del Text (si falla, seguir sin tags)
+        try:
+            self.num_result_text.tag_config('title', font=('Segoe UI', 18, 'bold'), foreground='#00adb5')
+            self.num_result_text.tag_config('meta', font=('Segoe UI', 12), foreground='#e0e0e0')
+            self.num_result_text.tag_config('err', font=('Segoe UI', 12, 'bold'), foreground='#ff6b6b')
+            self.num_result_text.tag_config('label', font=('Segoe UI', 11, 'bold'), foreground='#e0e0e0')
+        except Exception:
+            pass
+
         sol = (result or {}).get('solucion')
         mensaje = (result or {}).get('mensaje')
+        tol_val = (result or {}).get('tol')
+
+        def fmt_val(v):
+            if v is None:
+                return ''
+            if as_decimal:
+                try:
+                    return self._num_fmt_dec(self._num_to_float_from_str(v))
+                except Exception:
+                    try:
+                        return self._num_fmt_dec(float(v))
+                    except Exception:
+                        return str(v)
+            else:
+                return str(v)
+
+        # Mostrar resumen visual atractivo (sin mostrar f_root)
         if sol:
             root_s = sol.get('root')
-            if as_decimal:
-                dec = self._num_to_float_from_str(root_s)
-                root_label = f"Raíz: {root_s} ({self._num_fmt_dec(dec)}) | iter={sol.get('iteraciones')}"
-            else:
-                root_label = f"Raíz: {root_s} | iter={sol.get('iteraciones')}"
-            self.num_result_text.insert(tk.END, root_label + "\n")
-        if mensaje:
-            self.num_result_text.insert(tk.END, str(mensaje) + "\n")
+            err_s = sol.get('error', None)
+            iters = sol.get('iteraciones', sol.get('iterations'))
 
-        # Pasos (en panel derecho)
+            root_disp = fmt_val(root_s)
+            err_disp = fmt_val(err_s) if err_s is not None else ''
+            tol_disp = fmt_val(tol_val) if tol_val is not None else ''
+
+            # Título / valor grande para la raíz
+            self.num_result_text.insert(tk.END, "Raíz aproximada\n", 'label')
+            self.num_result_text.insert(tk.END, f"{root_disp}\n\n", 'title')
+
+            # Meta información en línea (tolerancia, iteraciones, error final)
+            meta_parts = []
+            if tol_disp:
+                meta_parts.append(f"Tolerancia: {tol_disp}")
+            if iters is not None:
+                meta_parts.append(f"Iteraciones: {iters}")
+            if err_disp:
+                meta_parts.append(f"Error final: {err_disp}")
+
+            if meta_parts:
+                self.num_result_text.insert(tk.END, "  " + "   •   ".join(meta_parts) + "\n\n", 'meta')
+
+        # Mensaje general (si lo hay)
+        if mensaje:
+            self.num_result_text.insert(tk.END, str(mensaje) + "\n\n", 'meta')
+
+        # Pasos (en panel derecho) — mantener formato de tabla existente
         pasos = (result or {}).get('pasos', [])
         for paso in pasos:
             a_v = paso.get('a'); b_v = paso.get('b'); c_v = paso.get('c')
@@ -904,6 +948,11 @@ class MatrixCRUDApp:
         try:
             if method == 'Bisección':
                 res = self.mb_num.biseccion_dict(expr, a, b, tol, max_iter=self.mb_num.max_iter, mostrar_pasos=True)
+                # asegurar que la tolerancia viaje junto al resultado para mostrarla en UI
+                try:
+                    res['tol'] = float(tol)
+                except Exception:
+                    res['tol'] = tol
             elif method == 'Falsa Posición':
                 if self.mb_fp is None:
                     messagebox.showinfo('Dependencia faltante', 'El método Falsa Posición requiere sympy y numpy.\nInstálalos e inténtalo de nuevo.')
@@ -922,14 +971,21 @@ class MatrixCRUDApp:
                         'fc': r.get('f(c)'),
                         'error': r.get('error')
                     })
+                # conservar también f_root / error / iterations para mostrar en UI
                 res = {
                     'solucion': {
                         'root': result.get('root'),
+                        'f_root': result.get('f_root') if 'f_root' in result else result.get('f(c)', None),
+                        'error': result.get('error'),
                         'iteraciones': result.get('iterations')
                     },
                     'pasos': pasos,
-                    'mensaje': None
+                    'mensaje': result.get('mensaje') if result is not None else None
                 }
+                try:
+                    res['tol'] = float(tol)
+                except Exception:
+                    res['tol'] = tol
             else:
                 messagebox.showerror('Método no soportado', method)
                 return
@@ -1426,6 +1482,7 @@ class MatrixCRUDApp:
             return
         self.matrix_set_listbox.delete(0, tk.END)
         data = persistencia.cargar_todos_conjuntos_matrices()
+        self.matrix_set_listbox.delete(0, tk.END)
         if data:
             for name in data.keys():
                 self.matrix_set_listbox.insert(tk.END, name)
@@ -1435,6 +1492,7 @@ class MatrixCRUDApp:
         if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
             messagebox.showerror("Nombre inválido", "El nombre del conjunto debe ser una única letra mayúscula (A-Z).")
             return
+        
         if name in persistencia.cargar_todos_conjuntos_matrices():
             messagebox.showerror("Nombre en uso", f"Ya existe un conjunto de matrices con el nombre '{name}'.")
             return
@@ -1480,7 +1538,7 @@ class MatrixCRUDApp:
 
         # Botonera
         btn_frame = ttk.Frame(self.ops_entries_frame, style='Dark.TFrame')
-        btn_frame.grid(row=(num_matrices+1)//2 + 1, column=0, columnspan=2, sticky='ew', pady=(10,0))
+        btn_frame.grid(row=(num_matrices+1)//2 + 1, column=0, columnspan=2, pady=(10,0), sticky='ew')
         text = "Actualizar Conjunto" if is_modification else "Guardar Conjunto"
         cmd = (lambda: self.update_matrix_set_data(self.ops_entries, num_matrices, filas, columnas, name)) if is_modification \
               else (lambda: self.save_matrix_set_data(self.ops_entries, num_matrices, filas, columnas, name))
@@ -2086,9 +2144,6 @@ class MatrixCRUDApp:
                 messagebox.showerror("Error", "La matriz está vacía y no se puede procesar.")
                 return
 
-            n = len(datos)
-            m = len(datos[0])
-
             # Métodos directos delegados
             if metodo == "Transponer":
                 self.transpose_matrix()
@@ -2356,23 +2411,6 @@ class MatrixCRUDApp:
         except ValueError:
             messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos en todas las celdas.")
 
-    def save_matrix_data(self, entries, rows, cols, name):
-        try:
-            datos = self._extract_matrix_values(entries)
-
-            crear_matriz(name, rows, cols, datos)
-            messagebox.showinfo("Éxito", f"Matriz '{name}' creada y guardada exitosamente.")
-            self.update_matrix_list()
-
-            self.name_entry.delete(0, tk.END)
-            self.rows_var.set("0")
-            self.cols_var.set("0")
-            for widget in self.matrix_frame.winfo_children():
-                widget.destroy()
-
-        except ValueError:
-            messagebox.showerror("Error", "Asegúrate de ingresar solo números válidos en todas las celdas.")
-    
     # --- Funciones CRUD para la UI de Vectores ---
 
     def create_vector_set_ui(self):
@@ -2470,7 +2508,17 @@ class MatrixCRUDApp:
         self.steps_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, text)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = MatrixCRUDApp(root)
-    root.mainloop()
+if __name__ == '__main__':
+    import sys, traceback
+    try:
+        root = tk.Tk()
+        app = MatrixCRUDApp(root)
+        root.mainloop()
+    except Exception as e:
+        print("ERROR al iniciar la aplicación:", e)
+        traceback.print_exc()
+        try:
+            messagebox.showerror("Error al iniciar", str(e))
+        except Exception:
+            pass
+        sys.exit(1)

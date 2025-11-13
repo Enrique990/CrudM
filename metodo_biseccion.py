@@ -19,6 +19,8 @@ import math
 import ast
 from fractions import Fraction
 import re
+import sympy as sp
+import numpy as np
 
 
 class _NumToFraction(ast.NodeTransformer):
