@@ -126,7 +126,9 @@ class FalsePositionSolver:
             except Exception as e:
                 raise ValueError(f"Error al evaluar f(c): {e}")
 
-            error = abs(fc)
+            # Para consistencia con el resultado final, usar como "error" la cota del intervalo (b-a)/2
+            interval_error = abs(b - a) / 2.0
+            residual = abs(fc)
             rows.append({
                 'Iteración': i,
                 'a': float(a),
@@ -135,11 +137,13 @@ class FalsePositionSolver:
                 'f(a)': float(fa),
                 'f(b)': float(fb),
                 'f(c)': float(fc),
-                'error': float(error),
-                'abs_error': float(error)
+                'error': float(interval_error),
+                'abs_error': float(interval_error),
+                'residual': float(residual)
             })
 
-            if abs(fc) < tol or error < tol:
+            # Criterio de parada: se puede usar tanto residual como interval_error
+            if abs(fc) < tol or interval_error < tol:
                 break
 
             # Actualizar extremos
