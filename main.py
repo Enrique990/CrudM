@@ -1157,6 +1157,36 @@ class MatrixCRUDApp:
         ax.set_xlabel('x')
         ax.set_ylabel('f(x)')
         ax.set_title('f(x) = ' + expr)
+
+        # Escalado: si el intervalo es muy pequeño, ajustar márgenes y límites de Y a datos
+        try:
+            import numpy as _np
+            xw = float(b - a)
+            # Añadir un pequeño margen relativo en X para que no quede demasiado "apretado"
+            if _np.isfinite(xw) and xw > 0:
+                ax.margins(x=0.04, y=0.12)
+                # Mantener límites de X centrados en [a,b] con un pequeño padding proporcional
+                pad_x = max(xw * 0.05, 0.0)
+                ax.set_xlim(a - pad_x, b + pad_x)
+
+            # Calcular límites Y basados en valores finitos dentro del intervalo actual
+            finite = _np.isfinite(ys)
+            if _np.any(finite):
+                yvals = ys[finite]
+                y_min = float(_np.nanmin(yvals))
+                y_max = float(_np.nanmax(yvals))
+                if _np.isfinite(y_min) and _np.isfinite(y_max):
+                    if y_min == y_max:
+                        # Si es casi constante, crear una ventana alrededor del valor
+                        pad_y = max(1e-6, abs(y_min) * 0.1)
+                        ax.set_ylim(y_min - pad_y, y_max + pad_y)
+                    else:
+                        y_range = y_max - y_min
+                        pad_y = max(y_range * 0.12, 1e-12)
+                        ax.set_ylim(y_min - pad_y, y_max + pad_y)
+        except Exception:
+            pass
+
         fig.tight_layout()
 
         canvas = FigureCanvasTkAgg(fig, master=win)
