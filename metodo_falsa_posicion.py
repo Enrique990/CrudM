@@ -151,10 +151,12 @@ class FalsePositionSolver:
         if fc is None:
             raise RuntimeError('No se obtuvo evaluación válida de f(c) durante la iteración')
 
+        # Reportar como error final la cota del intervalo (b-a)/2
+        interval_error = abs(b - a) / 2.0
         result = {
             'root': float(c),
-            'error': float(abs(fc)),
-            'abs_error': float(abs(fc)),
+            'error': float(interval_error),
+            'abs_error': float(interval_error),
             'iterations': i,
             'f_root': float(fc)
         }

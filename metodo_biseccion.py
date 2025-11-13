@@ -19,6 +19,8 @@ import math
 import ast
 from fractions import Fraction
 import re
+import sympy as sp
+import numpy as np
 
 
 class _NumToFraction(ast.NodeTransformer):
@@ -242,9 +244,9 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f en los extremos: {e}"}
 
     if fa == 0:
-        return {"pasos": pasos, "solucion": {"root": _format_number(a), "f_root": _format_number(fa), "iteraciones": 0, "abs_error": float(abs(fa))}, "mensaje": "f(a) es 0: a es raíz."}
+        return {"pasos": pasos, "solucion": {"root": _format_number(a), "f_root": _format_number(fa), "iteraciones": 0, "abs_error": 0.0}, "mensaje": "f(a) es 0: a es raíz."}
     if fb == 0:
-        return {"pasos": pasos, "solucion": {"root": _format_number(b), "f_root": _format_number(fb), "iteraciones": 0, "abs_error": float(abs(fb))}, "mensaje": "f(b) es 0: b es raíz."}
+        return {"pasos": pasos, "solucion": {"root": _format_number(b), "f_root": _format_number(fb), "iteraciones": 0, "abs_error": 0.0}, "mensaje": "f(b) es 0: b es raíz."}
 
     if fa * fb > 0:
         return {"pasos": pasos, "solucion": None, "mensaje": "Los extremos no encierran una raíz (f(a)*f(b) > 0). Usa find_bracketing_interval para encontrar un intervalo válido."}
@@ -267,7 +269,7 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         pasos.append(paso)
 
         if fc == 0 or error_est <= tol_frac:
-            solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": i, "abs_error": float(abs(fc))}
+            solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": i, "abs_error": float(error_est)}
             return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": "Convergencia alcanzada."}
 
         if fa * fc < 0:
@@ -283,7 +285,9 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         except Exception as e:
             return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f durante iteraciones: {e}"}
 
-    solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": max_iter, "abs_error": float(abs(fc))}
+    # Si no convergió por tolerancia, reportar la cota de error por intervalo (b-a)/2
+    final_error_est = abs(b - a) / 2
+    solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": max_iter, "abs_error": float(final_error_est)}
     return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": "No convergió en el número máximo de iteraciones."}
 
 
@@ -413,7 +417,8 @@ class MetodoBiseccion:
                 fa = fc
 
         raiz = float((a_f + b_f) / 2)
-        error = abs(float(fc))
+        # En compat, devolver como error la cota de bisección: (b-a)/2
+        error = abs(float(b_f - a_f)) / 2.0
         return rows, raiz, error
     
     # -------------------
