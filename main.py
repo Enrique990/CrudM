@@ -856,7 +856,7 @@ class MatrixCRUDApp:
                 dec = self._num_to_float_from_str(root_s)
                 err_fmt = self._num_fmt_dec(self._num_to_float_from_str(err_s)) if err_s is not None else ''
                 tol_fmt = self._num_fmt_dec(self._num_to_float_from_str(tol_s)) if tol_s is not None else ''
-                root_label = f"Raíz: {root_s} ({self._num_fmt_dec(dec)})\n iter={sol.get('iteraciones')}\n"
+                root_label = f"Raíz: {root_s} ({self._num_fmt_dec(dec)})\niter={sol.get('iteraciones')}\n"
                 if err_s is not None:
                     root_label += f"error={err_fmt}\n"
                 if tol_s is not None:
