@@ -41,6 +41,12 @@ class MatrixCRUDApp:
         style.configure('Result.TLabel', background="#23272e", foreground="#e0e0e0", font=('Consolas', 13))
         style.configure('Entry.TEntry', fieldbackground="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11))
         style.configure('TCombobox', fieldbackground="#393e46", background="#393e46", foreground="#000000")
+        # Estilo invisible para scrollbars (mismo color que fondo, sin contraste)
+        try:
+            style.configure('Invisible.Vertical.TScrollbar', background="#23272e", troughcolor="#23272e", bordercolor="#23272e", arrowcolor="#23272e")
+            style.map('Invisible.Vertical.TScrollbar', background=[('active', '#23272e'), ('!active', '#23272e')], arrowcolor=[('active', '#23272e')])
+        except Exception:
+            pass
 
         # --- Creación del Notebook para manejar las pestañas ---
         self.notebook = ttk.Notebook(self.root)
@@ -97,7 +103,11 @@ class MatrixCRUDApp:
         content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.canvas = tk.Canvas(content_stack, bg="#23272e", highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(content_stack, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.scrollbar = ttk.Scrollbar(content_stack, orient=tk.VERTICAL, command=self.canvas.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            self.scrollbar.configure(width=0)
+        except Exception:
+            pass
         self.scrollable_frame = ttk.Frame(self.canvas, style='Dark.TFrame')
         self.scrollable_frame.bind(
             "<Configure>",
@@ -123,7 +133,11 @@ class MatrixCRUDApp:
         calc_steps_container.columnconfigure(0, weight=1)
         self.steps_text = tk.Text(calc_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
         self.steps_text.grid(row=0, column=0, sticky='nsew')
-        calc_steps_scrollbar = ttk.Scrollbar(calc_steps_container, orient=tk.VERTICAL, command=self.steps_text.yview)
+        calc_steps_scrollbar = ttk.Scrollbar(calc_steps_container, orient=tk.VERTICAL, command=self.steps_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            calc_steps_scrollbar.configure(width=0)
+        except Exception:
+            pass
         calc_steps_scrollbar.grid(row=0, column=1, sticky='ns')
         self.steps_text.configure(yscrollcommand=calc_steps_scrollbar.set)
 
@@ -322,7 +336,11 @@ class MatrixCRUDApp:
 
         self.matrix_listbox = tk.Listbox(matrix_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_listbox.grid(row=0, column=0, sticky="nsew")
-        matrix_scrollbar = ttk.Scrollbar(matrix_list_frame, orient=tk.VERTICAL, command=self.matrix_listbox.yview)
+        matrix_scrollbar = ttk.Scrollbar(matrix_list_frame, orient=tk.VERTICAL, command=self.matrix_listbox.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            matrix_scrollbar.configure(width=0)
+        except Exception:
+            pass
         matrix_scrollbar.grid(row=0, column=1, sticky="ns")  # <-- Side bar (scroll) asociado a la lista (Calculadora)
         self.matrix_listbox.configure(yscrollcommand=matrix_scrollbar.set)
         self.matrix_listbox.bind('<<ListboxSelect>>', self._on_matrix_select)
@@ -358,7 +376,11 @@ class MatrixCRUDApp:
 
         self.result_text = tk.Text(solution_frame, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.result_text.grid(row=0, column=0, sticky="nsew")
-        result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.result_text.yview)
+        result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.result_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            result_scrollbar.configure(width=0)
+        except Exception:
+            pass
         result_scrollbar.grid(row=0, column=1, sticky="ns")
         self.result_text.configure(yscrollcommand=result_scrollbar.set)
 
@@ -376,7 +398,11 @@ class MatrixCRUDApp:
         vector_content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.vector_canvas = tk.Canvas(vector_content_stack, bg="#23272e", highlightthickness=0)
-        vector_scrollbar = ttk.Scrollbar(vector_content_stack, orient=tk.VERTICAL, command=self.vector_canvas.yview)
+        vector_scrollbar = ttk.Scrollbar(vector_content_stack, orient=tk.VERTICAL, command=self.vector_canvas.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            vector_scrollbar.configure(width=0)
+        except Exception:
+            pass
         self.vector_scrollable_frame = ttk.Frame(self.vector_canvas, style='Dark.TFrame')
         self.vector_scrollable_frame.bind(
             "<Configure>",
@@ -402,7 +428,11 @@ class MatrixCRUDApp:
         ind_steps_container.columnconfigure(0, weight=1)
         self.independence_steps_text = tk.Text(ind_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
         self.independence_steps_text.grid(row=0, column=0, sticky='nsew')
-        ind_steps_scrollbar = ttk.Scrollbar(ind_steps_container, orient=tk.VERTICAL, command=self.independence_steps_text.yview)
+        ind_steps_scrollbar = ttk.Scrollbar(ind_steps_container, orient=tk.VERTICAL, command=self.independence_steps_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            ind_steps_scrollbar.configure(width=0)
+        except Exception:
+            pass
         ind_steps_scrollbar.grid(row=0, column=1, sticky='ns')
         self.independence_steps_text.configure(yscrollcommand=ind_steps_scrollbar.set)
 
@@ -468,7 +498,11 @@ class MatrixCRUDApp:
 
         self.vector_set_listbox = tk.Listbox(vector_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.vector_set_listbox.grid(row=0, column=0, sticky='nsew')
-        vector_scrollbar = ttk.Scrollbar(vector_list_frame, orient=tk.VERTICAL, command=self.vector_set_listbox.yview)
+        vector_scrollbar = ttk.Scrollbar(vector_list_frame, orient=tk.VERTICAL, command=self.vector_set_listbox.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            vector_scrollbar.configure(width=0)
+        except Exception:
+            pass
         vector_scrollbar.grid(row=0, column=1, sticky='ns')  # <-- Side bar (scroll) asociado a la lista (Vectores)
         self.vector_set_listbox.configure(yscrollcommand=vector_scrollbar.set)
         self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
@@ -504,7 +538,11 @@ class MatrixCRUDApp:
 
         self.independence_result_text = tk.Text(solution_frame_vec, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.independence_result_text.grid(row=0, column=0, sticky='nsew')
-        result_scrollbar_vec = ttk.Scrollbar(solution_frame_vec, orient=tk.VERTICAL, command=self.independence_result_text.yview)
+        result_scrollbar_vec = ttk.Scrollbar(solution_frame_vec, orient=tk.VERTICAL, command=self.independence_result_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            result_scrollbar_vec.configure(width=0)
+        except Exception:
+            pass
         result_scrollbar_vec.grid(row=0, column=1, sticky='ns')
         self.independence_result_text.configure(yscrollcommand=result_scrollbar_vec.set)
 
@@ -520,7 +558,11 @@ class MatrixCRUDApp:
         num_content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.num_canvas = tk.Canvas(num_content_stack, bg="#23272e", highlightthickness=0)
-        num_scrollbar = ttk.Scrollbar(num_content_stack, orient=tk.VERTICAL, command=self.num_canvas.yview)
+        num_scrollbar = ttk.Scrollbar(num_content_stack, orient=tk.VERTICAL, command=self.num_canvas.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            num_scrollbar.configure(width=0)
+        except Exception:
+            pass
         self.num_scrollable_frame = ttk.Frame(self.num_canvas, style='Dark.TFrame')
         self.num_scrollable_frame.bind(
             "<Configure>", lambda e: self.num_canvas.configure(scrollregion=self.num_canvas.bbox("all"))
@@ -555,7 +597,11 @@ class MatrixCRUDApp:
             width = 60 if c == 'iter' else 70
             self.num_tree.column(c, width=width, anchor='center')
         self.num_tree.grid(row=0, column=0, sticky='nsew')
-        num_steps_scrollbar = ttk.Scrollbar(num_steps_container, orient=tk.VERTICAL, command=self.num_tree.yview)
+        num_steps_scrollbar = ttk.Scrollbar(num_steps_container, orient=tk.VERTICAL, command=self.num_tree.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            num_steps_scrollbar.configure(width=0)
+        except Exception:
+            pass
         num_steps_scrollbar.grid(row=0, column=1, sticky='ns')
         self.num_tree.configure(yscrollcommand=num_steps_scrollbar.set)
         # Habilitar scroll con rueda sobre el Treeview
@@ -599,7 +645,11 @@ class MatrixCRUDApp:
         )
         self.eq_listbox.grid(row=0, column=0, sticky='nsew')
         # Solo scrollbar vertical al lado (como en otras pestañas)
-        eq_vscroll = ttk.Scrollbar(eq_list_frame, orient=tk.VERTICAL, command=self.eq_listbox.yview)
+        eq_vscroll = ttk.Scrollbar(eq_list_frame, orient=tk.VERTICAL, command=self.eq_listbox.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            eq_vscroll.configure(width=0)
+        except Exception:
+            pass
         eq_vscroll.grid(row=0, column=1, sticky='ns')
         self.eq_listbox.configure(yscrollcommand=eq_vscroll.set)
         self.eq_listbox.bind('<<ListboxSelect>>', self._on_equation_select)
@@ -760,11 +810,24 @@ class MatrixCRUDApp:
         mensaje = (result or {}).get('mensaje')
         if sol:
             root_s = sol.get('root')
+            # preparar error y tolerancia
+            err_s = sol.get('abs_error')
+            tol_s = sol.get('tol')
             if as_decimal:
                 dec = self._num_to_float_from_str(root_s)
+                err_fmt = self._num_fmt_dec(self._num_to_float_from_str(err_s)) if err_s is not None else ''
+                tol_fmt = self._num_fmt_dec(self._num_to_float_from_str(tol_s)) if tol_s is not None else ''
                 root_label = f"Raíz: {root_s} ({self._num_fmt_dec(dec)}) | iter={sol.get('iteraciones')}"
+                if err_s is not None:
+                    root_label += f" | error={err_fmt}"
+                if tol_s is not None:
+                    root_label += f" | tol={tol_fmt}"
             else:
                 root_label = f"Raíz: {root_s} | iter={sol.get('iteraciones')}"
+                if err_s is not None:
+                    root_label += f" | error={err_s}"
+                if tol_s is not None:
+                    root_label += f" | tol={tol_s}"
             self.num_result_text.insert(tk.END, root_label + "\n")
         if mensaje:
             self.num_result_text.insert(tk.END, str(mensaje) + "\n")
@@ -925,7 +988,9 @@ class MatrixCRUDApp:
                 res = {
                     'solucion': {
                         'root': result.get('root'),
-                        'iteraciones': result.get('iterations')
+                        'iteraciones': result.get('iterations'),
+                        'f_root': result.get('f_root'),
+                        'abs_error': result.get('error')
                     },
                     'pasos': pasos,
                     'mensaje': None
@@ -936,6 +1001,13 @@ class MatrixCRUDApp:
         except Exception as e:
             messagebox.showerror('Error', f"Error durante {method}: {e}")
             return
+
+        # Inyectar tolerancia en la solución para mostrarla en 'Resultado'
+        try:
+            if isinstance(res, dict) and isinstance(res.get('solucion'), dict):
+                res['solucion']['tol'] = tol
+        except Exception:
+            pass
 
         # Guardar resultado y resetear modo (no modificar entradas)
         self.num_state['last_result'] = res
@@ -1364,7 +1436,11 @@ class MatrixCRUDApp:
         ops_content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.ops_canvas = tk.Canvas(ops_content_stack, bg="#23272e", highlightthickness=0)
-        ops_scrollbar = ttk.Scrollbar(ops_content_stack, orient=tk.VERTICAL, command=self.ops_canvas.yview)
+        ops_scrollbar = ttk.Scrollbar(ops_content_stack, orient=tk.VERTICAL, command=self.ops_canvas.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            ops_scrollbar.configure(width=1)
+        except Exception:
+            pass
         self.ops_scrollable_frame = ttk.Frame(self.ops_canvas, style='Dark.TFrame')
         self.ops_scrollable_frame.bind(
             "<Configure>", lambda e: self.ops_canvas.configure(scrollregion=self.ops_canvas.bbox("all"))
@@ -1389,7 +1465,11 @@ class MatrixCRUDApp:
         ops_steps_container.columnconfigure(0, weight=1)
         self.ops_steps_text = tk.Text(ops_steps_container, font=('Consolas', 12), bg="#23272e", fg="#e0e0e0", bd=0, highlightthickness=0, width=50)
         self.ops_steps_text.grid(row=0, column=0, sticky='nsew')
-        steps_scrollbar_ops_right = ttk.Scrollbar(ops_steps_container, orient=tk.VERTICAL, command=self.ops_steps_text.yview)
+        steps_scrollbar_ops_right = ttk.Scrollbar(ops_steps_container, orient=tk.VERTICAL, command=self.ops_steps_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            steps_scrollbar_ops_right.configure(width=1)
+        except Exception:
+            pass
         steps_scrollbar_ops_right.grid(row=0, column=1, sticky='ns')
         self.ops_steps_text.configure(yscrollcommand=steps_scrollbar_ops_right.set)
 
@@ -1460,7 +1540,11 @@ class MatrixCRUDApp:
         ops_list_frame.grid_rowconfigure(0, weight=1)
         self.matrix_set_listbox = tk.Listbox(ops_list_frame, height=6, font=('Segoe UI', 11), bg="#393e46", fg="#e0e0e0", selectbackground="#00adb5", selectforeground="#23272e", borderwidth=0, highlightthickness=0, exportselection=0)
         self.matrix_set_listbox.grid(row=0, column=0, sticky='nsew')
-        ops_scrollbar_list = ttk.Scrollbar(ops_list_frame, orient=tk.VERTICAL, command=self.matrix_set_listbox.yview)
+        ops_scrollbar_list = ttk.Scrollbar(ops_list_frame, orient=tk.VERTICAL, command=self.matrix_set_listbox.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            ops_scrollbar_list.configure(width=1)
+        except Exception:
+            pass
         ops_scrollbar_list.grid(row=0, column=1, sticky='ns')  # <-- Side bar (scroll) asociado a la lista (Operadores)
         self.matrix_set_listbox.configure(yscrollcommand=ops_scrollbar_list.set)
         self.matrix_set_listbox.bind('<<ListboxSelect>>', self._on_matrix_set_select)
@@ -1493,7 +1577,11 @@ class MatrixCRUDApp:
         solution_frame_ops.grid_columnconfigure(0, weight=1)
         self.ops_result_text = tk.Text(solution_frame_ops, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.ops_result_text.grid(row=0, column=0, sticky='nsew')
-        result_scrollbar_ops = ttk.Scrollbar(solution_frame_ops, orient=tk.VERTICAL, command=self.ops_result_text.yview)
+        result_scrollbar_ops = ttk.Scrollbar(solution_frame_ops, orient=tk.VERTICAL, command=self.ops_result_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            result_scrollbar_ops.configure(width=1)
+        except Exception:
+            pass
         result_scrollbar_ops.grid(row=0, column=1, sticky='ns')
         self.ops_result_text.configure(yscrollcommand=result_scrollbar_ops.set)
 
