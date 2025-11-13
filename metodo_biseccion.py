@@ -256,6 +256,7 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
 
     for i in range(1, max_iter + 1):
         error_est = abs(b - a) / 2
+        fc_abs = abs(fc)
         paso = {
             "iter": i,
             "a": _format_number(a),
@@ -263,13 +264,14 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
             "fa": _format_number(fa),
             "fb": _format_number(fb),
             "c": _format_number(c),
-            "fc": _format_number(fc),
-            "error": _format_number(error_est),
+            "fc": _format_number(fc_abs),
+            "error": _format_number(fc_abs),
         }
         pasos.append(paso)
 
-        if fc == 0 or error_est <= tol_frac:
-            solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": i, "abs_error": float(error_est)}
+        # Criterio de parada: |f(c)| <= tolerancia
+        if fc_abs <= tol_frac:
+            solucion = {"root": _format_number(c), "f_root": _format_number(fc_abs), "iteraciones": i, "abs_error": float(fc_abs)}
             return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": "Convergencia alcanzada."}
 
         if fa * fc < 0:
@@ -285,9 +287,9 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         except Exception as e:
             return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f durante iteraciones: {e}"}
 
-    # Si no convergió por tolerancia, reportar la cota de error por intervalo (b-a)/2
-    final_error_est = abs(b - a) / 2
-    solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": max_iter, "abs_error": float(final_error_est)}
+    # Si no convergió por tolerancia de |f(c)|, reportar |f(c)| final como error
+    fc_abs = abs(fc)
+    solucion = {"root": _format_number(c), "f_root": _format_number(fc_abs), "iteraciones": max_iter, "abs_error": float(fc_abs)}
     return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": "No convergió en el número máximo de iteraciones."}
 
 
@@ -406,8 +408,10 @@ class MetodoBiseccion:
             c = (a_f + b_f) / 2
             fc = fun(c)
             prod = float(fa * fc)
-            rows.append({'Iteración': i, 'a': float(a_f), 'b': float(b_f), 'c': float(c), 'f(a)': float(fa), 'f(b)': float(fb), 'f(c)': float(fc), 'f(a)*f(c)': prod})
-            if abs(float(fc)) < tol or abs(float(b_f - a_f)) / 2.0 < tol:
+            err_fc = abs(float(fc))
+            rows.append({'Iteración': i, 'a': float(a_f), 'b': float(b_f), 'c': float(c), 'f(a)': float(fa), 'f(b)': float(fb), 'f(c)': float(err_fc), 'error': float(err_fc), 'f(a)*f(c)': prod})
+            # Criterio: |f(c)| <= tol
+            if err_fc <= tol:
                 break
             if fa * fc < 0:
                 b_f = c
@@ -417,8 +421,13 @@ class MetodoBiseccion:
                 fa = fc
 
         raiz = float((a_f + b_f) / 2)
-        # En compat, devolver como error la cota de bisección: (b-a)/2
-        error = abs(float(b_f - a_f)) / 2.0
+        # En compat, devolver como error |f(c)|
+        # Recalcular f(c) en la raíz estimada por seguridad
+        try:
+            fc_final = float(fun(Fraction(raiz)))
+        except Exception:
+            fc_final = float(fc)
+        error = abs(fc_final)
         return rows, raiz, error
     
     # -------------------
@@ -455,8 +464,8 @@ class MetodoBiseccion:
                 'prod': r.get('f(a)*f(c)'),
             })
         # rows contain the signed f(c) values; `error` is abs(fc) returned by the compat biseccion
-        f_root_signed = rows[-1].get('f(c)') if rows else None
-        solucion = {'root': raiz, 'f_root': f_root_signed, 'abs_error': error, 'iteraciones': len(rows)} if rows else None
+        f_root_abs = rows[-1].get('f(c)') if rows else None
+        solucion = {'root': raiz, 'f_root': f_root_abs, 'abs_error': error, 'iteraciones': len(rows)} if rows else None
         mensaje = 'Convergencia (compat)' if solucion is not None else 'No hubo solución (compat)'
         return {'pasos': pasos if mostrar_pasos else [], 'solucion': solucion, 'mensaje': mensaje}
 

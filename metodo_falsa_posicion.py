@@ -126,7 +126,7 @@ class FalsePositionSolver:
             except Exception as e:
                 raise ValueError(f"Error al evaluar f(c): {e}")
 
-            # Para consistencia con el resultado final, usar como "error" la cota del intervalo (b-a)/2
+            # Usar como "error" el residual |f(c)| para consistencia
             interval_error = abs(b - a) / 2.0
             residual = abs(fc)
             rows.append({
@@ -136,14 +136,14 @@ class FalsePositionSolver:
                 'c': float(c),
                 'f(a)': float(fa),
                 'f(b)': float(fb),
-                'f(c)': float(fc),
-                'error': float(interval_error),
-                'abs_error': float(interval_error),
-                'residual': float(residual)
+                'f(c)': float(residual),
+                'error': float(residual),
+                'abs_error': float(residual),
+                'interval_error': float(interval_error)
             })
 
-            # Criterio de parada: se puede usar tanto residual como interval_error
-            if abs(fc) < tol or interval_error < tol:
+            # Criterio de parada: |f(c)| <= tolerancia
+            if residual <= tol:
                 break
 
             # Actualizar extremos
@@ -155,14 +155,14 @@ class FalsePositionSolver:
         if fc is None:
             raise RuntimeError('No se obtuvo evaluación válida de f(c) durante la iteración')
 
-        # Reportar como error final la cota del intervalo (b-a)/2
+        # Reportar como error final el residual |f(c)|
         interval_error = abs(b - a) / 2.0
         result = {
             'root': float(c),
-            'error': float(interval_error),
-            'abs_error': float(interval_error),
+            'error': float(abs(fc)),
+            'abs_error': float(abs(fc)),
             'iterations': i,
-            'f_root': float(fc)
+            'f_root': float(abs(fc))
         }
 
         if return_dataframe:
