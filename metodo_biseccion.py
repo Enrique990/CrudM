@@ -242,9 +242,9 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f en los extremos: {e}"}
 
     if fa == 0:
-        return {"pasos": pasos, "solucion": {"root": _format_number(a), "f_root": _format_number(fa), "iteraciones": 0}, "mensaje": "f(a) es 0: a es raíz."}
+        return {"pasos": pasos, "solucion": {"root": _format_number(a), "f_root": _format_number(fa), "iteraciones": 0, "abs_error": float(abs(fa))}, "mensaje": "f(a) es 0: a es raíz."}
     if fb == 0:
-        return {"pasos": pasos, "solucion": {"root": _format_number(b), "f_root": _format_number(fb), "iteraciones": 0}, "mensaje": "f(b) es 0: b es raíz."}
+        return {"pasos": pasos, "solucion": {"root": _format_number(b), "f_root": _format_number(fb), "iteraciones": 0, "abs_error": float(abs(fb))}, "mensaje": "f(b) es 0: b es raíz."}
 
     if fa * fb > 0:
         return {"pasos": pasos, "solucion": None, "mensaje": "Los extremos no encierran una raíz (f(a)*f(b) > 0). Usa find_bracketing_interval para encontrar un intervalo válido."}
@@ -267,7 +267,7 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         pasos.append(paso)
 
         if fc == 0 or error_est <= tol_frac:
-            solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": i}
+            solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": i, "abs_error": float(abs(fc))}
             return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": "Convergencia alcanzada."}
 
         if fa * fc < 0:
@@ -283,7 +283,7 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         except Exception as e:
             return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f durante iteraciones: {e}"}
 
-    solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": max_iter}
+    solucion = {"root": _format_number(c), "f_root": _format_number(fc), "iteraciones": max_iter, "abs_error": float(abs(fc))}
     return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": "No convergió en el número máximo de iteraciones."}
 
 
@@ -449,7 +449,9 @@ class MetodoBiseccion:
                 'fc': r.get('f(c)'),
                 'prod': r.get('f(a)*f(c)'),
             })
-        solucion = {'root': raiz, 'f_root': error, 'iteraciones': len(rows)} if rows else None
+        # rows contain the signed f(c) values; `error` is abs(fc) returned by the compat biseccion
+        f_root_signed = rows[-1].get('f(c)') if rows else None
+        solucion = {'root': raiz, 'f_root': f_root_signed, 'abs_error': error, 'iteraciones': len(rows)} if rows else None
         mensaje = 'Convergencia (compat)' if solucion is not None else 'No hubo solución (compat)'
         return {'pasos': pasos if mostrar_pasos else [], 'solucion': solucion, 'mensaje': mensaje}
 

@@ -135,7 +135,8 @@ class FalsePositionSolver:
                 'f(a)': float(fa),
                 'f(b)': float(fb),
                 'f(c)': float(fc),
-                'error': float(error)
+                'error': float(error),
+                'abs_error': float(error)
             })
 
             if abs(fc) < tol or error < tol:
@@ -153,6 +154,7 @@ class FalsePositionSolver:
         result = {
             'root': float(c),
             'error': float(abs(fc)),
+            'abs_error': float(abs(fc)),
             'iterations': i,
             'f_root': float(fc)
         }
