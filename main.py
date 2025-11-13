@@ -45,6 +45,18 @@ class MatrixCRUDApp:
         try:
             style.configure('Invisible.Vertical.TScrollbar', background="#23272e", troughcolor="#23272e", bordercolor="#23272e", arrowcolor="#23272e")
             style.map('Invisible.Vertical.TScrollbar', background=[('active', '#23272e'), ('!active', '#23272e')], arrowcolor=[('active', '#23272e')])
+            # Layout vacío para ocultar por completo la apariencia
+            style.layout('Invisible.Vertical.TScrollbar', [])
+        except Exception:
+            pass
+        # Estilo visible y coherente para scrollbars de la app
+        try:
+            style.configure('App.Vertical.TScrollbar', troughcolor="#2d323a", background="#5a6470")
+        except Exception:
+            pass
+        # Estilo visible específico para la barra de Resultado en Calculadora
+        try:
+            style.configure('CalcVisible.Vertical.TScrollbar', troughcolor="#2d323a", background="#5a6470")
         except Exception:
             pass
 
@@ -373,10 +385,21 @@ class MatrixCRUDApp:
         solution_frame.grid(row=1, column=0, sticky="nsew")
         solution_frame.grid_rowconfigure(0, weight=1)
         solution_frame.grid_columnconfigure(0, weight=1)
+        # No reservar espacio para la barra; será invisible (ancho 0)
+        try:
+            solution_frame.grid_columnconfigure(1, minsize=0)
+        except Exception:
+            pass
 
         self.result_text = tk.Text(solution_frame, height=16, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.result_text.grid(row=0, column=0, sticky="nsew")
-        result_scrollbar = ttk.Scrollbar(solution_frame, orient=tk.VERTICAL, command=self.result_text.yview, style='Invisible.Vertical.TScrollbar')
+        # Scrollbar invisible (ttk) para Resultado (Calculadora)
+        result_scrollbar = ttk.Scrollbar(
+            solution_frame,
+            orient=tk.VERTICAL,
+            command=self.result_text.yview,
+            style='Invisible.Vertical.TScrollbar'
+        )
         try:
             result_scrollbar.configure(width=0)
         except Exception:
@@ -629,6 +652,11 @@ class MatrixCRUDApp:
         eq_list_frame.grid_propagate(False)
         eq_list_frame.configure(width=260, height=690)
         eq_list_frame.grid_columnconfigure(0, weight=1)
+        # No reservar espacio; barra invisible con ancho 0
+        try:
+            eq_list_frame.grid_columnconfigure(1, minsize=0)
+        except Exception:
+            pass
         eq_list_frame.grid_rowconfigure(0, weight=1)
         self.eq_list_frame = eq_list_frame
         self.eq_listbox = tk.Listbox(
@@ -644,7 +672,7 @@ class MatrixCRUDApp:
             exportselection=0
         )
         self.eq_listbox.grid(row=0, column=0, sticky='nsew')
-        # Solo scrollbar vertical al lado (como en otras pestañas)
+        # Scrollbar vertical invisible para la lista de ecuaciones
         eq_vscroll = ttk.Scrollbar(eq_list_frame, orient=tk.VERTICAL, command=self.eq_listbox.yview, style='Invisible.Vertical.TScrollbar')
         try:
             eq_vscroll.configure(width=0)
@@ -755,6 +783,14 @@ class MatrixCRUDApp:
         solution_frame_num.grid_columnconfigure(0, weight=1)
         self.num_result_text = tk.Text(solution_frame_num, height=11, width=79, font=('Segoe UI', 13), bg="#23272e", fg="#00adb5", bd=0, highlightthickness=0)
         self.num_result_text.grid(row=0, column=0, sticky='nsew')
+        # Scrollbar vertical para el resultado (estilo invisible como el resto)
+        num_result_scroll = ttk.Scrollbar(solution_frame_num, orient=tk.VERTICAL, command=self.num_result_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            num_result_scroll.configure(width=0)
+        except Exception:
+            pass
+        num_result_scroll.grid(row=0, column=1, sticky='ns')
+        self.num_result_text.configure(yscrollcommand=num_result_scroll.set)
 
         # Estado de modificación
         self._num_editing_name = None
