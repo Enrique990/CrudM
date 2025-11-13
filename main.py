@@ -856,17 +856,17 @@ class MatrixCRUDApp:
                 dec = self._num_to_float_from_str(root_s)
                 err_fmt = self._num_fmt_dec(self._num_to_float_from_str(err_s)) if err_s is not None else ''
                 tol_fmt = self._num_fmt_dec(self._num_to_float_from_str(tol_s)) if tol_s is not None else ''
-                root_label = f"Raíz: {root_s} ({self._num_fmt_dec(dec)}) | iter={sol.get('iteraciones')}"
+                root_label = f"Raíz: {root_s} ({self._num_fmt_dec(dec)})\n iter={sol.get('iteraciones')}\n"
                 if err_s is not None:
-                    root_label += f" | error={err_fmt}"
+                    root_label += f"error={err_fmt}\n"
                 if tol_s is not None:
-                    root_label += f" | tol={tol_fmt}"
+                    root_label += f"tol={tol_fmt}\n"
             else:
-                root_label = f"Raíz: {root_s} | iter={sol.get('iteraciones')}"
+                root_label = f"Raíz: {root_s}\niter={sol.get('iteraciones')}\n"
                 if err_s is not None:
-                    root_label += f" | error={err_s}"
+                    root_label += f"error={err_s}\n"
                 if tol_s is not None:
-                    root_label += f" | tol={tol_s}"
+                    root_label += f"tol={tol_s}\n"
             self.num_result_text.insert(tk.END, root_label + "\n")
         if mensaje:
             self.num_result_text.insert(tk.END, str(mensaje) + "\n")
