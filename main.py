@@ -76,11 +76,18 @@ class MatrixCRUDApp:
         self.mb_num = MetodoBiseccion(max_iter=100)
         # Intentar cargar el solver de Falsa Posición (requiere sympy y numpy)
         self.mb_fp = None
+        # Intentar cargar el solver de Newton-Raphson
+        self.mb_newton = None
         try:
             from metodo_falsa_posicion import FalsePositionSolver as _FPS
             self.mb_fp = _FPS(max_iter=100)
         except Exception:
             self.mb_fp = None
+        try:
+            from metodo_newton_raph import NewtonRaphsonSolver as _NRS
+            self.mb_newton = _NRS(max_iter=100)
+        except Exception:
+            self.mb_newton = None
         self.num_state = {'last_result': None, 'decimal_mode': False}
 
         self.selected_matrix = None
@@ -590,7 +597,7 @@ class MatrixCRUDApp:
         num_steps_container.pack(fill=tk.BOTH, expand=True)
         num_steps_container.rowconfigure(0, weight=1)
         num_steps_container.columnconfigure(0, weight=1)
-        cols = ('iter','a','b','c','fa','fb','fc','error')
+        cols = ('iter','a','b','c','fa','fb','fc')
         self.num_tree = ttk.Treeview(num_steps_container, columns=cols, show='headings', height=20)
         for c in cols:
             self.num_tree.heading(c, text=c)
@@ -667,7 +674,7 @@ class MatrixCRUDApp:
         self.num_name_entry.grid(row=1, column=1, sticky='w', padx=(0,20))
         ttk.Label(container, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
         self.num_method_var = tk.StringVar(value="Bisección")
-        self.num_method_combobox = ttk.Combobox(container, textvariable=self.num_method_var, values=["Bisección", "Falsa Posición"], state="readonly", width=16)
+        self.num_method_combobox = ttk.Combobox(container, textvariable=self.num_method_var, values=["Bisección", "Falsa Posición", "Newton-Raphson"], state="readonly", width=16)
         self.num_method_combobox.grid(row=1, column=3, sticky='w')
 
     # Fila 2: Expresión
@@ -837,7 +844,6 @@ class MatrixCRUDApp:
         for paso in pasos:
             a_v = paso.get('a'); b_v = paso.get('b'); c_v = paso.get('c')
             fa_v = paso.get('fa'); fb_v = paso.get('fb'); fc_v = paso.get('fc')
-            err_v = paso.get('error') if 'error' in paso else paso.get('prod')
             if as_decimal:
                 a_v = self._num_fmt_dec(self._num_to_float_from_str(a_v)) if a_v is not None else ''
                 b_v = self._num_fmt_dec(self._num_to_float_from_str(b_v)) if b_v is not None else ''
@@ -845,8 +851,7 @@ class MatrixCRUDApp:
                 fa_v = self._num_fmt_dec(self._num_to_float_from_str(fa_v)) if fa_v is not None else ''
                 fb_v = self._num_fmt_dec(self._num_to_float_from_str(fb_v)) if fb_v is not None else ''
                 fc_v = self._num_fmt_dec(self._num_to_float_from_str(fc_v)) if fc_v is not None else ''
-                err_v = self._num_fmt_dec(self._num_to_float_from_str(err_v)) if err_v is not None else ''
-            self.num_tree.insert('', 'end', values=(paso.get('iter'), a_v, b_v, c_v, fa_v, fb_v, fc_v, err_v))
+            self.num_tree.insert('', 'end', values=(paso.get('iter'), a_v, b_v, c_v, fa_v, fb_v, fc_v))
 
     def _num_eqdata_autosize(self, min_lines: int = 1, max_lines: int = 8):
         """Ajusta la altura del Text de 'Datos de la ecuación' al contenido.
@@ -994,6 +999,39 @@ class MatrixCRUDApp:
                     },
                     'pasos': pasos,
                     'mensaje': None
+                }
+            elif method == 'Newton-Raphson':
+                if self.mb_newton is None:
+                    messagebox.showinfo('Dependencia faltante', 'El método Newton-Raphson requiere sympy y numpy.\nInstálalos e inténtalo de nuevo.')
+                    return
+                # Usar x0 como el punto medio del intervalo [a,b]
+                try:
+                    x0 = (float(a) + float(b)) / 2.0
+                except Exception:
+                    x0 = float(a)
+                rows, result = self.mb_newton.solve(expr, x0=x0, tol=tol)
+                pasos = []
+                for r in rows:
+                    # Mapear a las claves genéricas usadas por el visor de pasos
+                    pasos.append({
+                        'iter': r.get('Iteración'),
+                        'a': r.get('x'),
+                        'b': r.get('x_next'),
+                        'c': r.get('x_next'),
+                        'fa': r.get('f(x)'),
+                        'fb': r.get("f'(x)"),
+                        'fc': r.get('f(x)'),
+                        'error': r.get('f(x)')
+                    })
+                res = {
+                    'solucion': {
+                        'root': result.get('root'),
+                        'iteraciones': result.get('iterations'),
+                        'f_root': result.get('f_root'),
+                        'abs_error': result.get('abs_error') if result.get('abs_error') is not None else result.get('error')
+                    },
+                    'pasos': pasos,
+                    'mensaje': result.get('mensaje')
                 }
             else:
                 messagebox.showerror('Método no soportado', method)
