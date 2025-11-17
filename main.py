@@ -852,6 +852,21 @@ class MatrixCRUDApp:
         for item in self.num_tree.get_children():
             self.num_tree.delete(item)
 
+        # Ajustar encabezados de columnas según el método usado
+        try:
+            last_method = (self.num_state or {}).get('last_method') if hasattr(self, 'num_state') else None
+            if last_method == 'Newton-Raphson':
+                # Mostrar derivada en la columna fb
+                self.num_tree.heading('fb', text="f'(x)")
+            else:
+                # Restaurar encabezado estándar
+                self.num_tree.heading('fb', text='fb')
+            # Mantener los demás encabezados estándar
+            self.num_tree.heading('fa', text='fa')
+            self.num_tree.heading('fc', text='fc')
+        except Exception:
+            pass
+
         sol = (result or {}).get('solucion')
         mensaje = (result or {}).get('mensaje')
         if sol:
@@ -1088,6 +1103,7 @@ class MatrixCRUDApp:
 
         # Guardar resultado y resetear modo (no modificar entradas)
         self.num_state['last_result'] = res
+        self.num_state['last_method'] = method
         self.num_state['decimal_mode'] = False
         self.num_toggle_btn.config(text='Mostrar decimales')
         # Render principal en sección Resultado
