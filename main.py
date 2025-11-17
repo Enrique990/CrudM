@@ -90,6 +90,8 @@ class MatrixCRUDApp:
         self.mb_fp = None
         # Intentar cargar el solver de Newton-Raphson
         self.mb_newton = None
+        # Intentar cargar el solver de Secante
+        self.mb_secante = None
         try:
             from metodo_falsa_posicion import FalsePositionSolver as _FPS
             self.mb_fp = _FPS(max_iter=100)
@@ -100,6 +102,11 @@ class MatrixCRUDApp:
             self.mb_newton = _NRS(max_iter=100)
         except Exception:
             self.mb_newton = None
+        try:
+            from metodo_secante import SecantSolver as _SS
+            self.mb_secante = _SS(max_iter=100)
+        except Exception:
+            self.mb_secante = None
         self.num_state = {'last_result': None, 'decimal_mode': False}
 
         self.selected_matrix = None
@@ -704,7 +711,13 @@ class MatrixCRUDApp:
         self.num_name_entry.grid(row=1, column=1, sticky='w', padx=(0,20))
         ttk.Label(container, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
         self.num_method_var = tk.StringVar(value="Bisección")
-        self.num_method_combobox = ttk.Combobox(container, textvariable=self.num_method_var, values=["Bisección", "Falsa Posición", "Newton-Raphson"], state="readonly", width=16)
+        self.num_method_combobox = ttk.Combobox(
+            container,
+            textvariable=self.num_method_var,
+            values=["Bisección", "Falsa Posición", "Newton-Raphson", "Secante"],
+            state="readonly",
+            width=16,
+        )
         self.num_method_combobox.grid(row=1, column=3, sticky='w')
 
     # Fila 2: Expresión
@@ -1074,6 +1087,34 @@ class MatrixCRUDApp:
                         'c': r.get('x_next'),
                         'fa': r.get('f(x)'),
                         'fb': r.get("f'(x)"),
+                        'fc': r.get('f(x)'),
+                        'error': r.get('f(x)')
+                    })
+                res = {
+                    'solucion': {
+                        'root': result.get('root'),
+                        'iteraciones': result.get('iterations'),
+                        'f_root': result.get('f_root'),
+                        'abs_error': result.get('abs_error') if result.get('abs_error') is not None else result.get('error')
+                    },
+                    'pasos': pasos,
+                    'mensaje': result.get('mensaje')
+                }
+            elif method == 'Secante':
+                if self.mb_secante is None:
+                    messagebox.showinfo('Dependencia faltante', 'El método Secante requiere sympy y numpy.\nInstálalos e inténtalo de nuevo.')
+                    return
+                # Para Secante necesitamos dos puntos iniciales; usar a,b tal cual
+                rows, result = self.mb_secante.solve(expr, x0=float(a), x1=float(b), tol=tol)
+                pasos = []
+                for r in rows:
+                    pasos.append({
+                        'iter': r.get('Iteración'),
+                        'a': r.get('x_prev'),
+                        'b': r.get('x'),
+                        'c': r.get('x_next'),
+                        'fa': r.get('f(x_prev)'),
+                        'fb': r.get('f(x)'),
                         'fc': r.get('f(x)'),
                         'error': r.get('f(x)')
                     })
