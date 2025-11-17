@@ -1,5 +1,5 @@
 """metodo_newton_raph.py
-Implementa la lógica del método de Newton–Raphson sin modificar la interfaz.
+# Implementa la lógica del método de Newton–Raphson sin modificar la interfaz.
 
 API principal (similar a los otros solvers):
 
@@ -177,6 +177,20 @@ class NewtonRaphsonSolver:
             except Exception as e:
                 raise ValueError(f"Error al evaluar f(x) luego de actualizar x={x}: {e}")
             if abs(fx_new) <= tol:
+                # Ajustar la última fila para que refleje el punto convergido (x actualizado)
+                try:
+                    dfx_new = float(_df(x))
+                except Exception:
+                    dfx_new = 0.0
+                if rows:
+                    rows[-1] = {
+                        'Iteración': i,
+                        'x': float(x),
+                        'f(x)': float(abs(fx_new)),
+                        "f'(x)": float(dfx_new),
+                        'x_next': float(x),
+                        'delta_x': 0.0
+                    }
                 mensaje = 'Convergencia alcanzada por criterio |f(x)|'
                 fx = fx_new
                 break
