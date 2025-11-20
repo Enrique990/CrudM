@@ -16,7 +16,7 @@ Salida:
 		'iteraciones' (int), 'iterations' (int), 'mensaje' (str)
 
 No se realizan cambios de UI; esta lógica es consumible por la misma interfaz
-que usa Bisección / Falsa Posición / Newton.
+que usa Bisección / Falsa Posición / Newton.no se deve de ralizar ma cambios pq esto ya funciona bien con el main.py
 """
 
 from typing import Callable, List, Dict, Tuple
