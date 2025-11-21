@@ -768,9 +768,11 @@ class MatrixCRUDApp:
         self.num_kb_frame = ttk.Frame(self.num_kb_container, style='Dark.TFrame')
 
         def _make_kb_button(parent, text, insert_text=None):
-            """Crea un botón del teclado que inserta texto en la entrada de expresión.
-            insert_text permite que la etiqueta sea distinta del texto insertado (ej. √ -> sqrt()).
-            """
+            """Crea un botón del teclado que inserta texto 'natural' en la entrada
+            de expresión. insert_text permite que la etiqueta sea distinta del
+            texto que ve el usuario (por ejemplo, usar '√x' pero guardar '√(').
+            La normalización a una expresión válida se hace luego con
+            _num_normalize_expression."""
             val = insert_text if insert_text is not None else text
 
             def _on_click():
@@ -799,7 +801,7 @@ class MatrixCRUDApp:
         # Trigonométricas directas
         kb_rows.append(['sin(', 'cos(', 'tan('])
         # Trigonométricas inversas
-        kb_rows.append(['asin(', 'acos(', 'atan('])
+        kb_rows.append(['sin⁻¹(', 'cos⁻¹(', 'tan⁻¹('])
 
         # Crear botones por filas dentro del teclado, todos centrados horizontalmente
         for r, row_vals in enumerate(kb_rows):
@@ -818,10 +820,10 @@ class MatrixCRUDApp:
         # Fracción simple como a/b (el cursor quedará al final)
         _make_kb_button(special_inner, 'a/b', insert_text='/').pack(side=tk.LEFT, padx=2)
         # Potencias rápidas
-        _make_kb_button(special_inner, '^2', insert_text='^2').pack(side=tk.LEFT, padx=2)
-        _make_kb_button(special_inner, '^3', insert_text='^3').pack(side=tk.LEFT, padx=2)
-        # Símbolo de raíz que inserta sqrt(
-        _make_kb_button(special_inner, '√', insert_text='sqrt(').pack(side=tk.LEFT, padx=2)
+        _make_kb_button(special_inner, 'x²', insert_text='²').pack(side=tk.LEFT, padx=2)
+        _make_kb_button(special_inner, 'x³', insert_text='³').pack(side=tk.LEFT, padx=2)
+        # Símbolo de raíz que inserta el símbolo de raíz (que luego se normaliza a sqrt())
+        _make_kb_button(special_inner, '√', insert_text='√(').pack(side=tk.LEFT, padx=2)
 
         # Botón de retroceso
         def _kb_backspace():
@@ -971,6 +973,73 @@ class MatrixCRUDApp:
         except Exception:
             return ''
 
+    # ---------- Parser amigable para expresiones de ecuaciones ----------
+    def _num_normalize_expression(self, expr_raw: str) -> str:
+        """Convierte una expresión escrita de forma 'natural' (5x, paréntesis
+        implícitos, símbolos como √, potencias con superíndice, trig inversas
+        con ^-1 o ⁻¹, etc.) en una expresión compatible con los motores
+        numéricos (usa *, sqrt, asin, etc.)."""
+        if not expr_raw:
+            return ''
+
+        expr = expr_raw
+
+        # 1) Reemplazos de símbolos visuales por funciones/operadores estándar
+        # Raíz cuadrada: símbolo √ -> sqrt(
+        expr = expr.replace('√', 'sqrt(')
+
+        import re
+
+        # Trigonométricas inversas con notación ^-1 o superíndice −1
+        minus_one_variants = [r"\^\-1", "⁻¹"]
+        trig_map = {
+            'sin': 'asin',
+            'cos': 'acos',
+            'tan': 'atan',
+        }
+        for base, inv_name in trig_map.items():
+            for v in minus_one_variants:
+                pattern = rf"{base}{v}\s*\("
+                expr = re.sub(pattern, inv_name + '(', expr)
+
+        # Potencias con superíndices: x² -> x^2, x³ -> x^3
+        super_map = {
+            '²': '^2',
+            '³': '^3',
+        }
+        for k, v in super_map.items():
+            expr = expr.replace(k, v)
+
+        # 2) Multiplicación implícita habitual: 5x, (x+1)(x-1), 2(x+1), x(x+1), (x+1)2, 5e^x, etc.
+        # Entre número y variable/constante: 5x -> 5*x, 5e -> 5*e
+        expr = re.sub(r"(\d)([a-df-zA-DF-Z])", r"\1*\2", expr)  # excluimos 'e' aquí para tratarla aparte
+        # 2a) Multiplicación implícita con e: 5e^x, 5e^-x -> 5*e^x, 5*e^-x
+        # Hacerlo antes de tocar potencias para que luego ^ -> ** deje una
+        # expresión válida tipo 5*e**-x, que Bisección y Secante pueden tratar.
+        expr = re.sub(r"(\d)\s*e", r"\1*e", expr)
+        # Entre variable/cierre de paréntesis y apertura de paréntesis: x(x+1) -> x*(x+1)
+        # Importante: NO insertar * después de nombres de funciones (sin, cos, tan, exp, log, sqrt, asin, acos, atan, etc.),
+        # solo después de variables o paréntesis.
+        expr = re.sub(r"(?<!sin)(?<!cos)(?<!tan)(?<!exp)(?<!log)(?<!sqrt)(?<!asin)(?<!acos)(?<!atan)([a-zA-Z0-9_\)])\(", r"\1*(", expr)
+        # Entre cierre de paréntesis y número/variable: (x+1)2 -> (x+1)*2, (x+1)x -> (x+1)*x
+        expr = re.sub(r"\)([a-zA-Z0-9])", r")*\1", expr)
+
+        # 3) Ley de signos y normalización de secuencias como ++, --, +- , -+
+        for _ in range(3):
+            expr = expr.replace('++', '+')
+            expr = expr.replace('+-', '-')
+            expr = expr.replace('-+', '-')
+            expr = expr.replace('--', '+')
+
+        # 4) Potencias: usar ^ para usuario pero traducir a ** para evaluación Python
+        # Antes ya hemos hecho 5e^x -> 5*e^x, aquí pasamos ^ a ** para alinearlo con
+        # el parser de SecantSolver._normalize_expr, que también convierte ^ a **.
+        expr = expr.replace('^', '**')
+
+        # 5) Quitar espacios sobrantes
+        expr = expr.strip()
+        return expr
+
     def _num_render_result(self, result: dict, as_decimal: bool):
         # Render de resultado y pasos con toggle decimales/fracciones
         self.num_result_text.delete(1.0, tk.END)
@@ -1117,7 +1186,10 @@ class MatrixCRUDApp:
 
     def _num_run(self):
         method = self.num_method_var.get()
-        expr = self.num_expr_entry.get().strip()
+        # Permitir que el usuario escriba la expresión con notación natural
+        # (5x, √x, sin^{-1}(x), potencias visuales, etc.) y normalizarla
+        raw_expr = self.num_expr_entry.get().strip()
+        expr = self._num_normalize_expression(raw_expr)
         tol_input = self.num_tol_entry.get().strip()
         a_txt = self.num_a_entry.get().strip()
         b_txt = self.num_b_entry.get().strip()
@@ -1314,7 +1386,8 @@ class MatrixCRUDApp:
         Usa [a,b] si está disponible; intenta detectar intervalo si no.
         """
         # Resolver expresión: de la entrada o de la ecuación seleccionada
-        expr = self.num_expr_entry.get().strip()
+        raw_expr = self.num_expr_entry.get().strip()
+        expr = self._num_normalize_expression(raw_expr)
         selected_data = None
         if (not expr) and getattr(self, 'selected_equation', None):
             try:
@@ -1570,6 +1643,8 @@ class MatrixCRUDApp:
 
     def _collect_equation_form(self):
         method = self.num_method_var.get()
+        # Guardar la expresión tal como la ve el usuario (notación natural)
+        # y normalizarla solo al momento de resolver.
         expr = self.num_expr_entry.get().strip()
         if not expr:
             messagebox.showerror("Error", "Debes ingresar una expresión f(x).")
@@ -1607,6 +1682,7 @@ class MatrixCRUDApp:
             self.num_eq_data_text.delete(1.0, tk.END)
             self.num_eq_data_text.insert(tk.END, f"Ecuación: {name}\n")
             self.num_eq_data_text.insert(tk.END, f"Método: {data.get('metodo')}\n")
+            # Mostrar exactamente la expresión guardada (notación natural)
             self.num_eq_data_text.insert(tk.END, f"f(x): {data.get('expr')}\n")
             self.num_eq_data_text.insert(tk.END, f"a: {data.get('a')}\n")
             self.num_eq_data_text.insert(tk.END, f"b: {data.get('b')}\n")
