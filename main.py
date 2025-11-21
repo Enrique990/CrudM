@@ -743,11 +743,124 @@ class MatrixCRUDApp:
 
         # Botón largo centrado tipo "Crear Conjunto de Vectores"
         ttk.Button(container, text="Crear ecuación", command=self.create_equation, style='Dark.TButton')\
-            .grid(row=5, column=0, columnspan=4, pady=(10, 20), sticky='ew')
+            .grid(row=5, column=0, columnspan=4, pady=(10, 10), sticky='ew')
+
+        # ---- Teclado tipo calculadora para escribir f(x) sin teclado físico ----
+        # Contenedor centrado para el botón de Mostrar teclado (alineado con "Crear ecuación")
+        self.num_kb_visible = tk.BooleanVar(value=False)
+        kb_toggle_outer = ttk.Frame(container, style='Dark.TFrame')
+        kb_toggle_outer.grid(row=6, column=0, columnspan=4)
+        kb_toggle_inner = ttk.Frame(kb_toggle_outer, style='Dark.TFrame')
+        kb_toggle_inner.pack(anchor='center')
+        self.num_kb_toggle_btn = ttk.Button(
+            kb_toggle_inner,
+            text="Mostrar teclado de ecuaciones",
+            command=self._num_show_keyboard,
+            style='Dark.TButton'
+        )
+        self.num_kb_toggle_btn.pack(side=tk.LEFT, padx=5, pady=(0, 5))
+
+        # Contenedor centrado para el teclado y el botón "Ocultar teclado de ecuaciones"
+        self.num_kb_container = ttk.Frame(container, style='Dark.TFrame')
+        # Se hará grid en _num_show_keyboard; aquí solo se define
+
+        # Frame del teclado (se muestra/oculta completo, centrado)
+        self.num_kb_frame = ttk.Frame(self.num_kb_container, style='Dark.TFrame')
+
+        def _make_kb_button(parent, text, insert_text=None):
+            """Crea un botón del teclado que inserta texto en la entrada de expresión.
+            insert_text permite que la etiqueta sea distinta del texto insertado (ej. √ -> sqrt()).
+            """
+            val = insert_text if insert_text is not None else text
+
+            def _on_click():
+                try:
+                    entry = self.num_expr_entry
+                    pos = entry.index(tk.INSERT)
+                    entry.insert(pos, val)
+                    entry.focus_set()
+                except Exception:
+                    pass
+
+            btn = ttk.Button(parent, text=text, style='Dark.TButton', command=_on_click)
+            return btn
+
+        # Distribución de filas de botones (puedes ajustar/añadir más símbolos)
+        kb_rows = []
+        # Números y punto
+        kb_rows.append(['7', '8', '9', '(', ')'])
+        kb_rows.append(['4', '5', '6', '+', '-'])
+        kb_rows.append(['1', '2', '3', '*', '/'])
+        kb_rows.append(['0', '.', '^', 'pi', 'e'])
+        # Variables y comparadores
+        kb_rows.append(['x', 'y', 'z', '='])
+        # Funciones básicas
+        kb_rows.append(['sqrt(', 'abs(', 'exp(', 'ln(', 'log('])
+        # Trigonométricas directas
+        kb_rows.append(['sin(', 'cos(', 'tan('])
+        # Trigonométricas inversas
+        kb_rows.append(['asin(', 'acos(', 'atan('])
+
+        # Crear botones por filas dentro del teclado, todos centrados horizontalmente
+        for r, row_vals in enumerate(kb_rows):
+            row_frame = ttk.Frame(self.num_kb_frame, style='Dark.TFrame')
+            row_frame.grid(row=r, column=0, pady=1)
+            inner = ttk.Frame(row_frame, style='Dark.TFrame')
+            inner.pack(anchor='center')
+            for val in row_vals:
+                _make_kb_button(inner, val).pack(side=tk.LEFT, padx=2, pady=1)
+
+        # Fila especial para fracciones, potencias rápidas, raíz con símbolo y controles
+        special_row = ttk.Frame(self.num_kb_frame, style='Dark.TFrame')
+        special_row.grid(row=len(kb_rows), column=0, pady=(4, 0))
+        special_inner = ttk.Frame(special_row, style='Dark.TFrame')
+        special_inner.pack(anchor='center')
+        # Fracción simple como a/b (el cursor quedará al final)
+        _make_kb_button(special_inner, 'a/b', insert_text='/').pack(side=tk.LEFT, padx=2)
+        # Potencias rápidas
+        _make_kb_button(special_inner, '^2', insert_text='^2').pack(side=tk.LEFT, padx=2)
+        _make_kb_button(special_inner, '^3', insert_text='^3').pack(side=tk.LEFT, padx=2)
+        # Símbolo de raíz que inserta sqrt(
+        _make_kb_button(special_inner, '√', insert_text='sqrt(').pack(side=tk.LEFT, padx=2)
+
+        # Botón de retroceso
+        def _kb_backspace():
+            try:
+                entry = self.num_expr_entry
+                pos = entry.index(tk.INSERT)
+                if pos > 0:
+                    entry.delete(pos - 1)
+                entry.focus_set()
+            except Exception:
+                pass
+
+        ttk.Button(special_inner, text='←', style='Dark.TButton', command=_kb_backspace).pack(side=tk.LEFT, padx=6)
+
+        # Botón para limpiar la expresión completa
+        def _kb_clear():
+            try:
+                self.num_expr_entry.delete(0, tk.END)
+                self.num_expr_entry.focus_set()
+            except Exception:
+                pass
+
+        ttk.Button(special_inner, text='Borrar', style='Dark.TButton', command=_kb_clear).pack(side=tk.LEFT, padx=2)
+
+        # Botón centrado para ocultar el teclado, justo debajo de él
+        self.num_kb_hide_frame = ttk.Frame(self.num_kb_container, style='Dark.TFrame')
+        hide_inner = ttk.Frame(self.num_kb_hide_frame, style='Dark.TFrame')
+        hide_inner.pack(anchor='center')
+        self.num_kb_hide_btn = ttk.Button(
+            hide_inner,
+            text='Ocultar teclado de ecuaciones',
+            style='Dark.TButton',
+            command=self._num_hide_keyboard
+        )
+        self.num_kb_hide_btn.pack(side=tk.LEFT, pady=(4, 5))
 
         # Botonera de acciones CRUD centrada (como en otras pestañas)
         eq_action_frame = ttk.Frame(container, style='Dark.TFrame')
-        eq_action_frame.grid(row=6, column=0, columnspan=4)
+        eq_action_frame.grid(row=8, column=0, columnspan=4)
         eq_action_buttons = ttk.Frame(eq_action_frame, style='Dark.TFrame')
         eq_action_buttons.pack(anchor='center')
         ttk.Button(eq_action_buttons, text="Ver", command=self.view_equation, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
@@ -760,7 +873,7 @@ class MatrixCRUDApp:
         # Fila separada para el botón de Mostrar decimales, centrado
         eq_toggle_frame = ttk.Frame(container, style='Dark.TFrame')
         # Añadimos margen superior para que no quede pegado a la hilera anterior de botones
-        eq_toggle_frame.grid(row=7, column=0, columnspan=4, pady=(14,0))
+        eq_toggle_frame.grid(row=9, column=0, columnspan=4, pady=(14,0))
         eq_toggle_buttons = ttk.Frame(eq_toggle_frame, style='Dark.TFrame')
         eq_toggle_buttons.pack(anchor='center')
         # Guardamos referencia para poder colocar el botón de "Actualizar ecuación" a su derecha cuando se modifique
@@ -775,7 +888,7 @@ class MatrixCRUDApp:
         eqdata_container = ttk.Frame(container, style='Dark.TFrame')
         # Margen más pequeño como en Independencia de Vectores
         # Importante: no expandir verticalmente esta sección para evitar huecos vacíos
-        eqdata_container.grid(row=8, column=0, columnspan=4, sticky='ew', pady=(4,0))
+        eqdata_container.grid(row=10, column=0, columnspan=4, sticky='ew', pady=(4,0))
         # No configurar weight en la fila para que no se estire en Y
         eqdata_container.grid_columnconfigure(0, weight=1)
         ttk.Label(eqdata_container, text="Datos de la ecuación", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
@@ -795,7 +908,7 @@ class MatrixCRUDApp:
         # Resultado (igual estilo que otras pestañas)
         result_container = ttk.Frame(container, style='Dark.TFrame')
         # Mantener mismo margen vertical superior que en "Datos del conjunto" de la pestaña de Vectores
-        result_container.grid(row=9, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        result_container.grid(row=11, column=0, columnspan=4, sticky='nsew', pady=(10,0))
         result_container.grid_rowconfigure(1, weight=1)
         result_container.grid_columnconfigure(0, weight=1)
         ttk.Label(result_container, text="Resultado", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
@@ -933,6 +1046,44 @@ class MatrixCRUDApp:
             lines = (content.count("\n") + 1) if content else 1
             lines = max(min_lines, min(lines, max_lines))
             txt.configure(height=lines)
+        except Exception:
+            pass
+
+    # --- Teclado tipo calculadora para Métodos numéricos ---
+    def _num_toggle_keyboard(self):
+        """Muestra u oculta el teclado de ecuaciones en la pestaña numérica."""
+        try:
+            visible = self.num_kb_visible.get()
+        except Exception:
+            visible = False
+
+        if visible:
+            # Actualmente visible -> ocultar
+            self._num_hide_keyboard()
+        else:
+            # Actualmente oculto -> mostrar
+            self._num_show_keyboard()
+
+    def _num_show_keyboard(self):
+        try:
+            # Colocar el contenedor centrado del teclado (teclado + botón Ocultar)
+            # en la fila 7, justo debajo del botón "Mostrar teclado de ecuaciones".
+            self.num_kb_container.grid(row=7, column=0, columnspan=4, sticky='n')
+            # Dentro del contenedor, el teclado arriba y el botón de ocultar abajo
+            self.num_kb_frame.grid(row=0, column=0, sticky='n')
+            self.num_kb_hide_frame.grid(row=1, column=0, sticky='n')
+            self.num_kb_visible.set(True)
+            self.num_kb_toggle_btn.config(text="Teclado de ecuaciones visible")
+        except Exception:
+            pass
+
+    def _num_hide_keyboard(self):
+        try:
+            self.num_kb_frame.grid_remove()
+            self.num_kb_hide_frame.grid_remove()
+            self.num_kb_container.grid_remove()
+            self.num_kb_visible.set(False)
+            self.num_kb_toggle_btn.config(text="Mostrar teclado de ecuaciones")
         except Exception:
             pass
 
