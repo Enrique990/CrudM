@@ -800,11 +800,13 @@ class MatrixCRUDApp:
         kb_rows.append(['7', '8', '9', '(', ')'])
         kb_rows.append(['4', '5', '6', '+', '-'])
         kb_rows.append(['1', '2', '3', '*', '/'])
-        kb_rows.append(['0', '.', '^', 'pi', 'e'])
+        # Usamos símbolo π en el botón, pero internamente seguirá siendo "pi"
+        kb_rows.append(['0', '.', '^', 'π', 'e'])
         # Variables y comparadores
         kb_rows.append(['x', 'y', 'z', '='])
-        # Funciones básicas
-        kb_rows.append(['sqrt(', 'abs(', 'exp(', 'ln(', 'log('])
+        # Funciones básicas (sin sqrt( porque ya existe el botón de símbolo √)
+        # Usamos símbolos visuales para valor absoluto y exponencial
+        kb_rows.append(['|x|', 'exp(', 'ln(', 'log('])
         # Trigonométricas directas
         kb_rows.append(['sin(', 'cos(', 'tan('])
         # Trigonométricas inversas
@@ -954,7 +956,9 @@ class MatrixCRUDApp:
         except Exception:
             pass
         try:
-            val = eval(s, {"__builtins__": {}}, {'pi': math.pi, 'e': math.e})
+            # Aceptar tanto "pi" como el símbolo "π" para mayor comodidad
+            s_eval = s.replace('π', 'pi')
+            val = eval(s_eval, {"__builtins__": {}}, {'pi': math.pi, 'e': math.e})
             return float(val)
         except Exception as e:
             raise ValueError(f"No se pudo interpretar el número: '{s}' ({e})")
@@ -1032,7 +1036,15 @@ class MatrixCRUDApp:
         # Entre cierre de paréntesis y número/variable: (x+1)2 -> (x+1)*2, (x+1)x -> (x+1)*x
         expr = re.sub(r"\)([a-zA-Z0-9])", r")*\1", expr)
 
-        # 3) Ley de signos y normalización de secuencias como ++, --, +- , -+
+        # 3) Valor absoluto visual |...| -> abs(...)
+        # Soportar patrones como |x|, |x+1|, |sin(x)|, etc.
+        # Se aplica varias veces por si hay varios bloques de valor absoluto.
+        for _ in range(3):
+            expr = re.sub(r"\|([^|]+)\|", r"abs(\1)", expr)
+
+        # 3b) Normalizar símbolo π a pi, para que coincida con el entorno
+        expr = expr.replace('π', 'pi')
+
         for _ in range(3):
             expr = expr.replace('++', '+')
             expr = expr.replace('+-', '-')
