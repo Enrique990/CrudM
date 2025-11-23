@@ -37,6 +37,12 @@ class MatrixCRUDApp:
         style.configure('Dark.TLabel', background="#23272e", foreground="#e0e0e0", font=('Segoe UI', 11))
         style.configure('Dark.TButton', background="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11), borderwidth=0)
         style.map('Dark.TButton', background=[('active', '#00adb5')])
+        # Estilo específico para los botones del teclado de ecuaciones (blancos)
+        style.configure('EqKeyboard.TButton', background="#f5f5f5", foreground="#23272e", font=('Segoe UI', 11), borderwidth=0)
+        style.map('EqKeyboard.TButton', background=[('active', '#e0e0e0')])
+        # Estilo para el botón de ocultar teclado (rojizo suave)
+        style.configure('EqKeyboardHide.TButton', background="#b84a4a", foreground="#ffffff", font=('Segoe UI', 11, 'bold'), borderwidth=0)
+        style.map('EqKeyboardHide.TButton', background=[('active', '#d65c5c')])
         style.configure('Title.TLabel', background="#23272e", foreground="#00adb5", font=('Segoe UI', 18, 'bold'))
         style.configure('Result.TLabel', background="#23272e", foreground="#e0e0e0", font=('Consolas', 13))
         style.configure('Entry.TEntry', fieldbackground="#393e46", foreground="#e0e0e0", font=('Segoe UI', 11))
@@ -784,7 +790,8 @@ class MatrixCRUDApp:
                 except Exception:
                     pass
 
-            btn = ttk.Button(parent, text=text, style='Dark.TButton', command=_on_click)
+            # Usar estilo específico del teclado para que los botones se vean blancos
+            btn = ttk.Button(parent, text=text, style='EqKeyboard.TButton', command=_on_click)
             return btn
 
         # Distribución de filas de botones (puedes ajustar/añadir más símbolos)
@@ -836,7 +843,7 @@ class MatrixCRUDApp:
             except Exception:
                 pass
 
-        ttk.Button(special_inner, text='←', style='Dark.TButton', command=_kb_backspace).pack(side=tk.LEFT, padx=6)
+        ttk.Button(special_inner, text='←', style='EqKeyboard.TButton', command=_kb_backspace).pack(side=tk.LEFT, padx=6)
 
         # Botón para limpiar la expresión completa
         def _kb_clear():
@@ -846,7 +853,7 @@ class MatrixCRUDApp:
             except Exception:
                 pass
 
-        ttk.Button(special_inner, text='Borrar', style='Dark.TButton', command=_kb_clear).pack(side=tk.LEFT, padx=2)
+        ttk.Button(special_inner, text='Borrar', style='EqKeyboard.TButton', command=_kb_clear).pack(side=tk.LEFT, padx=2)
 
         # Botón centrado para ocultar el teclado, justo debajo de él
         self.num_kb_hide_frame = ttk.Frame(self.num_kb_container, style='Dark.TFrame')
@@ -855,10 +862,11 @@ class MatrixCRUDApp:
         self.num_kb_hide_btn = ttk.Button(
             hide_inner,
             text='Ocultar teclado de ecuaciones',
-            style='Dark.TButton',
+            style='EqKeyboardHide.TButton',
             command=self._num_hide_keyboard
         )
-        self.num_kb_hide_btn.pack(side=tk.LEFT, pady=(4, 5))
+        # Más margen vertical para separarlo visualmente del teclado y el resto
+        self.num_kb_hide_btn.pack(side=tk.LEFT, pady=(10, 12))
 
         # Botonera de acciones CRUD centrada (como en otras pestañas)
         eq_action_frame = ttk.Frame(container, style='Dark.TFrame')
