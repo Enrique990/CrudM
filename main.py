@@ -1445,13 +1445,18 @@ class MatrixCRUDApp:
 
         # Intentar importar matplotlib y embeber en Toplevel
         try:
-            from matplotlib.figure import Figure
-            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+            from matplotlib.figure import Figure  # type: ignore[import]
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # type: ignore[import]
         except Exception:
             messagebox.showinfo('Dependencia faltante', 'Para mostrar la gráfica necesitas instalar matplotlib.\nSugerencia: pip install matplotlib')
             return
 
-        import numpy as np
+        # Intentar importar numpy para generar los puntos de la gráfica
+        try:
+            import numpy as np  # type: ignore[import]
+        except Exception:
+            messagebox.showinfo('Dependencia faltante', 'Para mostrar la gráfica necesitas instalar numpy.\nSugerencia: pip install numpy')
+            return
         xs = np.linspace(a, b, 600)
         ys = []
         for x in xs:
@@ -1482,22 +1487,21 @@ class MatrixCRUDApp:
 
         # Escalado: si el intervalo es muy pequeño, ajustar márgenes y límites de Y a datos
         try:
-            import numpy as _np
             xw = float(b - a)
             # Añadir un pequeño margen relativo en X para que no quede demasiado "apretado"
-            if _np.isfinite(xw) and xw > 0:
+            if np.isfinite(xw) and xw > 0:
                 ax.margins(x=0.04, y=0.12)
                 # Mantener límites de X centrados en [a,b] con un pequeño padding proporcional
                 pad_x = max(xw * 0.05, 0.0)
                 ax.set_xlim(a - pad_x, b + pad_x)
 
             # Calcular límites Y basados en valores finitos dentro del intervalo actual
-            finite = _np.isfinite(ys)
-            if _np.any(finite):
+            finite = np.isfinite(ys)
+            if np.any(finite):
                 yvals = ys[finite]
-                y_min = float(_np.nanmin(yvals))
-                y_max = float(_np.nanmax(yvals))
-                if _np.isfinite(y_min) and _np.isfinite(y_max):
+                y_min = float(np.nanmin(yvals))
+                y_max = float(np.nanmax(yvals))
+                if np.isfinite(y_min) and np.isfinite(y_max):
                     if y_min == y_max:
                         # Si es casi constante, crear una ventana alrededor del valor
                         pad_y = max(1e-6, abs(y_min) * 0.1)
@@ -1529,10 +1533,9 @@ class MatrixCRUDApp:
             sel_point, = ax.plot([], [], marker='o', color='orange', ms=6)
 
             def nearest_index(x_val):
-                import numpy as _np
                 if x_val is None:
                     return None
-                i = _np.searchsorted(xs, x_val)
+                i = np.searchsorted(xs, x_val)
                 cand = []
                 if i > 0:
                     cand.append(i - 1)
@@ -1781,7 +1784,11 @@ class MatrixCRUDApp:
                 self.update_equation_list()
 
     def _num_auto_interval(self):
-        expr = self.num_expr_entry.get().strip()
+        # Usar la misma normalización "amigable" que al resolver,
+        # para que símbolos como ², ³, √, etc. no causen errores
+        # en el parser de bisección.
+        raw_expr = self.num_expr_entry.get().strip()
+        expr = self._num_normalize_expression(raw_expr)
         try:
             res = self.mb_num.find_bracketing_interval(expr)
         except Exception as e:
