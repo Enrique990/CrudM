@@ -423,8 +423,26 @@ class MatrixCRUDApp:
         self.matrix_frame = ttk.Frame(matrix_card, style='Dark.TFrame')
         self.matrix_frame.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(0, 4))
 
+        equations_card = ttk.Frame(main_frame, style='Card.TFrame', padding=(14, 12))
+        equations_card.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(0, 12))
+        equations_card.grid_columnconfigure(0, weight=1)
+        equations_card.grid_columnconfigure(1, weight=0)
+        ttk.Label(equations_card, text="Resolver desde ecuaciones (texto o LaTeX)", style='CardTitle.TLabel').grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        self.equations_text = tk.Text(equations_card, height=6, font=('Consolas', 12), bg=self.palette["card_alt"], fg=self.palette["text"], insertbackground=self.palette["text"], bd=0, highlightthickness=0, wrap='word')
+        self.equations_text.grid(row=1, column=0, rowspan=3, sticky="nsew", padx=(0, 10))
+        eq_scroll_calc = ttk.Scrollbar(equations_card, orient=tk.VERTICAL, command=self.equations_text.yview, style='Invisible.Vertical.TScrollbar')
+        try:
+            eq_scroll_calc.configure(width=1)
+        except Exception:
+            pass
+        eq_scroll_calc.grid(row=1, column=2, rowspan=3, sticky='ns')
+        self.equations_text.configure(yscrollcommand=eq_scroll_calc.set)
+        ttk.Label(equations_card, text="Escribe ecuaciones con '=' y separa con nueva l?nea o \\ en LaTeX.", style='CardMuted.TLabel').grid(row=1, column=1, sticky='nw', pady=(0,4))
+        ttk.Label(equations_card, text="Ejemplo LaTeX: 2x + 3y &= 5 \\ x - y &= 1", style='CardMuted.TLabel').grid(row=2, column=1, sticky='nw')
+        ttk.Button(equations_card, text="Generar matriz y resolver", style='Dark.TButton', command=self.solve_equations_from_calculator).grid(row=3, column=1, sticky='nw', pady=(6,0))
+
         result_container = ttk.Frame(main_frame, style='Card.TFrame', padding=(14, 12))
-        result_container.grid(row=3, column=0, columnspan=4, sticky="nsew", pady=(0, 6))
+        result_container.grid(row=4, column=0, columnspan=4, sticky="nsew", pady=(0, 6))
         result_container.grid_rowconfigure(1, weight=1)
         result_container.grid_columnconfigure(0, weight=1)
 
@@ -1430,6 +1448,12 @@ class MatrixCRUDApp:
         if data:
             for name in data.keys():
                 self.eq_listbox.insert(tk.END, name)
+        try:
+            next_name = self._next_available_letter(data.keys() if data else [])
+            self.num_name_entry.delete(0, 'end')
+            self.num_name_entry.insert(0, next_name)
+        except Exception:
+            pass
 
     def create_equation(self):
         from persistencia import cargar_todas_ecuaciones, guardar_ecuacion
@@ -1715,17 +1739,17 @@ class MatrixCRUDApp:
         ops_cols_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_cols_var, bg=self.palette["input"], fg=self.palette["text"])
         ops_cols_spin.grid(row=2, column=5, sticky='w')
 
-        # Selector de operacion (solo 3 opciones)
+        # Selector de operación al lado derecho de Filas y Columnas
         ttk.Label(container, text="Operacion:", style='Dark.TLabel').grid(row=2, column=6, sticky='e', padx=(10,5))
-        self.ops_method_var = tk.StringVar(value=" " )
-        self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicacion"], state="readonly", width=18)
+        self.ops_method_var = tk.StringVar(value=" ")
+        self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicacion", "Multiplicacion escalar"], state="readonly", width=18)
         self.ops_method_combobox.grid(row=2, column=7, sticky='w')
-        self.ops_method_combobox.bind('<<ComboboxSelected>>', self._on_ops_method_select)
 
-        # Toggle para aplicar escalares por matriz (solo se usa en Multiplicacion)
-        self.ops_use_scalars = tk.BooleanVar(value=False)
-        self.ops_scalar_check = ttk.Checkbutton(container, text="¿Multiplicar alguna matriz por un escalar?", variable=self.ops_use_scalars, command=self._on_ops_scalar_toggle, style='Ghost.TButton')
-        self.ops_scalar_check.grid(row=3, column=0, columnspan=4, sticky='w', pady=(6, 0))
+        ttk.Label(container, text="Escalar:", style='Dark.TLabel').grid(row=3, column=0, sticky='w', pady=4)
+        self.ops_scalar_var = tk.StringVar(value="1")
+        self.ops_scalar_entry = ttk.Entry(container, textvariable=self.ops_scalar_var, width=12, style='Entry.TEntry')
+        self.ops_scalar_entry.grid(row=3, column=1, sticky='w', padx=(0, 20))
+
         ttk.Button(container, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=4, column=0, columnspan=8, pady=(10, 20), sticky='ew')
 
         # Lista de conjuntos + acciones
@@ -1766,6 +1790,7 @@ class MatrixCRUDApp:
         self.ops_entries_frame = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
         self.ops_entries_frame.grid(row=7, column=0, columnspan=8, sticky='ew', pady=(0,10))
 
+
         # Resultados
         results_container = ttk.Frame(container, style='Card.TFrame', padding=(14, 12))
         results_container.grid(row=8, column=0, columnspan=8, sticky='nsew', pady=(10,0))
@@ -1793,6 +1818,17 @@ class MatrixCRUDApp:
         if sel:
             self.selected_matrix_set = self.matrix_set_listbox.get(sel[0])
 
+    def _next_available_letter(self, existing_names):
+        """Devuelve la primera letra A-Z no usada en existing_names. Si todas ocupadas, retorna Z."""
+        if not existing_names:
+            return "A"
+        used = set(str(n).strip().upper() for n in existing_names if isinstance(n, str))
+        for code in range(ord('A'), ord('Z') + 1):
+            letter = chr(code)
+            if letter not in used:
+                return letter
+        return "Z"
+
     def update_matrix_set_list(self):
         if not hasattr(self, 'matrix_set_listbox'):
             return
@@ -1801,6 +1837,12 @@ class MatrixCRUDApp:
         if data:
             for name in data.keys():
                 self.matrix_set_listbox.insert(tk.END, name)
+        try:
+            next_name = self._next_available_letter(data.keys() if data else [])
+            self.ops_name_entry.delete(0, tk.END)
+            self.ops_name_entry.insert(0, next_name)
+        except Exception:
+            pass
 
     def create_matrix_set_ui(self):
         name = self.ops_name_entry.get().strip()
@@ -1831,19 +1873,11 @@ class MatrixCRUDApp:
                 'columnas': columnas,
                 'datos': [ [row[:] for row in mat] for mat in data ] if data else []
             }
-        show_scalars = self.ops_method_var.get() == "Multiplicacion" and getattr(self, 'ops_use_scalars', None) and self.ops_use_scalars.get()
+        # Construir rejillas por cada matriz
         self.ops_entries = []
-        self.ops_scalar_entries = []
         for idx in range(num_matrices):
             grp = ttk.LabelFrame(self.ops_entries_frame, text=f"M{idx+1}", style='Dark.TFrame')
             grp.grid(row=idx//2, column=idx%2, padx=8, pady=6, sticky='w')
-            row_offset = 0
-            scalar_entry = None
-            if show_scalars:
-                ttk.Label(grp, text="Escalar:", style='Dark.TLabel').grid(row=0, column=0, padx=2, pady=2, sticky='w')
-                scalar_entry = ttk.Entry(grp, width=8, style='Entry.TEntry')
-                scalar_entry.grid(row=0, column=1, padx=2, pady=2, sticky='w')
-                row_offset = 1
             mat_entries = []
             for i in range(filas):
                 row_entries = []
@@ -1853,12 +1887,12 @@ class MatrixCRUDApp:
                     if data and idx < len(data) and i < len(data[idx]) and j < len(data[idx][i]):
                         default_value = str(data[idx][i][j])
                     e.insert(0, default_value)
-                    e.grid(row=i + row_offset, column=j, padx=2, pady=2)
+                    e.grid(row=i, column=j, padx=2, pady=2)
                     row_entries.append(e)
                 mat_entries.append(row_entries)
             self.ops_entries.append(mat_entries)
-            self.ops_scalar_entries.append(scalar_entry)
 
+        # Botonera
         btn_frame = ttk.Frame(self.ops_entries_frame, style='Dark.TFrame')
         btn_frame.grid(row=(num_matrices+1)//2 + 1, column=0, columnspan=2, sticky='ew', pady=(10,0))
         text = "Actualizar Conjunto" if is_modification else "Guardar Conjunto"
@@ -2072,6 +2106,68 @@ class MatrixCRUDApp:
         except Exception as e:
             messagebox.showerror("Error en operacion", str(e))
 
+    def solve_equations_from_ops(self):
+        """Genera la matriz desde ecuaciones y la resuelve con el metodo elegido."""
+        raw_text = self.ops_equations_text.get("1.0", tk.END).strip()
+        if not raw_text:
+            messagebox.showwarning("Datos requeridos", "Ingresa al menos una ecuacion o un bloque LaTeX.")
+            return
+
+        metodo = (self.ops_eq_method_var.get() or "Gauss-Jordan").strip()
+
+        try:
+            resultado = matrices.resolver_sistema_desde_ecuaciones(raw_text, metodo=metodo, mostrar_pasos=True)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo resolver el sistema: {e}")
+            return
+
+        matriz_creada = resultado.get("matriz", [])
+        variables = resultado.get("variables", [])
+        ecuaciones_norm = resultado.get("ecuaciones", [])
+        res = resultado.get("resultado", {})
+
+        self.ops_result_text.delete(1.0, tk.END)
+        self.ops_steps_text.delete(1.0, tk.END)
+
+        if ecuaciones_norm:
+            self.ops_steps_text.insert(tk.END, "Ecuaciones normalizadas:\n")
+            for eq in ecuaciones_norm:
+                self.ops_steps_text.insert(tk.END, f"  {eq}\n")
+            self.ops_steps_text.insert(tk.END, "\n")
+
+        if matriz_creada:
+            dims = ""
+            if matriz_creada and matriz_creada[0]:
+                dims = f" ({len(matriz_creada)}x{len(matriz_creada[0])})"
+            self.ops_result_text.insert(tk.END, f"Matriz generada{dims}:\n")
+            self.ops_result_text.insert(tk.END, self._format_matrix_for_display(matriz_creada))
+            self.ops_result_text.insert(tk.END, "\n\n")
+
+        if variables:
+            self.ops_result_text.insert(tk.END, "Variables: " + ", ".join(variables) + "\n\n")
+
+        mensaje = res.get("mensaje")
+        if mensaje:
+            self.ops_result_text.insert(tk.END, mensaje + "\n\n")
+
+        solucion = res.get("solucion")
+        if isinstance(solucion, dict) and solucion:
+            for var, val in solucion.items():
+                self.ops_result_text.insert(tk.END, f"{var} = {val}\n")
+            self.ops_result_text.insert(tk.END, "\n")
+        elif isinstance(solucion, str):
+            self.ops_result_text.insert(tk.END, solucion + "\n\n")
+
+        pasos = res.get("pasos", [])
+        if pasos:
+            for idx, paso in enumerate(pasos, start=1):
+                descripcion = paso.get("descripcion", "")
+                self.ops_steps_text.insert(tk.END, f"Paso {idx}: {descripcion}\n")
+                if 'matriz' in paso:
+                    self.ops_steps_text.insert(tk.END, self._format_matrix_for_display(paso['matriz']) + "\n")
+        elif mensaje:
+            self.ops_steps_text.insert(tk.END, mensaje + "\n")
+
     def draw_vector_entries(self, num_vectores, dimension, name, is_modification=False, data=None):
         """Dibuja la cuadrícula para ingresar los datos de los vectores."""
         for widget in self.vector_entries_frame.winfo_children():
@@ -2209,6 +2305,12 @@ class MatrixCRUDApp:
         if matrices_data:
             for name in matrices_data.keys():
                 self.matrix_listbox.insert(tk.END, name)
+        try:
+            next_name = self._next_available_letter(matrices_data.keys() if matrices_data else [])
+            self.name_entry.delete(0, tk.END)
+            self.name_entry.insert(0, next_name)
+        except Exception:
+            pass
     
     def update_vector_set_list(self):
         self.vector_set_listbox.delete(0, tk.END)
@@ -2216,6 +2318,12 @@ class MatrixCRUDApp:
         if vector_sets_data:
             for name in vector_sets_data.keys():
                 self.vector_set_listbox.insert(tk.END, name)
+        try:
+            next_name = self._next_available_letter(vector_sets_data.keys() if vector_sets_data else [])
+            self.vector_name_entry.delete(0, tk.END)
+            self.vector_name_entry.insert(0, next_name)
+        except Exception:
+            pass
 
     def view_matrix(self):
         selection = self.matrix_listbox.curselection()
@@ -2425,6 +2533,10 @@ class MatrixCRUDApp:
         selection = self.matrix_listbox.curselection()
         if selection:
             self.selected_matrix = self.matrix_listbox.get(selection[0])
+            try:
+                self.equations_text.delete(1.0, tk.END)
+            except Exception:
+                pass
 
     def _on_vector_set_select(self, event):
         selection = self.vector_set_listbox.curselection()
@@ -2508,11 +2620,12 @@ class MatrixCRUDApp:
                     self.result_text.insert(tk.END, "\n" + resultado["mensaje"] + "\n")
 
                 # Mostrar pasos
+                self.steps_text.insert(tk.END, "Procedimiento:\n")
                 for paso in resultado.get("pasos", []):
                     self.steps_text.insert(tk.END, f"{paso.get('descripcion','')}\n")
                     if 'matriz' in paso:
                         formatted = self._format_matrix_for_display(paso['matriz'])
-                        self.steps_text.insert(tk.END, formatted + "\n")
+                        self.steps_text.insert(tk.END, formatted + "\n\n")
                 return
 
             # Gauss / Gauss-Jordan
@@ -2531,14 +2644,116 @@ class MatrixCRUDApp:
                 self.result_text.insert(tk.END, resultado["mensaje"] + "\n\n")
             # Mostrar los pasos si existen
             if "pasos" in resultado and resultado["pasos"]:
+                self.steps_text.insert(tk.END, "Procedimiento:\n")
                 for idx, paso in enumerate(resultado["pasos"]):
                     self.steps_text.insert(tk.END, f"Paso {idx+1}: {paso['descripcion']}\n")
                     if 'matriz' in paso:
                         formatted_step_matrix = self._format_matrix_for_display(paso['matriz'])
-                        self.steps_text.insert(tk.END, formatted_step_matrix + "\n")
+                        self.steps_text.insert(tk.END, formatted_step_matrix + "\n\n")
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la resolución de la matriz: {e}")
     
+    def solve_equations_from_calculator(self):
+        """Convierte ecuaciones (texto o LaTeX) en matriz y resuelve con el metodo seleccionado."""
+        raw_text = self.equations_text.get("1.0", tk.END).strip()
+        if not raw_text:
+            messagebox.showwarning("Datos requeridos", "Ingresa al menos una ecuacion o un bloque LaTeX.")
+            return
+
+        metodo = (getattr(self, 'selected_method', None) or self.method_var.get() or "").strip()
+        if not metodo:
+            messagebox.showwarning(
+                "Seleccion requerida",
+                "Selecciona un metodo: Gauss-Jordan, Gauss o Cramer."
+            )
+            return
+
+        try:
+            resultado = matrices.resolver_sistema_desde_ecuaciones(raw_text, metodo=metodo, mostrar_pasos=True)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo procesar las ecuaciones: {e}")
+            return
+
+        datos = resultado.get("matriz", [])
+        variables = resultado.get("variables", [])
+        ecuaciones_norm = resultado.get("ecuaciones", [])
+        res = resultado.get("resultado", {})
+
+        self.clear_matrix_frame()
+        self.result_text.delete(1.0, tk.END)
+        self.steps_text.delete(1.0, tk.END)
+
+        if ecuaciones_norm:
+            self.steps_text.insert(tk.END, "Ecuaciones normalizadas:\n")
+            for eq in ecuaciones_norm:
+                self.steps_text.insert(tk.END, f"  {eq}\n")
+            self.steps_text.insert(tk.END, "\n")
+
+        if datos:
+            dims = f" ({len(datos)}x{len(datos[0])})" if datos and datos[0] else ""
+            matrix_str = self._format_matrix_for_display(datos)
+            display_label = ttk.Label(self.matrix_frame, text=f"Matriz generada{dims}:\n{matrix_str}", style='Result.TLabel', justify=tk.LEFT)
+            display_label.pack(pady=6, padx=8, anchor='w')
+            self.result_text.insert(tk.END, f"Matriz generada{dims}:\n{matrix_str}\n\n")
+            self._save_generated_matrix_from_equations(datos, ecuaciones_norm, raw_text, metodo)
+
+        if variables:
+            self.result_text.insert(tk.END, "Variables: " + ", ".join(variables) + "\n\n")
+
+        mensaje = res.get("mensaje")
+        if mensaje:
+            self.result_text.insert(tk.END, mensaje + "\n\n")
+
+        solucion = res.get("solucion")
+        if isinstance(solucion, dict):
+            for var, val in solucion.items():
+                self.result_text.insert(tk.END, f"{var} = {val}\n")
+            if solucion:
+                self.result_text.insert(tk.END, "\n")
+        elif isinstance(solucion, str):
+            self.result_text.insert(tk.END, solucion + "\n\n")
+
+        pasos = res.get("pasos", [])
+        if pasos:
+            self.steps_text.insert(tk.END, "Procedimiento:\n")
+            for idx, paso in enumerate(pasos, start=1):
+                descripcion = paso.get("descripcion", "")
+                self.steps_text.insert(tk.END, f"Paso {idx}: {descripcion}\n")
+                if 'matriz' in paso:
+                    self.steps_text.insert(tk.END, self._format_matrix_for_display(paso['matriz']) + "\n")
+        elif mensaje:
+            self.steps_text.insert(tk.END, mensaje + "\n")
+
+    def _save_generated_matrix_from_equations(self, datos, ecuaciones_norm, raw_text, metodo):
+        """
+        Guarda la matriz generada desde ecuaciones en matriz.json y también persiste
+        las ecuaciones (ecuaciones.json). Si el nombre es inválido/ vacío, solicita uno.
+        """
+        name = self.name_entry.get().strip()
+        if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
+            name = simpledialog.askstring("Guardar matriz", "Ingresa un nombre (una letra mayúscula A-Z) para guardar la matriz generada:")
+            if not name:
+                return
+            name = name.strip()
+        if not name or not name.isalpha() or not name.isupper() or len(name) != 1:
+            messagebox.showwarning("Nombre de matriz", "El nombre debe ser una sola letra mayúscula (A-Z) para guardar la matriz generada.")
+            return
+        try:
+            filas = len(datos)
+            columnas = len(datos[0]) if datos and datos[0] else 0
+            matriz_payload = {"nombre": name, "filas": filas, "columnas": columnas, "datos": datos}
+            persistencia.guardar_matriz(name, matriz_payload)
+            try:
+                persistencia.guardar_ecuacion(
+                    name,
+                    {"nombre": name, "ecuaciones": ecuaciones_norm, "raw": raw_text, "metodo": metodo, "matriz": datos},
+                )
+            except Exception:
+                pass
+            self.update_matrix_list()
+        except Exception as e:
+            messagebox.showerror("Error al guardar", f"No se pudo guardar la matriz generada: {e}")
+
     def check_independence(self):
         matrix_name = getattr(self, 'selected_matrix', None)
 

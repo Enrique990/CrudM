@@ -1,4 +1,6 @@
 # matrices.py
+import re
+from fractions import Fraction
 
 # Clase de matriz para algebra lineal
 class Matriz:
@@ -760,4 +762,229 @@ def cramer_con_pasos(A, b, mostrar_pasos=True):
         "pasos": pasos if mostrar_pasos else [],
         "detA": detA,
         "mensaje": "Solución por Cramer calculada correctamente."
+    }
+
+
+
+def _format_scalar_value(x):
+    """Formateo simple para resultados numericos (entero sin decimales o con 4 decimales)."""
+    if abs(x - int(round(x))) < 1e-10:
+        return str(int(round(x)))
+    return f"{x:.4f}"
+
+
+def _normalize_equation_input(ecuaciones):
+    """Normaliza la entrada de ecuaciones (lista o cadena) y las devuelve como lista de strings limpias."""
+    if ecuaciones is None:
+        return []
+    if isinstance(ecuaciones, str):
+        raw = ecuaciones.replace("\r", "")
+        raw = raw.replace(r"\\", "\n")
+        partes = []
+        for linea in raw.splitlines():
+            for chunk in re.split(r";", linea):
+                texto = chunk.strip()
+                if texto:
+                    partes.append(texto)
+    elif isinstance(ecuaciones, (list, tuple)):
+        partes = []
+        for item in ecuaciones:
+            if item is None:
+                continue
+            texto = str(item).strip()
+            if not texto:
+                continue
+            texto = texto.replace(r"\\", "\n")
+            for chunk in re.split(r"[\n;]+", texto):
+                cleaned = chunk.strip()
+                if cleaned:
+                    partes.append(cleaned)
+    else:
+        raise ValueError("Las ecuaciones deben recibirse como lista o cadena.")
+    return partes
+
+
+def _strip_latex_line(eq):
+    """Quita adornos LaTeX comunes y deja la ecuacion en texto plano simple."""
+    if not eq:
+        return ""
+    cleaned = eq.strip()
+    cleaned = cleaned.replace("&=", "=")
+    cleaned = cleaned.replace(r"\\=", "=")
+    cleaned = cleaned.replace(r"\\,", "")
+    cleaned = cleaned.replace(r"\\;", "")
+    cleaned = cleaned.replace(r"\\!", "")
+    cleaned = cleaned.replace(r"\\quad", " ")
+    cleaned = cleaned.replace(r"\\qquad", " ")
+    cleaned = cleaned.replace(r"\\cdot", "")
+    cleaned = cleaned.replace(r"\\times", "")
+    cleaned = cleaned.replace(r"\\left", "")
+    cleaned = cleaned.replace(r"\\right", "")
+    cleaned = cleaned.replace("$", "")
+    cleaned = cleaned.replace("\\[", "").replace("\\]", "")
+    cleaned = re.sub(r"\\begin{[^}]+}", "", cleaned)
+    cleaned = re.sub(r"\\end{[^}]+}", "", cleaned)
+    cleaned = re.sub(r"\\frac\s*{([^}]+)}{([^}]+)}", r"(\\1)/(\\2)", cleaned)
+    cleaned = re.sub(r"([A-Za-z])_\\?{?([0-9]+)\\?}?", r"\\1\\2", cleaned)
+    cleaned = re.sub(r"\\operatorname{([^}]+)}", r"\\1", cleaned)
+    cleaned = cleaned.replace("{", "").replace("}", "")
+    cleaned = cleaned.replace("\u00b7", "")
+    return cleaned
+
+
+def _parse_number_value(texto):
+    """Convierte una cadena numerica (incluye fracciones) a float."""
+    if texto is None:
+        return 1.0
+    texto = texto.strip()
+    if texto == "":
+        return 1.0
+    texto = texto.replace("(", "").replace(")", "")
+    texto = texto.replace(",", ".")
+    if "/" in texto:
+        return float(Fraction(texto))
+    return float(texto)
+
+
+def _parse_linear_expression(expr):
+    """Convierte una expresion lineal (sin =) en coeficientes y termino independiente."""
+    expr = expr.replace("\u2212", "-")
+    expr = expr.replace("*", "")
+    expr = expr.replace("\u00b7", "")
+    expr = expr.replace(",", ".")
+    expr = expr.strip()
+    if not expr:
+        return {}, 0.0
+
+    expr = expr.replace("-", "+-")
+    terms = [t for t in expr.split("+") if t.strip()]
+
+    coef_map = {}
+    const_term = 0.0
+
+    for term in terms:
+        t = term.strip()
+        sign = 1.0
+        if t.startswith("-"):
+            sign = -1.0
+            t = t[1:]
+        elif t.startswith("+"):
+            t = t[1:]
+        t = t.strip()
+        t = t.replace(" ", "")
+        t = t.replace("(", "").replace(")", "")
+        if not t:
+            continue
+
+        match = re.match(r"^(\d*(?:\.\d+)?(?:/\d+(?:\.\d+)?)?)?([A-Za-z][A-Za-z0-9]*)?$", t)
+        if not match:
+            raise ValueError(f"No se pudo interpretar el termino '{term}'.")
+
+        number_part = match.group(1)
+        variable_part = match.group(2)
+
+        if variable_part:
+            coef = _parse_number_value(number_part)
+            coef_map[variable_part] = coef_map.get(variable_part, 0.0) + sign * coef
+        else:
+            if number_part is None or number_part == "":
+                raise ValueError(f"No se pudo interpretar el termino constante '{term}'.")
+            const_term += sign * _parse_number_value(number_part)
+
+    return coef_map, const_term
+
+
+def _parse_equation_to_row(eq):
+    """Convierte una ecuacion en una fila de matriz aumentada."""
+    cleaned = _strip_latex_line(eq)
+    if "=" not in cleaned:
+        raise ValueError("Cada ecuacion debe incluir el signo '='.")
+    lhs, rhs = cleaned.split("=", 1)
+    lhs_map, lhs_const = _parse_linear_expression(lhs)
+    rhs_map, rhs_const = _parse_linear_expression(rhs)
+
+    vars_in_eq = set(lhs_map.keys()) | set(rhs_map.keys())
+    row_map = {var: lhs_map.get(var, 0.0) - rhs_map.get(var, 0.0) for var in vars_in_eq}
+    const_value = rhs_const - lhs_const
+    return row_map, const_value, cleaned
+
+
+def ecuaciones_a_matriz(ecuaciones):
+    """
+    Recibe una lista (o cadena) de ecuaciones lineales y genera la matriz aumentada.
+    Acepta entradas en texto plano o LaTeX simple.
+    """
+    ecuaciones_list = _normalize_equation_input(ecuaciones)
+    if not ecuaciones_list:
+        raise ValueError("Se requiere al menos una ecuacion.")
+
+    variable_order = []
+    filas = []
+    ecuaciones_norm = []
+
+    for eq in ecuaciones_list:
+        fila_map, const_value, norm = _parse_equation_to_row(eq)
+        for var in fila_map.keys():
+            if var not in variable_order:
+                variable_order.append(var)
+        filas.append((fila_map, const_value))
+        ecuaciones_norm.append(norm)
+
+    if not variable_order:
+        raise ValueError("No se encontraron variables en las ecuaciones.")
+
+    matriz = []
+    for fila_map, const_value in filas:
+        fila = [float(fila_map.get(var, 0.0)) for var in variable_order]
+        fila.append(float(const_value))
+        matriz.append(fila)
+
+    return {"matriz": matriz, "variables": variable_order, "ecuaciones": ecuaciones_norm}
+
+
+def resolver_sistema_desde_ecuaciones(ecuaciones, metodo="Gauss-Jordan", mostrar_pasos=True):
+    """
+    Construye la matriz aumentada desde una lista de ecuaciones y la resuelve
+    con el metodo indicado (Gauss-Jordan, Gauss o Cramer).
+    """
+    parsed = ecuaciones_a_matriz(ecuaciones)
+    datos = parsed["matriz"]
+    variables = parsed["variables"]
+    metodo_norm = (metodo or "").strip().lower()
+
+    if metodo_norm in ("gauss-jordan", "gauss jordan", "gaussjordan"):
+        matriz_obj = Matriz(datos)
+        matriz_obj.variables = variables
+        resultado = matriz_obj.gauss_jordan()
+    elif metodo_norm == "gauss":
+        matriz_obj = Matriz(datos)
+        matriz_obj.variables = variables
+        resultado = matriz_obj.gauss()
+    elif metodo_norm == "cramer":
+        n = len(variables)
+        if not datos or len(datos) != n or len(datos[0]) != n + 1:
+            raise ValueError("Para Cramer se necesita una matriz aumentada cuadrada de dimension n x (n+1).")
+        A = [fila[:-1] for fila in datos]
+        b = [fila[-1] for fila in datos]
+        cramer_res = cramer_con_pasos(A, b, mostrar_pasos=mostrar_pasos)
+        sol_lista = cramer_res.get("soluciones", [])
+        solucion = {}
+        for idx, val in enumerate(sol_lista):
+            nombre = variables[idx] if idx < len(variables) else f"x{idx+1}"
+            solucion[nombre] = _format_scalar_value(val)
+        resultado = {
+            "pasos": cramer_res.get("pasos", []) if mostrar_pasos else [],
+            "solucion": solucion,
+            "mensaje": cramer_res.get("mensaje", ""),
+            "detA": cramer_res.get("detA")
+        }
+    else:
+        raise ValueError("Metodo no soportado para ecuaciones. Usa Gauss-Jordan, Gauss o Cramer.")
+
+    return {
+        "matriz": datos,
+        "variables": variables,
+        "ecuaciones": parsed.get("ecuaciones", []),
+        "resultado": resultado,
+        "metodo": metodo
     }
