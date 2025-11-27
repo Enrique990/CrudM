@@ -1,5 +1,8 @@
 # matrices.py
+import re
+from fractions import Fraction
 
+# Clase de matriz para algebra lineal
 class Matriz:
     def __init__(self, datos):
         # Validaciones básicas
@@ -120,17 +123,22 @@ class Matriz:
     # -------------------- MÉTODO GAUSS --------------------
     def gauss(self):
         A = [row[:] for row in self.A]  # trabajar sobre copia
-        n, m = self.n, self.m
         pasos = []
-        fila = 0
-
-        pasos.append({"descripcion": "Matriz inicial", "matriz": self._mat_str(A)})
-
+        # (Evitar duplicar "Matriz inicial": lo agrega _forward_elimination)
         # Reutilizar el forward elimination privado
         A, pivotes, pasos_elim = self._forward_elimination(A)
         pasos.extend(pasos_elim)
 
-        return {"pasos": pasos, "solucion": self._resolver_sustitucion(A)}
+        sol = self._resolver_sustitucion(A)
+        # Mensaje coherente con Gauss-Jordan
+        if isinstance(sol, str):
+            mensaje = "El sistema es inconsistente (no tiene solución)."
+        else:
+            if any(v == "libre" for v in sol.values()):
+                mensaje = "El sistema tiene infinitas soluciones (variables libres presentes)."
+            else:
+                mensaje = "El sistema tiene solución única."
+        return {"pasos": pasos, "solucion": sol, "mensaje": mensaje}
 
     def _forward_elimination(self, A):
         """Realiza eliminación hacia adelante (como en Gauss), retorna la matriz transformada,
@@ -175,6 +183,7 @@ class Matriz:
 
         return A, pivotes, pasos
 
+    # En la independencia tratar de no poner el rango
     def independencia(self):
         """Determina si las columnas (coeficientes) son linealmente independientes.
         Reutiliza _forward_elimination para obtener pivotes y pasos.
@@ -205,6 +214,96 @@ class Matriz:
 
         return {"pasos": pasos, "solucion": solucion, "mensaje": mensaje}
 
+    def independencia_vectores(self, vectores, mostrar_pasos=True):
+        """Comprueba la independencia lineal de una lista de vectores.
+
+        - vectores: lista de listas, cada lista es un vector de misma dimensión (longitud n).
+        - mostrar_pasos: si True se devuelven los pasos de eliminación (en formato consistente con
+          los otros métodos). Si False, la clave "pasos" será una lista vacía.
+
+        Retorna un dict con las mismas claves que `independencia`: {"pasos", "solucion", "mensaje"}.
+        """
+        # Validaciones básicas
+        if vectores is None:
+            raise ValueError("Se requiere una lista de vectores.")
+
+        k = len(vectores)
+        if k == 0:
+            return {"pasos": [] if not mostrar_pasos else [],
+                    "solucion": {"independiente": True, "rango": 0, "pivotes": [], "libres": []},
+                    "mensaje": "No hay vectores: por convención el conjunto vacío es independiente."}
+
+        n = len(vectores[0])
+        for v in vectores:
+            if len(v) != n:
+                raise ValueError("Todos los vectores deben tener la misma dimensión")
+
+        # Construir la matriz cuyo número de columnas = número de vectores
+        A = [[vectores[c][r] for c in range(k)] for r in range(n)]
+
+        pasos = []
+        pivotes = {}
+        libres = set()
+        fila = 0
+
+        pasos.append({"descripcion": "Matriz (vectores como columnas) - matriz inicial", "matriz": self._mat_str(A)})
+
+        for col in range(k):
+            pivot_row = None
+            for r in range(fila, n):
+                if abs(A[r][col]) > 1e-10:
+                    pivot_row = r
+                    break
+            if pivot_row is None:
+                libres.add(col)
+                pasos.append({"descripcion": f"v{col+1}: columna sin pivote (libre)", "matriz": self._mat_str(A)})
+                continue
+
+            if pivot_row != fila:
+                A[fila], A[pivot_row] = A[pivot_row], A[fila]
+                valor_pivote = self._format_number(A[fila][col])
+                pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(A)})
+
+            pivot = A[fila][col]
+            if abs(pivot - 1) > 1e-10:
+                A[fila] = [x / pivot for x in A[fila]]
+                valor_pivote = self._format_number(pivot)
+                pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{fila+1} → F{fila+1} / {valor_pivote}", "matriz": self._mat_str(A)})
+
+            for r in range(n):
+                if r != fila and abs(A[r][col]) > 1e-10:
+                    factor = A[r][col]
+                    A[r] = [A[r][c] - factor * A[fila][c] for c in range(k)]
+                    valor_pivote = self._format_number(A[fila][col])
+                    pasos.append({"descripcion": f"(*Pivote*, Fila: {fila+1}; Columna: {col+1}; Valor: {valor_pivote})\nF{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(A)})
+
+            pivotes[col] = fila
+            fila += 1
+            if fila >= n:
+                break
+
+        pivot_cols = sorted(pivotes.keys())
+        libres = [c for c in range(k) if c not in pivotes]
+        rango = len(pivotes)
+        independiente = (rango == k)
+
+        if independiente:
+            mensaje = f"Linealmente independientes "
+        else:
+            libres_nombres = ", ".join(f"v{c+1}" for c in libres) if libres else "ninguna"
+            mensaje = (f"Linealmente dependientes. "
+                       f"Columnas sin pivote (libres): {libres_nombres}.")
+
+        solucion = {
+            "independiente": independiente,
+            "rango": rango,
+            "pivotes": [c + 1 for c in pivot_cols],
+            "libres": [c + 1 for c in libres]
+        }
+
+        return {"pasos": pasos if mostrar_pasos else [], "solucion": solucion, "mensaje": mensaje}
+
+    # -------------------- MÉTODO TRASPUESTA E INVERSA --------------------
     def trasponer(self):
         """Devuelve una nueva instancia de Matriz que es la traspuesta de la actual.
         No modifica la matriz original.
@@ -215,6 +314,64 @@ class Matriz:
 
     # alias en inglés por conveniencia
     transpose = trasponer
+
+    # La inversa de la matriz debe validar que es cuadrada
+    def inversa(self, mostrar_pasos=True):
+        """Calcula la inversa de la matriz usando Gauss-Jordan sobre [A | I].
+
+        - Validaciones: la matriz debe ser cuadrada (n == m).
+        - Si la matriz es singular devuelve {'pasos': pasos, 'inversa': None, 'mensaje': ...}.
+        - Si tiene inversa devuelve la matriz inversa formateada y los pasos (si mostrar_pasos).
+        """
+        # Solo para matrices cuadradas
+        if self.n != self.m:
+            raise ValueError("La inversa sólo está definida para matrices cuadradas (n == m).")
+
+        n = self.n
+        # Construir la matriz aumentada [A | I]
+        A = [row[:] for row in self.A]
+        Aug = [A[i] + [1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+
+        pasos = []
+        pasos.append({"descripcion": "Matriz inicial (A | I)", "matriz": self._mat_str(Aug)})
+
+        fila = 0
+        for col in range(n):
+            pivot_row = None
+            for r in range(fila, n):
+                if abs(Aug[r][col]) > 1e-10:
+                    pivot_row = r
+                    break
+            if pivot_row is None:
+                # No hay pivote en esta columna -> singular
+                return {"pasos": pasos, "inversa": None, "mensaje": "La matriz es singular y no tiene inversa."}
+
+            if pivot_row != fila:
+                Aug[fila], Aug[pivot_row] = Aug[pivot_row], Aug[fila]
+                pasos.append({"descripcion": f"F{fila+1} ↔ F{pivot_row+1}", "matriz": self._mat_str(Aug)})
+
+            pivot = Aug[fila][col]
+            if abs(pivot - 1) > 1e-10:
+                Aug[fila] = [x / pivot for x in Aug[fila]]
+                pasos.append({"descripcion": f"F{fila+1} → F{fila+1} / {self._format_number(pivot)}", "matriz": self._mat_str(Aug)})
+
+            for r in range(n):
+                if r != fila and abs(Aug[r][col]) > 1e-10:
+                    factor = Aug[r][col]
+                    Aug[r] = [Aug[r][k] - factor * Aug[fila][k] for k in range(2 * n)]
+                    pasos.append({"descripcion": f"F{r+1} → F{r+1} - ({self._format_number(factor)})*F{fila+1}", "matriz": self._mat_str(Aug)})
+
+            fila += 1
+
+        # Extraer la inversa (la mitad derecha de la matriz aumentada)
+        inv = [row[n:] for row in Aug]
+
+        return {"pasos": pasos if mostrar_pasos else [], "inversa": self._mat_str(inv), "mensaje": "Inversa calculada correctamente."}
+
+    # alias en inglés
+    inverse = inversa
+    
+    
 
     def _resolver_sustitucion(self, A):
         eps = 1e-10
@@ -298,40 +455,61 @@ class Matriz:
                 solucion[var] = " ".join(partes) if partes else "0"
 
         return solucion
+    
+    # Recordar hacer los determinantes de la matriz por Sarrus
+    
+    # Tambien resolver por el metodo de Cramer 
+    
+    def cramer(self):
+        """ Necesito este metodo para el jueves con la clase del Profesor Ivan"""
+    
+    
+    # Necesito el metodo e Sarrus para el jueves con la clase del Profesor Ivan
+    def sarrus(self):
+        """ Necesito este metodo para el jueves con la clase del Profesor Ivan"""
 
-    # -------------------- OPERACIONES BÁSICAS (Suma, Resta, Multiplicación) --------------------
-    def sumar(self, otra):
-        """Suma elemento a elemento. Ambas matrices deben tener mismas dimensiones."""
-        if not isinstance(otra, Matriz):
-            raise ValueError("La suma requiere otra Matriz.")
-        if self.n != otra.n or self.m != otra.m:
-            raise ValueError("Dimensiones incompatibles para la suma.")
-        resultado = [[self.A[i][j] + otra.A[i][j] for j in range(self.m)] for i in range(self.n)]
-        return Matriz(resultado)
+    # -------------------- OPERADOR DE MATRICES --------------------
+    def _ensure_matrix_like(self, other):
+        if isinstance(other, Matriz):
+            return other
+        if isinstance(other, (list, tuple)):
+            return Matriz([list(row) for row in other])
+        raise ValueError("El operando debe ser una Matriz o una lista de listas numéricas.")
 
-    def restar(self, otra):
-        """Resta elemento a elemento. Ambas matrices deben tener mismas dimensiones."""
-        if not isinstance(otra, Matriz):
-            raise ValueError("La resta requiere otra Matriz.")
-        if self.n != otra.n or self.m != otra.m:
-            raise ValueError("Dimensiones incompatibles para la resta.")
-        resultado = [[self.A[i][j] - otra.A[i][j] for j in range(self.m)] for i in range(self.n)]
-        return Matriz(resultado)
+    def sumar(self, other):
+        B = self._ensure_matrix_like(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Dimensiones incompatibles para suma: deben ser iguales.")
+        C = [[self.A[i][j] + B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(C)
 
-    def multiplicar(self, otra):
-        """Multiplicación matricial (self x otra). Requiere self.m == otra.n."""
-        if not isinstance(otra, Matriz):
-            raise ValueError("La multiplicación requiere otra Matriz.")
-        if self.m != otra.n:
-            raise ValueError("Dimensiones incompatibles para multiplicación (cols de A != filas de B).")
-        # resultado tendrá dimensiones n x otra.m
-        resultado = [
-            [sum(self.A[i][k] * otra.A[k][j] for k in range(self.m)) for j in range(otra.m)]
-            for i in range(self.n)
-        ]
-        return Matriz(resultado)
+    def restar(self, other):
+        B = self._ensure_matrix_like(other)
+        if self.n != B.n or self.m != B.m:
+            raise ValueError("Dimensiones incompatibles para resta: deben ser iguales.")
+        C = [[self.A[i][j] - B.A[i][j] for j in range(self.m)] for i in range(self.n)]
+        return Matriz(C)
 
-    # Operadores python convenientes
+    def multiplicar(self, other):
+        # Escalar
+        if isinstance(other, (int, float)):
+            C = [[self.A[i][j] * other for j in range(self.m)] for i in range(self.n)]
+            return Matriz(C)
+        B = self._ensure_matrix_like(other)
+        if self.m != B.n:
+            raise ValueError(f"Dimensiones incompatibles para multiplicación: {self.n}x{self.m} * {B.n}x{B.m}")
+        C = [[0.0 for _ in range(B.m)] for __ in range(self.n)]
+        for i in range(self.n):
+            for j in range(B.m):
+                s = 0.0
+                for k in range(self.m):
+                    s += self.A[i][k] * B.A[k][j]
+                C[i][j] = s
+        return Matriz(C)
+
+    # Sobrecargas convenientes
+    # Sirve para usar los operadores +, -, @, * directamente
+    
     def __add__(self, other):
         return self.sumar(other)
 
@@ -341,3 +519,472 @@ class Matriz:
     def __matmul__(self, other):
         return self.multiplicar(other)
 
+    def __mul__(self, other):
+        return self.multiplicar(other)
+
+    def __rmul__(self, other):
+        if isinstance(other, (int, float)):
+            return self.multiplicar(other)
+        return NotImplemented
+
+    def to_list(self):
+        return [row[:] for row in self.A]
+
+def determinante_por_gauss(A):
+    """
+    Calcula el determinante de una matriz cuadrada A (lista de listas)
+    mediante reducción a triangular superior por eliminación de Gauss.
+    No modifica A (trabaja sobre una copia). Devuelve un número (float).
+    """
+    eps = 1e-12
+    if A is None or len(A) == 0:
+        raise ValueError("La matriz no puede estar vacía.")
+    n = len(A)
+    # verificar cuadrada
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
+    # trabajar sobre una copia en coma flotante para no alterar la original
+    M = [list(map(float, row[:])) for row in A]
+    det_sign = 1  # guarda el signo que cambia cuando se intercambian filas
+    for i in range(n):
+        # Buscar la fila con el mayor valor absoluto en la columna i (pivote)
+        max_row = max(range(i, n), key=lambda r: abs(M[r][i]))
+        # Si el mejor pivote es (prácticamente) cero, el determinante es 0
+        if abs(M[max_row][i]) < eps:
+            return 0.0
+        # Si hay intercambio de filas, invertimos el signo del determinante
+        if max_row != i:
+            M[i], M[max_row] = M[max_row], M[i]
+            det_sign *= -1
+        pivot = M[i][i]
+        # Eliminar (poner a cero) los elementos debajo del pivote
+        for r in range(i + 1, n):
+            if abs(M[r][i]) < eps:
+                continue
+            factor = M[r][i] / pivot
+            # Restamos factor * fila_pivote a la fila r (no cambia el determinante)
+            for c in range(i, n):
+                M[r][c] -= factor * M[i][c]
+    # El determinante es el producto de la diagonal por el signo de los swaps
+    det = det_sign
+    for i in range(n):
+        det *= M[i][i]
+    return det
+
+
+def determinante_por_gauss_con_pasos(A, mostrar_pasos=True):
+    """
+    Calcula el determinante de una matriz cuadrada A usando eliminación de Gauss
+    y devuelve además los pasos del procedimiento.
+
+    Retorna:
+      {
+        "determinante": float,
+        "pasos": [ {"descripcion": str, "matriz": [[str|float]]}, ... ],
+        "mensaje": str
+      }
+
+    No modifica A.
+    """
+    eps = 1e-12
+    if A is None or len(A) == 0:
+        raise ValueError("La matriz no puede estar vacía.")
+    n = len(A)
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
+
+    # Copia en float
+    M = [list(map(float, row[:])) for row in A]
+
+    def fmt(x):
+        # entero sin decimales vs 4 decimales
+        return str(int(round(x))) if abs(x - round(x)) < 1e-10 else f"{x:.4f}"
+
+    def mat_fmt(M_):
+        return [[fmt(x) for x in fila] for fila in M_]
+
+    pasos = []
+    if mostrar_pasos:
+        pasos.append({"descripcion": "Matriz inicial", "matriz": mat_fmt(M)})
+
+    det_sign = 1
+    for i in range(n):
+        # escoger pivote por valor absoluto máximo
+        max_row = max(range(i, n), key=lambda r: abs(M[r][i]))
+        if abs(M[max_row][i]) < eps:
+            # det=0: registrar razón
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"Columna {i+1}: pivote ≈ 0 ⇒ det(A)=0",
+                    "matriz": mat_fmt(M)
+                })
+            return {"determinante": 0.0, "pasos": pasos if mostrar_pasos else [], "mensaje": "Determinante nulo (pivote cero)."}
+
+        if max_row != i:
+            M[i], M[max_row] = M[max_row], M[i]
+            det_sign *= -1
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"F{i+1} ↔ F{max_row+1} (cambia el signo del determinante)",
+                    "matriz": mat_fmt(M)
+                })
+
+        pivot = M[i][i]
+        # eliminación por debajo del pivote
+        for r in range(i + 1, n):
+            if abs(M[r][i]) < eps:
+                continue
+            factor = M[r][i] / pivot
+            for c in range(i, n):
+                M[r][c] -= factor * M[i][c]
+            if mostrar_pasos:
+                pasos.append({
+                    "descripcion": f"F{r+1} → F{r+1} - (" + fmt(factor) + f")*F{i+1}",
+                    "matriz": mat_fmt(M)
+                })
+
+    det = det_sign
+    for i in range(n):
+        det *= M[i][i]
+
+    mensaje = "Determinante calculado por eliminación de Gauss."
+    if mostrar_pasos:
+        diag_prod = " × ".join(fmt(M[i][i]) for i in range(n))
+        signo = "-1" if det_sign < 0 else "1"
+        pasos.append({
+            "descripcion": f"Producto diagonal × signo = (" + diag_prod + f") × {signo}",
+            "matriz": mat_fmt([[M[i][i] if i==j else 0.0 for j in range(n)] for i in range(n)])
+        })
+
+    return {"determinante": det, "pasos": pasos if mostrar_pasos else [], "mensaje": mensaje}
+
+def cramer(A, b):
+    """
+    Resuelve el sistema A x = b usando la regla de Cramer.
+    - A: matriz de coeficientes (lista de listas) cuadrada n x n
+    - b: vector de resultados (lista de longitud n)
+    Devuelve la lista [x1, x2, ..., xn].
+    Lanza ValueError si no hay solución única (determinante cero) o si dimensiones no coinciden.
+    """
+    eps = 1e-12
+    if A is None or b is None:
+        raise ValueError("A y b son requeridos.")
+    n = len(A)
+    if n == 0:
+        return []
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz A debe ser cuadrada.")
+    if len(b) != n:
+        raise ValueError("El vector b debe tener la misma dimensión que A.")
+    # Determinante de la matriz de coeficientes
+    detA = determinante_por_gauss(A)
+    if abs(detA) < eps:
+        # Si es cero, no hay solución única y la regla de Cramer no aplica
+        raise ValueError("Determinante de A es cero: no existe solución única (regla de Cramer no aplicable).")
+    solucion = []
+    # Para cada variable reemplazamos la columna correspondiente por b y calculamos su determinante
+    for col in range(n):
+        Ai = [row[:] for row in A]  # copia de A
+        for i in range(n):
+            Ai[i][col] = b[i]  # sustituir la columna col por b
+        detAi = determinante_por_gauss(Ai)
+        solucion.append(detAi / detA)  # xi = det(Ai) / det(A)
+    return solucion
+
+
+def cramer_con_pasos(A, b, mostrar_pasos=True):
+    """
+    Igual que cramer(A, b), pero devuelve además los pasos intermedios usando
+    determinante_por_gauss_con_pasos.
+
+    Retorna un dict:
+      {
+        "soluciones": [x1, x2, ...],
+        "pasos": [{"descripcion": str, "matriz": [[str]]?}, ...],
+        "detA": float,
+        "mensaje": str
+      }
+    """
+    eps = 1e-12
+    if A is None or b is None:
+        raise ValueError("A y b son requeridos.")
+    n = len(A)
+    if n == 0:
+        return {"soluciones": [], "pasos": [], "detA": 1.0, "mensaje": "Sistema vacío."}
+    for row in A:
+        if len(row) != n:
+            raise ValueError("La matriz A debe ser cuadrada.")
+    if len(b) != n:
+        raise ValueError("El vector b debe tener la misma dimensión que A.")
+
+    pasos = []
+    # Paso inicial: mostrar A y b
+    def fmt(x):
+        return str(int(round(x))) if abs(x - round(x)) < 1e-10 else f"{x:.4f}"
+    def mat_fmt(M):
+        return [[fmt(x) for x in fila] for fila in M]
+
+    if mostrar_pasos:
+        pasos.append({"descripcion": "Matriz A (coeficientes)", "matriz": mat_fmt(A)})
+        pasos.append({"descripcion": "Vector b", "matriz": mat_fmt([[bi] for bi in b])})
+
+    # det(A) con pasos
+    detA_res = determinante_por_gauss_con_pasos(A, mostrar_pasos)
+    detA = detA_res.get("determinante", 0.0)
+    if mostrar_pasos:
+        pasos.append({"descripcion": f"Cálculo de det(A) = {fmt(detA)}"})
+        pasos.extend(detA_res.get("pasos", []))
+
+    if abs(detA) < eps:
+        # mantener el contrato de la función original: no solución única
+        raise ValueError("Determinante de A es cero: no existe solución única (regla de Cramer no aplicable).")
+
+    soluciones = []
+    for col in range(n):
+        Ai = [row[:] for row in A]
+        for i in range(n):
+            Ai[i][col] = b[i]
+        if mostrar_pasos:
+            pasos.append({"descripcion": f"Matriz A_{col+1} (columna {col+1} reemplazada por b)", "matriz": mat_fmt(Ai)})
+        detAi_res = determinante_por_gauss_con_pasos(Ai, mostrar_pasos)
+        detAi = detAi_res.get("determinante", 0.0)
+        if mostrar_pasos:
+            pasos.append({"descripcion": f"Cálculo de det(A_{col+1}) = {fmt(detAi)}"})
+            pasos.extend(detAi_res.get("pasos", []))
+            pasos.append({"descripcion": f"x{col+1} = det(A_{col+1}) / det(A) = {fmt(detAi)} / {fmt(detA)} = {fmt(detAi/detA)}"})
+        soluciones.append(detAi / detA)
+
+    return {
+        "soluciones": soluciones,
+        "pasos": pasos if mostrar_pasos else [],
+        "detA": detA,
+        "mensaje": "Solución por Cramer calculada correctamente."
+    }
+
+
+
+def _format_scalar_value(x):
+    """Formateo simple para resultados numericos (entero sin decimales o con 4 decimales)."""
+    if abs(x - int(round(x))) < 1e-10:
+        return str(int(round(x)))
+    return f"{x:.4f}"
+
+
+def _normalize_equation_input(ecuaciones):
+    """Normaliza la entrada de ecuaciones (lista o cadena) y las devuelve como lista de strings limpias."""
+    if ecuaciones is None:
+        return []
+    if isinstance(ecuaciones, str):
+        raw = ecuaciones.replace("\r", "")
+        raw = raw.replace(r"\\", "\n")
+        partes = []
+        for linea in raw.splitlines():
+            for chunk in re.split(r";", linea):
+                texto = chunk.strip()
+                if texto:
+                    partes.append(texto)
+    elif isinstance(ecuaciones, (list, tuple)):
+        partes = []
+        for item in ecuaciones:
+            if item is None:
+                continue
+            texto = str(item).strip()
+            if not texto:
+                continue
+            texto = texto.replace(r"\\", "\n")
+            for chunk in re.split(r"[\n;]+", texto):
+                cleaned = chunk.strip()
+                if cleaned:
+                    partes.append(cleaned)
+    else:
+        raise ValueError("Las ecuaciones deben recibirse como lista o cadena.")
+    return partes
+
+
+def _strip_latex_line(eq):
+    """Quita adornos LaTeX comunes y deja la ecuacion en texto plano simple."""
+    if not eq:
+        return ""
+    cleaned = eq.strip()
+    cleaned = cleaned.replace("&=", "=")
+    cleaned = cleaned.replace(r"\\=", "=")
+    cleaned = cleaned.replace(r"\\,", "")
+    cleaned = cleaned.replace(r"\\;", "")
+    cleaned = cleaned.replace(r"\\!", "")
+    cleaned = cleaned.replace(r"\\quad", " ")
+    cleaned = cleaned.replace(r"\\qquad", " ")
+    cleaned = cleaned.replace(r"\\cdot", "")
+    cleaned = cleaned.replace(r"\\times", "")
+    cleaned = cleaned.replace(r"\\left", "")
+    cleaned = cleaned.replace(r"\\right", "")
+    cleaned = cleaned.replace("$", "")
+    cleaned = cleaned.replace("\\[", "").replace("\\]", "")
+    cleaned = re.sub(r"\\begin{[^}]+}", "", cleaned)
+    cleaned = re.sub(r"\\end{[^}]+}", "", cleaned)
+    cleaned = re.sub(r"\\frac\s*{([^}]+)}{([^}]+)}", r"(\\1)/(\\2)", cleaned)
+    cleaned = re.sub(r"([A-Za-z])_\\?{?([0-9]+)\\?}?", r"\\1\\2", cleaned)
+    cleaned = re.sub(r"\\operatorname{([^}]+)}", r"\\1", cleaned)
+    cleaned = cleaned.replace("{", "").replace("}", "")
+    cleaned = cleaned.replace("\u00b7", "")
+    return cleaned
+
+
+def _parse_number_value(texto):
+    """Convierte una cadena numerica (incluye fracciones) a float."""
+    if texto is None:
+        return 1.0
+    texto = texto.strip()
+    if texto == "":
+        return 1.0
+    texto = texto.replace("(", "").replace(")", "")
+    texto = texto.replace(",", ".")
+    if "/" in texto:
+        return float(Fraction(texto))
+    return float(texto)
+
+
+def _parse_linear_expression(expr):
+    """Convierte una expresion lineal (sin =) en coeficientes y termino independiente."""
+    expr = expr.replace("\u2212", "-")
+    expr = expr.replace("*", "")
+    expr = expr.replace("\u00b7", "")
+    expr = expr.replace(",", ".")
+    expr = expr.strip()
+    if not expr:
+        return {}, 0.0
+
+    expr = expr.replace("-", "+-")
+    terms = [t for t in expr.split("+") if t.strip()]
+
+    coef_map = {}
+    const_term = 0.0
+
+    for term in terms:
+        t = term.strip()
+        sign = 1.0
+        if t.startswith("-"):
+            sign = -1.0
+            t = t[1:]
+        elif t.startswith("+"):
+            t = t[1:]
+        t = t.strip()
+        t = t.replace(" ", "")
+        t = t.replace("(", "").replace(")", "")
+        if not t:
+            continue
+
+        match = re.match(r"^(\d*(?:\.\d+)?(?:/\d+(?:\.\d+)?)?)?([A-Za-z][A-Za-z0-9]*)?$", t)
+        if not match:
+            raise ValueError(f"No se pudo interpretar el termino '{term}'.")
+
+        number_part = match.group(1)
+        variable_part = match.group(2)
+
+        if variable_part:
+            coef = _parse_number_value(number_part)
+            coef_map[variable_part] = coef_map.get(variable_part, 0.0) + sign * coef
+        else:
+            if number_part is None or number_part == "":
+                raise ValueError(f"No se pudo interpretar el termino constante '{term}'.")
+            const_term += sign * _parse_number_value(number_part)
+
+    return coef_map, const_term
+
+
+def _parse_equation_to_row(eq):
+    """Convierte una ecuacion en una fila de matriz aumentada."""
+    cleaned = _strip_latex_line(eq)
+    if "=" not in cleaned:
+        raise ValueError("Cada ecuacion debe incluir el signo '='.")
+    lhs, rhs = cleaned.split("=", 1)
+    lhs_map, lhs_const = _parse_linear_expression(lhs)
+    rhs_map, rhs_const = _parse_linear_expression(rhs)
+
+    vars_in_eq = set(lhs_map.keys()) | set(rhs_map.keys())
+    row_map = {var: lhs_map.get(var, 0.0) - rhs_map.get(var, 0.0) for var in vars_in_eq}
+    const_value = rhs_const - lhs_const
+    return row_map, const_value, cleaned
+
+
+def ecuaciones_a_matriz(ecuaciones):
+    """
+    Recibe una lista (o cadena) de ecuaciones lineales y genera la matriz aumentada.
+    Acepta entradas en texto plano o LaTeX simple.
+    """
+    ecuaciones_list = _normalize_equation_input(ecuaciones)
+    if not ecuaciones_list:
+        raise ValueError("Se requiere al menos una ecuacion.")
+
+    variable_order = []
+    filas = []
+    ecuaciones_norm = []
+
+    for eq in ecuaciones_list:
+        fila_map, const_value, norm = _parse_equation_to_row(eq)
+        for var in fila_map.keys():
+            if var not in variable_order:
+                variable_order.append(var)
+        filas.append((fila_map, const_value))
+        ecuaciones_norm.append(norm)
+
+    if not variable_order:
+        raise ValueError("No se encontraron variables en las ecuaciones.")
+
+    matriz = []
+    for fila_map, const_value in filas:
+        fila = [float(fila_map.get(var, 0.0)) for var in variable_order]
+        fila.append(float(const_value))
+        matriz.append(fila)
+
+    return {"matriz": matriz, "variables": variable_order, "ecuaciones": ecuaciones_norm}
+
+
+def resolver_sistema_desde_ecuaciones(ecuaciones, metodo="Gauss-Jordan", mostrar_pasos=True):
+    """
+    Construye la matriz aumentada desde una lista de ecuaciones y la resuelve
+    con el metodo indicado (Gauss-Jordan, Gauss o Cramer).
+    """
+    parsed = ecuaciones_a_matriz(ecuaciones)
+    datos = parsed["matriz"]
+    variables = parsed["variables"]
+    metodo_norm = (metodo or "").strip().lower()
+
+    if metodo_norm in ("gauss-jordan", "gauss jordan", "gaussjordan"):
+        matriz_obj = Matriz(datos)
+        matriz_obj.variables = variables
+        resultado = matriz_obj.gauss_jordan()
+    elif metodo_norm == "gauss":
+        matriz_obj = Matriz(datos)
+        matriz_obj.variables = variables
+        resultado = matriz_obj.gauss()
+    elif metodo_norm == "cramer":
+        n = len(variables)
+        if not datos or len(datos) != n or len(datos[0]) != n + 1:
+            raise ValueError("Para Cramer se necesita una matriz aumentada cuadrada de dimension n x (n+1).")
+        A = [fila[:-1] for fila in datos]
+        b = [fila[-1] for fila in datos]
+        cramer_res = cramer_con_pasos(A, b, mostrar_pasos=mostrar_pasos)
+        sol_lista = cramer_res.get("soluciones", [])
+        solucion = {}
+        for idx, val in enumerate(sol_lista):
+            nombre = variables[idx] if idx < len(variables) else f"x{idx+1}"
+            solucion[nombre] = _format_scalar_value(val)
+        resultado = {
+            "pasos": cramer_res.get("pasos", []) if mostrar_pasos else [],
+            "solucion": solucion,
+            "mensaje": cramer_res.get("mensaje", ""),
+            "detA": cramer_res.get("detA")
+        }
+    else:
+        raise ValueError("Metodo no soportado para ecuaciones. Usa Gauss-Jordan, Gauss o Cramer.")
+
+    return {
+        "matriz": datos,
+        "variables": variables,
+        "ecuaciones": parsed.get("ecuaciones", []),
+        "resultado": resultado,
+        "metodo": metodo
+    }
