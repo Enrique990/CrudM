@@ -1742,6 +1742,64 @@ class MatrixCRUDApp:
                 pass
         self._update_latex_preview()
 
+    def _format_expr_exponents(self, expr: str) -> str:
+        """Agrupa exponentes para que matplotlib los muestre completos (p.ej. x^-1 -> x^{-1})."""
+        res = []
+        i = 0
+        while i < len(expr):
+            ch = expr[i]
+            if ch != '^':
+                res.append(ch)
+                i += 1
+                continue
+
+            # Procesar exponente
+            res.append('^')
+            i += 1
+            if i >= len(expr):
+                break
+            nxt = expr[i]
+
+            # Si ya viene en llaves, dejarlo tal cual
+            if nxt == '{':
+                res.append('{')
+                i += 1
+                continue
+
+            # Agrupar paréntesis o corchetes completos
+            if nxt in '([':
+                open_ch = nxt
+                close_ch = ')' if nxt == '(' else ']'
+                depth = 1
+                j = i + 1
+                while j < len(expr) and depth > 0:
+                    if expr[j] == open_ch:
+                        depth += 1
+                    elif expr[j] == close_ch:
+                        depth -= 1
+                    j += 1
+                res.append('{')
+                res.append(expr[i:j])
+                res.append('}')
+                i = j
+                continue
+
+            # Capturar tokens simples (numeros, variables, signos)
+            start = i
+            if nxt == '-':
+                i += 1
+            while i < len(expr) and (expr[i].isalnum() or expr[i] in '._'):
+                i += 1
+            segment = expr[start:i]
+            if segment:
+                res.append('{')
+                res.append(segment)
+                res.append('}')
+            else:
+                res.append(nxt)
+                i += 1
+        return ''.join(res)
+
     def _update_latex_preview(self):
         """Renderiza la vista previa en LaTeX usando matplotlib (sin escribir archivos)."""
         expr = ""
@@ -1753,6 +1811,8 @@ class MatrixCRUDApp:
             self.num_expr_preview.config(text="Vista previa LaTeX", image=None, bg="#ffffff", fg="#0b0b0b", anchor='w', justify='left')
             self._latex_preview_image = None
             return
+        # Ajustar exponentes para que toda la expresión después de '^' se muestre elevada
+        expr_latex = self._format_expr_exponents(expr)
         try:
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -1766,7 +1826,7 @@ class MatrixCRUDApp:
             ax = fig.add_axes([0, 0, 1, 1])
             ax.set_facecolor("#ffffff")
             ax.axis('off')
-            ax.text(0.02, 0.55, f"${expr}$", fontsize=fs, va='center', ha='left', color="#0b0b0b")
+            ax.text(0.02, 0.55, f"${expr_latex}$", fontsize=fs, va='center', ha='left', color="#0b0b0b")
 
             buf = io.BytesIO()
             canvas = FigureCanvasAgg(fig)
