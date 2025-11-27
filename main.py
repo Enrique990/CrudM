@@ -118,9 +118,9 @@ class MatrixCRUDApp:
         self.notebook.add(self.operators_tab, text='Operadores de Matrices')
         self.create_operators_widgets(self.operators_tab)
 
-        # --- Pestaña 2: Calculadora de Matrices ---
+        # --- Pestaña 2: Solucionador Sistema de ecuaciones ---
         self.calculator_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
-        self.notebook.add(self.calculator_tab, text='Calculadora de Matrices')
+        self.notebook.add(self.calculator_tab, text='Solucionador Sistema de ecuaciones')
         self.create_calculator_widgets(self.calculator_tab)
 
         # --- Pestaña 3: Independencia de Vectores (última) ---
@@ -168,7 +168,7 @@ class MatrixCRUDApp:
         self._apply_initial_listbox_size()
 
     def create_calculator_widgets(self, parent_frame):
-        """Crea todos los widgets para la pestaña de la calculadora de matrices."""
+        """Crea todos los widgets para la pestaña del solucionador de sistemas."""
         # Frame principal con scroll + panel de Procedimiento a la derecha
         main_frame = ttk.Frame(parent_frame, style='Surface.TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
@@ -354,8 +354,8 @@ class MatrixCRUDApp:
 
         header_card = ttk.Frame(main_frame, style='Card.TFrame', padding=(18, 16))
         header_card.grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, 12))
-        ttk.Label(header_card, text="Calculadora de Matrices", style='CardHero.TLabel').grid(row=0, column=0, sticky="w")
-        ttk.Label(header_card, text="Gestiona, resuelve y guarda matrices con pasos claros y una lectura elegante.", style='CardMuted.TLabel').grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(header_card, text="Solucionador Sistema de ecuaciones", style='CardHero.TLabel').grid(row=0, column=0, sticky="w")
+        ttk.Label(header_card, text="Gestiona, resuelve y guarda sistemas de ecuaciones con pasos claros y una lectura elegante.", style='CardMuted.TLabel').grid(row=1, column=0, sticky="w", pady=(6, 0))
 
         form_card = ttk.Frame(main_frame, style='Card.TFrame', padding=(16, 14))
         form_card.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(0, 12))
@@ -372,9 +372,11 @@ class MatrixCRUDApp:
             form_card,
             textvariable=self.method_var,
             values=[
+                "Métodos de sistemas",
                 "Gauss-Jordan",
                 "Gauss",
                 "Cramer",
+                "Operaciones adicionales",
                 "Transponer",
                 "Inversa",
                 "Determinante",
@@ -2840,12 +2842,23 @@ class MatrixCRUDApp:
         if selection:
             self.selected_vector_set = self.vector_set_listbox.get(selection[0])
 
+    def _get_method_selection(self):
+        allowed = {"Gauss-Jordan", "Gauss", "Cramer", "Transponer", "Inversa", "Determinante", "Independencia"}
+        val = (self.method_var.get() or "").strip()
+        return val if val in allowed else None
+
     def _on_method_select(self, event):
-        self.selected_method = self.method_var.get()
+        val = (self.method_var.get() or "").strip()
+        allowed = {"Gauss-Jordan", "Gauss", "Cramer", "Transponer", "Inversa", "Determinante", "Independencia"}
+        if val in allowed:
+            self.selected_method = val
+        else:
+            self.selected_method = None
+            self.method_var.set("")
 
     def solve_matrix(self):
         matrix_name = getattr(self, 'selected_matrix', None)
-        metodo = getattr(self, 'selected_method', None) # Cambiado para forzar selección
+        metodo = self._get_method_selection()
 
         if not matrix_name:
             selection = self.matrix_listbox.curselection()
@@ -2957,7 +2970,7 @@ class MatrixCRUDApp:
             messagebox.showwarning("Datos requeridos", "Ingresa al menos una ecuacion o un bloque LaTeX.")
             return
 
-        metodo = (getattr(self, 'selected_method', None) or self.method_var.get() or "").strip()
+        metodo = self._get_method_selection()
         if not metodo:
             messagebox.showwarning(
                 "Seleccion requerida",
