@@ -791,13 +791,14 @@ class MatrixCRUDApp:
 
         # Vista previa grande renderizada (LaTeX) en un cuadro dedicado y claro
         preview_box = tk.Frame(expr_card, bg="#ffffff", highlightbackground=self.palette['outline'], highlightthickness=1, bd=0)
-        preview_box.configure(height=88)
+        preview_box.configure(height=110)
         try:
             preview_box.grid_propagate(False)
         except Exception:
             pass
         preview_box.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(6,0))
         preview_box.grid_columnconfigure(0, weight=1)
+        preview_box.grid_rowconfigure(0, weight=1)
         self.num_expr_preview = tk.Label(
             preview_box,
             text="Vista previa LaTeX",
@@ -805,11 +806,11 @@ class MatrixCRUDApp:
             justify='left',
             bg="#ffffff",
             fg="#0b0b0b",
-            font=('Segoe UI', 18),
-            padx=10,
-            pady=8,
+            font=('Segoe UI', 16),
+            padx=6,
+            pady=4,
         )
-        self.num_expr_preview.grid(row=0, column=0, sticky='w')
+        self.num_expr_preview.grid(row=0, column=0, sticky='nsew')
         self._latex_preview_image = None
 
     # Fila 3: Teclado matem?tico/LaTeX con pesta?as
@@ -877,6 +878,9 @@ class MatrixCRUDApp:
         ttk.Label(container, text="tolerancia:", style='Dark.TLabel').grid(row=6, column=0, sticky='w')
         self.num_tol_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
         self.num_tol_entry.grid(row=6, column=1, sticky='w')
+        # Botón dedicado para detectar intervalos automáticamente
+        self.num_detect_interval_btn = ttk.Button(container, text="Detectar intervalos", command=self._num_auto_interval, style='Dark.TButton')
+        self.num_detect_interval_btn.grid(row=6, column=2, columnspan=2, sticky='ew', padx=(6,0))
 
         # Botonera de acciones CRUD centrada (incluye Auto-intervalo) justo debajo de la expresion
         eq_action_frame = ttk.Frame(container, style='Surface.TFrame')
@@ -1746,19 +1750,23 @@ class MatrixCRUDApp:
         except Exception:
             return
         if not expr:
-            self.num_expr_preview.config(text="Vista previa LaTeX", image=None, bg="#ffffff", fg="#0b0b0b")
+            self.num_expr_preview.config(text="Vista previa LaTeX", image=None, bg="#ffffff", fg="#0b0b0b", anchor='w', justify='left')
             self._latex_preview_image = None
             return
         try:
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-            fig = Figure(figsize=(5.6, 1.4), dpi=170)
+            expr_len = len(expr)
+            base_fs = 26
+            fs = base_fs if expr_len <= 20 else max(14, base_fs - (expr_len - 20) * 0.5)
+
+            fig = Figure(figsize=(6.4, 1.2), dpi=150)
             fig.patch.set_facecolor("#ffffff")
             ax = fig.add_axes([0, 0, 1, 1])
             ax.set_facecolor("#ffffff")
             ax.axis('off')
-            ax.text(0.02, 0.5, f"${expr}$", fontsize=26, va='center', ha='left', color="#0b0b0b")
+            ax.text(0.02, 0.55, f"${expr}$", fontsize=fs, va='center', ha='left', color="#0b0b0b")
 
             buf = io.BytesIO()
             canvas = FigureCanvasAgg(fig)
@@ -1769,6 +1777,13 @@ class MatrixCRUDApp:
             # tkinter PhotoImage acepta PNG base64
             self._latex_preview_image = tk.PhotoImage(data=b64)
             self.num_expr_preview.config(image=self._latex_preview_image, text="", bg="#ffffff")
+            # Si por alguna razón el render no produjo imagen, mostrar texto plano
+            try:
+                if not self._latex_preview_image or self._latex_preview_image.width() == 0:
+                    raise ValueError("Imagen LaTeX vacía")
+            except Exception:
+                self.num_expr_preview.config(text=expr, image=None, fg="#0b0b0b", bg="#ffffff")
+                self._latex_preview_image = None
         except Exception:
             # Fallback: mostrar texto plano si falla el render
             self.num_expr_preview.config(text=expr, image=None, fg="#0b0b0b", bg="#ffffff")

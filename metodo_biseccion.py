@@ -21,6 +21,7 @@ from fractions import Fraction
 import re
 import sympy as sp
 import numpy as np
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 
 
 class _NumToFraction(ast.NodeTransformer):
@@ -75,6 +76,10 @@ def _to_callable(f: Any):
         expr = re.sub(r"\bcot\s*\(", '1/tan(', expr, flags=re.IGNORECASE)
         expr = re.sub(r"\bsec\s*\(", '1/cos(', expr, flags=re.IGNORECASE)
         expr = re.sub(r"\bcsc\s*\(", '1/sin(', expr, flags=re.IGNORECASE)
+        # impl�cita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x
+        expr = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", expr)
+        expr = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", expr)
+        expr = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", expr)
         try:
             tree = ast.parse(expr, mode='eval')
             tree = _NumToFraction().visit(tree)
@@ -311,9 +316,17 @@ class MetodoBiseccion:
         Útil para la interfaz de graficado que espera un callable vectorizable.
         """
         txt = expr_str.replace('^', '**')
+        # implícita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x
+        txt = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", txt)
+        txt = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", txt)
+        txt = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", txt)
         x = sp.Symbol('x')
         try:
-            sym_f = sp.sympify(txt)
+            sym_f = parse_expr(
+                txt,
+                transformations=standard_transformations + (implicit_multiplication_application,),
+                local_dict={'x': x}
+            )
         except Exception as e:
             raise ValueError(f"Expresión inválida: {e}")
         try:

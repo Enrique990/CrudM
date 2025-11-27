@@ -5,7 +5,9 @@ Devuelve datos en formato fácilmente consumible por una interfaz (lista de dict
 
 from typing import Callable, List, Dict, Optional, Tuple
 import sympy as sp
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 import numpy as np
+import re
 
 
 class FalsePositionSolver:
@@ -32,7 +34,12 @@ class FalsePositionSolver:
         if '=' in expr_str:
             left, right = expr_str.split('=', 1)
             expr_str = f"({left}) - ({right})"
-        return expr_str.replace('^', '**')
+        expr_str = expr_str.replace('^', '**')
+        # multiplicación implícita: 2x, 3(x+1), (x+1)x
+        expr_str = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", expr_str)
+        expr_str = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", expr_str)
+        expr_str = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", expr_str)
+        return expr_str
 
     @staticmethod
     def parse_expression(expr_str: str) -> Tuple[sp.Expr, Callable]:
@@ -53,9 +60,13 @@ class FalsePositionSolver:
         txt = re.sub(r"\be\^\s*\(", "exp(", txt)
         # También convertir formas como 'e^x' a 'e**x' para que '**' sea consistente
         txt = re.sub(r"\be\^", "e**", txt)
-        locals_map = {'e': sp.E, 'pi': sp.pi}
+        locals_map = {'e': sp.E, 'pi': sp.pi, 'x': x}
         try:
-            sym_f = sp.sympify(txt, locals=locals_map, convert_xor=True)
+            sym_f = parse_expr(
+                txt,
+                local_dict=locals_map,
+                transformations=standard_transformations + (implicit_multiplication_application,)
+            )
         except Exception as e:
             raise ValueError(f"Expresión inválida: {e}")
         try:

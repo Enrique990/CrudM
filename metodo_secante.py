@@ -21,7 +21,9 @@ que usa Bisección / Falsa Posición / Newton.no se deve de ralizar ma cambios p
 
 from typing import Callable, List, Dict, Tuple
 import sympy as sp
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 import numpy as np
+import re
 
 
 class SecantSolver:
@@ -46,16 +48,28 @@ class SecantSolver:
 		# Aliases frecuentes en español
 		txt = re.sub(r"\bsen\s*\(", 'sin(', txt, flags=re.IGNORECASE)
 		txt = re.sub(r"\bln\s*\(", 'log(', txt, flags=re.IGNORECASE)
+		# multiplicación implícita: 2x, 3(x+1), (x+1)x
+		txt = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", txt)
+		txt = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", txt)
+		txt = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", txt)
 		return txt
 
 	@staticmethod
 	def parse_expression(expr_str: str) -> Tuple[sp.Expr, Callable]:
 		"""Devuelve (sympy_expr, f_callable) o lanza ValueError si la expresión es inválida."""
 		txt = SecantSolver._normalize_expr(expr_str)
+		# multiplicación implícita: 2x, 3(x+1), (x+1)x
+		txt = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", txt)
+		txt = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", txt)
+		txt = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", txt)
 		x = sp.Symbol('x')
-		locals_map = {'e': sp.E, 'pi': sp.pi}
+		locals_map = {'e': sp.E, 'pi': sp.pi, 'x': x}
 		try:
-			sym_f = sp.sympify(txt, locals=locals_map, convert_xor=True)
+			sym_f = parse_expr(
+				txt,
+				local_dict=locals_map,
+				transformations=standard_transformations + (implicit_multiplication_application,),
+			)
 		except Exception as e:
 			raise ValueError(f"Expresión inválida: {e}")
 		try:
