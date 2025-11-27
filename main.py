@@ -817,28 +817,28 @@ class MatrixCRUDApp:
     # Fila 3: Teclado matem?tico/LaTeX con pesta?as
         math_tabs = [
             ("123", [
-                [("x","x",None), ("y","y",None), ("?","\\pi",None), ("e","e",None), ("7","7",None), ("8","8",None), ("9","9",None), ("?","\\cdot",None), ("?","/ ",None)],
-                [("x?","x^2",None), ("y?","y^2",None), ("?","\\sqrt{ }",6), ("|x|","\\left|  \\right|",8), ("4","4",None), ("5","5",None), ("6","6",None), ("+","+",None), ("?","-",None)],
-                [("<","<",None), (">",">",None), ("?x?","\\lfloor  \\rfloor",9), ("?x?","\\lceil  \\rceil",9), ("1","1",None), ("2","2",None), ("3","3",None), ("=","=",None), (",",", ",None)],
-                [("ans","ans",None), ("(", "(", None), (")", ")", None), ("[", "[", None), ("]", "]", None), ("0","0",None), (".",".",None), ("?","<",None), ("?",">",None)],
+                [("x","x",None), ("y","y",None), ("π","\\pi",None), ("e","e",None), ("7","7",None), ("8","8",None), ("9","9",None), ("·","\\cdot",None), ("÷","/ ",None)],
+                [("x²","x^2",None), ("y²","y^2",None), ("√","\\sqrt{ }",6), ("|x|","\\left|  \\right|",8), ("4","4",None), ("5","5",None), ("6","6",None), ("+","+",None), ("-","-",None)],
+                [("<","<",None), (">",">",None), ("⌊x⌋","\\lfloor  \\rfloor",9), ("⌈x⌉","\\lceil  \\rceil",9), ("1","1",None), ("2","2",None), ("3","3",None), ("=","=",None), (",",", ",None)],
+                [("ans","ans",None), ("(", "(", None), (")", ")", None), ("[", "[", None), ("]", "]", None), ("0","0",None), (".",".",None), ("<","<",None), (">",">",None)],
             ]),
             ("f(x)", [
-                [("sen","\\sin()",5), ("cos","\\cos()",5), ("tg","\\tan()",5), ("sen??","\\sin^{-1}()",9), ("cos??","\\cos^{-1}()",9), ("tg??","\\tan^{-1}()",9), ("ln","\\ln()",4), ("log??","\\log_{10}()",10), ("log","\\log()",5)],
-                [("e?","e^{ }",3), ("10?","10^{ }",4), ("?x","\\sqrt{ }",6), ("?x","\\sqrt[3]{ }",10), ("x?","^{}",2), ("x?","_{ }",3), ("d/dx","\\frac{d}{dx}",10), ("?","\\partial",None), ("?","\\int ",None)],
-                [("?","\\sum",None), ("?","\\prod",None), ("lim","\\lim_{x\\to }",12), ("?","\\to",None), ("?","\\infty",None), ("?","\\approx",None), ("?","\\neq",None), ("?","\\le",None), ("?","\\ge",None)],
+                [("sen","\\sin()",5), ("cos","\\cos()",5), ("tg","\\tan()",5), ("sen^-1","\\sin^{-1}()",9), ("cos^-1","\\cos^{-1}()",9), ("tg^-1","\\tan^{-1}()",9), ("ln","\\ln()",4), ("log10","\\log_{10}()",10), ("log","\\log()",5)],
+                [("e^","e^{ }",3), ("10^","10^{ }",4), ("√x","\\sqrt{ }",6), ("∛x","\\sqrt[3]{ }",10), ("^","^{}",2), ("_","_{ }",3), ("d/dx","\\frac{d}{dx}",10), ("∂","\\partial",None), ("∫","\\int ",None)],
+                [("∑","\\sum",None), ("∏","\\prod",None), ("lim","\\lim_{x\\to }",12), ("→","\\to",None), ("∞","\\infty",None), ("≈","\\approx",None), ("≠","\\neq",None), ("≤","\\le",None), ("≥","\\ge",None)],
                 [("{","{",None), ("}","}",None), ("<", "<", None), (">", ">", None), ("(","(",None), (")",")",None), ("[","[",None), ("]","]",None), ("\\","\\\\ ",None)],
             ]),
             ("ABC", [
                 [("a","a",None), ("b","b",None), ("c","c",None), ("A","A",None), ("B","B",None), ("C","C",None), ("x","x",None), ("y","y",None), ("z","z",None)],
-                [("?","\\alpha",None), ("?","\\beta",None), ("?","\\gamma",None), ("?","\\theta",None), ("?","\\lambda",None), ("?","\\mu",None), ("?","\\pi",None), ("?","\\phi",None), ("?","\\omega",None)],
-                [("vec","\\vec{}",5), ("T","^{T}",2), ("det","\\det()",6), ("?","\\top",None), ("?","\\perp",None), ("?","\\in",None), ("?","\\notin",None), ("?","\\cup",None), ("?","\\cap",None)],
-                [("?","\\forall",None), ("?","\\exists",None), ("?","\\neg",None), ("?","\\Rightarrow",None), ("?","\\Leftrightarrow",None), ("?","\\therefore",None), ("?","\\because",None), ("?","\\subset",None), ("?","\\subseteq",None)],
+                [("α","\\alpha",None), ("β","\\beta",None), ("γ","\\gamma",None), ("θ","\\theta",None), ("λ","\\lambda",None), ("μ","\\mu",None), ("π","\\pi",None), ("φ","\\phi",None), ("ω","\\omega",None)],
+                [("vec","\\vec{}",5), ("T","^{T}",2), ("det","\\det()",6), ("⊤","\\top",None), ("⊥","\\perp",None), ("∈","\\in",None), ("∉","\\notin",None), ("∪","\\cup",None), ("∩","\\cap",None)],
+                [("∀","\\forall",None), ("∃","\\exists",None), ("¬","\\neg",None), ("⇒","\\Rightarrow",None), ("⇔","\\Leftrightarrow",None), ("∴","\\therefore",None), ("∵","\\because",None), ("⊂","\\subset",None), ("⊆","\\subseteq",None)],
             ]),
             ("#&?", [
-                [("%","%",None), ("!","!",None), ("$","$",None), ("?","^{\\circ}",3), ("|","|",None), (";",";",None), (":",":",None), ("^","^",None), ("_","_",None)],
-                [("<=","\\le",None), (">=","\\ge",None), ("?","\\neq",None), ("?","\\pm",None), ("?","\\cdot",None), ("?","\\mp",None), ("?","\\int ",None), ("?","\\oint",None), ("?","\\sum",None)],
-                [("?","\\to",None), ("?","\\mapsto",None), ("?","\\Uparrow",None), ("?","\\Downarrow",None), ("?","\\Leftrightarrow",None), ("?","\\nabla",None), ("?","\\otimes",None), ("?","\\oplus",None), ("?","\\partial",None)],
-                [("?","\\sqrt{ }",6), ("frac","\\frac{ }{ }",6), ("|x|","\\left|  \\right|",8), ("? ?","\\lfloor  \\rfloor",9), ("? ?","\\lceil  \\rceil",9), ("{ }","\\{\\}",2), ("[ ]","[]",1), ("( )","()",1), ("\\n","\\\\ ",None)],
+                [("%","%",None), ("!","!",None), ("$","$",None), ("°","^{\\circ}",3), ("|","|",None), (";",";",None), (":",":",None), ("^","^",None), ("_","_",None)],
+                [("<=","\\le",None), (">=","\\ge",None), ("≠","\\neq",None), ("±","\\pm",None), ("·","\\cdot",None), ("∓","\\mp",None), ("∫","\\int ",None), ("∮","\\oint",None), ("∑","\\sum",None)],
+                [("→","\\to",None), ("↦","\\mapsto",None), ("⇑","\\Uparrow",None), ("⇓","\\Downarrow",None), ("⇔","\\Leftrightarrow",None), ("∇","\\nabla",None), ("⊗","\\otimes",None), ("⊕","\\oplus",None), ("∂","\\partial",None)],
+                [("√","\\sqrt{ }",6), ("frac","\\frac{ }{ }",6), ("|x|","\\left|  \\right|",8), ("⌊⌋","\\lfloor  \\rfloor",9), ("⌈⌉","\\lceil  \\rceil",9), ("{ }","\\{\\}",2), ("[ ]","[]",1), ("( )","()",1), ("\\n","\\\\ ",None)],
             ])
         ]
         kb_frame = ttk.Frame(container, style='Card.TFrame', padding=(8,6))
