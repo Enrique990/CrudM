@@ -4,6 +4,7 @@ import tkinter.font as tkfont
 import math
 import io
 import base64
+import re
 from crud import (
     crear_matriz,
     actualizar_matriz,
@@ -1343,7 +1344,9 @@ class MatrixCRUDApp:
             allowed = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
             allowed.update({'pi': math.pi, 'e': math.e})
             def fnum(x):
-                return eval(expr.replace('^','**'), {'__builtins__': {}}, {**allowed, 'x': x})
+                safe_expr = expr.replace('^','**')
+                safe_expr = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', safe_expr)
+                return eval(safe_expr, {'__builtins__': {}}, {**allowed, 'x': x})
 
         # Intervalo: usar [a,b] si válido; si no, intentar detectar uno; si falla, usar [-10,10]
         if a is None or b is None:
@@ -1742,6 +1745,76 @@ class MatrixCRUDApp:
                 pass
         self._update_latex_preview()
 
+    def _format_expr_fractions(self, expr: str) -> str:
+        """Convierte divisiones simples en \\frac{num}{den} para que se vean como fraccion en LaTeX."""
+        def _read_token_forward(s, start):
+            if start >= len(s):
+                return None, start
+            ch = s[start]
+            if ch in '([':
+                open_ch = ch
+                close_ch = ')' if ch == '(' else ']'
+                depth = 1
+                j = start + 1
+                while j < len(s) and depth > 0:
+                    if s[j] == open_ch:
+                        depth += 1
+                    elif s[j] == close_ch:
+                        depth -= 1
+                    j += 1
+                return s[start:j], j - 1
+            j = start
+            while j < len(s) and (s[j].isalnum() or s[j] in '._'):
+                j += 1
+            if j == start:
+                return None, start
+            return s[start:j], j - 1
+
+        def _read_token_backward(s, start):
+            if start < 0:
+                return None, start
+            ch = s[start]
+            if ch in ')]':
+                close_ch = ch
+                open_ch = '(' if ch == ')' else '['
+                depth = 1
+                j = start - 1
+                while j >= 0 and depth > 0:
+                    if s[j] == close_ch:
+                        depth += 1
+                    elif s[j] == open_ch:
+                        depth -= 1
+                    j -= 1
+                return s[j + 1:start + 1], j + 1
+            j = start
+            while j >= 0 and (s[j].isalnum() or s[j] in '._'):
+                j -= 1
+            if j >= 0 and s[j] == '-':
+                j -= 1
+            if j == start:
+                return None, start
+            return s[j + 1:start + 1], j + 1
+
+        res = []
+        cursor = 0
+        i = 0
+        while i < len(expr):
+            if expr[i] != '/':
+                i += 1
+                continue
+            num_token, num_start = _read_token_backward(expr, i - 1)
+            den_token, den_end = _read_token_forward(expr, i + 1)
+            if num_token and den_token:
+                # Agregar texto pendiente antes del numerador y la fraccion formateada
+                res.append(expr[cursor:num_start])
+                res.append(f"\\frac{{{num_token}}}{{{den_token}}}")
+                cursor = den_end + 1
+                i = den_end + 1
+            else:
+                i += 1
+        res.append(expr[cursor:])
+        return ''.join(res)
+
     def _format_expr_exponents(self, expr: str) -> str:
         """Agrupa exponentes para que matplotlib los muestre completos (p.ej. x^-1 -> x^{-1})."""
         res = []
@@ -1811,8 +1884,8 @@ class MatrixCRUDApp:
             self.num_expr_preview.config(text="Vista previa LaTeX", image=None, bg="#ffffff", fg="#0b0b0b", anchor='w', justify='left')
             self._latex_preview_image = None
             return
-        # Ajustar exponentes para que toda la expresión después de '^' se muestre elevada
-        expr_latex = self._format_expr_exponents(expr)
+        # Ajustar fracciones y exponentes para que se muestren completos en LaTeX
+        expr_latex = self._format_expr_exponents(self._format_expr_fractions(expr))
         try:
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_agg import FigureCanvasAgg

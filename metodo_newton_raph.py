@@ -40,10 +40,10 @@ class NewtonRaphsonSolver:
             left, right = expr_str.split('=', 1)
             expr_str = f"({left}) - ({right})"
         txt = expr_str.replace('^', '**')
+        txt = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', txt)
         # Normalizar llaves usadas en notación matemática
         txt = txt.replace('{', '(').replace('}', ')')
         # Normalizar notación frecuente e^(...) -> exp(...), e^x -> e**x
-        import re
         txt = re.sub(r"\be\^\s*\(", "exp(", txt)
         txt = re.sub(r"\be\^", "e**", txt)
         # Aliases comunes en español (opcionales)
@@ -237,3 +237,5 @@ class NewtonRaphsonSolver:
 __all__ = [
     'NewtonRaphsonSolver',
 ]
+
+

@@ -40,9 +40,9 @@ class SecantSolver:
 			left, right = expr_str.split('=', 1)
 			expr_str = f"({left}) - ({right})"
 		txt = expr_str.replace('^', '**')
+		txt = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', txt)
 		# Normalizar llaves y notación común con e^
 		txt = txt.replace('{', '(').replace('}', ')')
-		import re
 		txt = re.sub(r"\be\^\s*\(", "exp(", txt)
 		txt = re.sub(r"\be\^", "e**", txt)
 		# Aliases frecuentes en español
@@ -202,4 +202,6 @@ class SecantSolver:
 
 
 __all__ = ['SecantSolver']
+
+
 

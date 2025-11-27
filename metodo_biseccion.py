@@ -77,6 +77,8 @@ def _to_callable(f: Any):
         expr = re.sub(r"\bsec\s*\(", '1/cos(', expr, flags=re.IGNORECASE)
         expr = re.sub(r"\bcsc\s*\(", '1/sin(', expr, flags=re.IGNORECASE)
         # impl�cita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x
+        # espacios como multiplicación implícita: "2 3", "3 x", "(x+1) 2"
+        expr = re.sub(r"(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])", "*", expr)
         expr = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", expr)
         expr = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", expr)
         expr = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", expr)
@@ -135,6 +137,22 @@ def _format_number(x: Any) -> str:
         return str(x)
 
 
+def _safe_eval_callable(fun, x_val, eps: Fraction = Fraction(1, 10**6)):
+    """Evalúa fun(x) con reintentos leves para evitar singularidades y divisiones por cero."""
+    attempts = [x_val, x_val + eps, x_val - eps]
+    last_err = None
+    for xv in attempts:
+        try:
+            return fun(xv)
+        except Exception as e:
+            last_err = e
+            msg = str(e).lower()
+            if isinstance(e, ZeroDivisionError) or "fraction(1, 0)" in msg or "division by zero" in msg or "math domain error" in msg:
+                continue
+            raise
+    raise ValueError(f"No se pudo evaluar en x={float(x_val)}: {last_err}")
+
+
 def find_bracketing_interval(f: Any, x0: float = 0.0, step: float = 1.0, max_steps: int = 50, samples: int = 50) -> Dict[str, Any]:
     """Expandir alrededor de x0 y muestrear puntos internos para buscar cambio de signo.
 
@@ -169,7 +187,7 @@ def find_bracketing_interval(f: Any, x0: float = 0.0, step: float = 1.0, max_ste
             else:
                 xj = low + (high - low) * Fraction(j, samples - 1)
             try:
-                yj = fun(xj)
+                yj = _safe_eval_callable(fun, xj)
                 finite_points.append((xj, yj))
             except Exception as e:
                 err_records.append((xj, str(e)))
@@ -195,7 +213,7 @@ def find_bracketing_interval(f: Any, x0: float = 0.0, step: float = 1.0, max_ste
             else:
                 xj = a + (b - a) * Fraction(j, samples - 1)
             try:
-                yj = fun(xj)
+                yj = _safe_eval_callable(fun, xj)
                 finite_points.append((xj, yj))
             except Exception as e:
                 err_records.append((xj, str(e)))
@@ -242,9 +260,27 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
     b = Fraction(b)
     tol_frac = Fraction(str(tol)) if not isinstance(tol, Fraction) else tol
 
+    eps = Fraction(1, 10**6)
+
+    def _safe_eval(x_val, label):
+        attempts = [x_val, x_val + eps, x_val - eps]
+        last_err = None
+        for xv in attempts:
+            try:
+                return fun(xv)
+            except ZeroDivisionError as e:
+                last_err = e
+                continue
+            except Exception as e:
+                last_err = e
+                if "Fraction(1, 0)" in str(e) or "division by zero" in str(e).lower():
+                    continue
+                raise
+        raise ValueError(f"No se pudo evaluar en {label}={float(x_val)} (posible división por cero): {last_err}")
+
     try:
-        fa = fun(a)
-        fb = fun(b)
+        fa = _safe_eval(a, 'a')
+        fb = _safe_eval(b, 'b')
     except Exception as e:
         return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f en los extremos: {e}"}
 
@@ -257,7 +293,10 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
         return {"pasos": pasos, "solucion": None, "mensaje": "Los extremos no encierran una raíz (f(a)*f(b) > 0). Usa find_bracketing_interval para encontrar un intervalo válido."}
 
     c = (a + b) / 2
-    fc = fun(c)
+    try:
+        fc = _safe_eval(c, 'c')
+    except Exception as e:
+        return {"pasos": pasos, "solucion": None, "mensaje": f"No se pudo evaluar en el punto medio inicial (posible singularidad): {e}"}
 
     for i in range(1, max_iter + 1):
         error_est = abs(b - a) / 2
@@ -286,9 +325,9 @@ def bisection(f: Any, a: Any, b: Any, tol: float = 1e-10, max_iter: int = 100, m
 
         c = (a + b) / 2
         try:
-            fc = fun(c)
+            fc = _safe_eval(c, 'c')
         except Exception as e:
-            return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f durante iteraciones: {e}"}
+            return {"pasos": pasos, "solucion": None, "mensaje": f"Error evaluando f durante iteraciones (posible singularidad): {e}"}
 
     # Si no convergió por tolerancia, reportar la cota de error por intervalo (b-a)/2
     final_error_est = abs(b - a) / 2
@@ -316,6 +355,8 @@ class MetodoBiseccion:
         Útil para la interfaz de graficado que espera un callable vectorizable.
         """
         txt = expr_str.replace('^', '**')
+        # Multiplicación implícita por espacios: "2 3", "3 x", "(x+1) 2" -> agrega '*'
+        txt = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', txt)
         # implícita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x
         txt = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", txt)
         txt = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", txt)
@@ -384,7 +425,7 @@ class MetodoBiseccion:
             step = (high - low) / max(1, samples - 1)
             xs = [low + i * step for i in range(samples)]
             try:
-                ys = [float(fun(Fraction(x))) for x in xs]
+                ys = [float(_safe_eval_callable(fun, Fraction(x))) for x in xs]
             except Exception:
                 continue
             for i in range(len(xs) - 1):
@@ -406,9 +447,28 @@ class MetodoBiseccion:
 
         a_f = Fraction(a)
         b_f = Fraction(b)
+        eps = Fraction(1, 10**6)
+
+        def _safe_eval(x_val, label):
+            """Evalúa evitando divisiones por cero; prueba pequeños desplazamientos si es necesario."""
+            attempts = [x_val, x_val + eps, x_val - eps]
+            last_err = None
+            for xv in attempts:
+                try:
+                    return fun(xv)
+                except ZeroDivisionError as e:
+                    last_err = e
+                    continue
+                except Exception as e:
+                    last_err = e
+                    if "Fraction(1, 0)" in str(e) or "division by zero" in str(e).lower():
+                        continue
+                    raise
+            raise ValueError(f"No se pudo evaluar en {label}={float(x_val)} (posible división por cero): {last_err}")
+
         try:
-            fa = fun(a_f)
-            fb = fun(b_f)
+            fa = _safe_eval(a_f, 'a')
+            fb = _safe_eval(b_f, 'b')
         except Exception as e:
             raise ValueError(f"Error evaluando extremos: {e}")
         if fa * fb > 0:
@@ -417,7 +477,10 @@ class MetodoBiseccion:
         rows = []
         for i in range(self.max_iter):
             c = (a_f + b_f) / 2
-            fc = fun(c)
+            try:
+                fc = _safe_eval(c, 'c')
+            except Exception as e:
+                raise ValueError(f"No se pudo evaluar en el punto medio (posible singularidad dentro del intervalo). {e}")
             prod = float(fa * fc)
             rows.append({'Iteración': i, 'a': float(a_f), 'b': float(b_f), 'c': float(c), 'f(a)': float(fa), 'f(b)': float(fb), 'f(c)': float(fc), 'f(a)*f(c)': prod})
             if abs(float(fc)) < tol or abs(float(b_f - a_f)) / 2.0 < tol:
