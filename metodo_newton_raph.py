@@ -46,6 +46,9 @@ class NewtonRaphsonSolver:
         # Normalizar notación frecuente e^(...) -> exp(...), e^x -> e**x
         txt = re.sub(r"\be\^\s*\(", "exp(", txt)
         txt = re.sub(r"\be\^", "e**", txt)
+        txt = re.sub(r"\\sqrt\s*\{([^}]*)\}", r"sqrt(\1)", txt)
+        txt = re.sub(r"\\sqrt\s*\(([^)]*)\)", r"sqrt(\1)", txt)
+        txt = txt.replace("\\", "")
         # Aliases comunes en español (opcionales)
         txt = re.sub(r"\bsen\s*\(", 'sin(', txt, flags=re.IGNORECASE)
         txt = re.sub(r"\bln\s*\(", 'log(', txt, flags=re.IGNORECASE)

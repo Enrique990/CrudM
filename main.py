@@ -787,6 +787,14 @@ class MatrixCRUDApp:
 
         ttk.Label(expr_card, text="Expresión f(x):", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,4))
         self.num_expr_entry = ttk.Entry(expr_card, width=52, style='MathEntry.TEntry')
+        # Destacar el cursor de inserción para saber dónde se escribe
+        try:
+            self.num_expr_entry.configure(
+                insertbackground=self.palette["accent"],
+                insertwidth=2,
+            )
+        except Exception:
+            pass
         self.num_expr_entry.grid(row=1, column=0, sticky='we', padx=(0,12), pady=(0,4))
         self.num_expr_entry.bind("<KeyRelease>", lambda e: self._update_latex_preview())
 
@@ -1743,6 +1751,10 @@ class MatrixCRUDApp:
                 entry.icursor(pos + cursor_offset)
             except Exception:
                 pass
+        try:
+            entry.focus_set()
+        except Exception:
+            pass
         self._update_latex_preview()
 
     def _format_expr_fractions(self, expr: str) -> str:

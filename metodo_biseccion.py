@@ -66,6 +66,10 @@ def _to_callable(f: Any):
         expr = expr.replace('{', '(').replace('}', ')')
         expr = re.sub(r"\bsen\s*\(", 'sin(', expr, flags=re.IGNORECASE)
         expr = re.sub(r"\bln\s*\(", 'log(', expr, flags=re.IGNORECASE)
+        # normalizar notacion LaTeX basica: \sqrt{x} -> sqrt(x)
+        expr = re.sub(r"\\sqrt\s*\{([^}]*)\}", r"sqrt(\1)", expr)
+        expr = re.sub(r"\\sqrt\s*\(([^)]*)\)", r"sqrt(\1)", expr)
+        expr = expr.replace("\\", "")
         # trig aliases: tg -> tan, arcsen/arctg -> asin/atan
         expr = re.sub(r"\btg\s*\(", 'tan(', expr, flags=re.IGNORECASE)
         expr = re.sub(r"\barcsen\s*\(", 'asin(', expr, flags=re.IGNORECASE)

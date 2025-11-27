@@ -36,6 +36,9 @@ class FalsePositionSolver:
             expr_str = f"({left}) - ({right})"
         expr_str = expr_str.replace('^', '**')
         expr_str = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', expr_str)
+        expr_str = re.sub(r"\\sqrt\s*\{([^}]*)\}", r"sqrt(\1)", expr_str)
+        expr_str = re.sub(r"\\sqrt\s*\(([^)]*)\)", r"sqrt(\1)", expr_str)
+        expr_str = expr_str.replace("\\", "")
         # multiplicación implícita: 2x, 3(x+1), (x+1)x
         expr_str = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", expr_str)
         expr_str = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", expr_str)

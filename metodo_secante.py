@@ -45,6 +45,9 @@ class SecantSolver:
 		txt = txt.replace('{', '(').replace('}', ')')
 		txt = re.sub(r"\be\^\s*\(", "exp(", txt)
 		txt = re.sub(r"\be\^", "e**", txt)
+		txt = re.sub(r"\\sqrt\s*\{([^}]*)\}", r"sqrt(\1)", txt)
+		txt = re.sub(r"\\sqrt\s*\(([^)]*)\)", r"sqrt(\1)", txt)
+		txt = txt.replace("\\", "")
 		# Aliases frecuentes en español
 		txt = re.sub(r"\bsen\s*\(", 'sin(', txt, flags=re.IGNORECASE)
 		txt = re.sub(r"\bln\s*\(", 'log(', txt, flags=re.IGNORECASE)
