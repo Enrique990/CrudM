@@ -77,6 +77,11 @@ class MatrixCRUDApp:
         style.map('Dark.TButton', background=[('active', accent), ('pressed', accent)], foreground=[('active', bg), ('pressed', bg)])
         style.configure('Ghost.TButton', background=panel, foreground=text, font=self.fonts["body"], borderwidth=0, padding=(8, 6))
         style.map('Ghost.TButton', background=[('active', card)], foreground=[('active', text)])
+        # Botones tipo pestaña para el teclado matemático
+        style.configure('TabInactive.TButton', background=panel, foreground=text, font=self.fonts["body"], borderwidth=0, padding=(10, 6))
+        style.map('TabInactive.TButton', background=[('active', card)], foreground=[('active', text)])
+        style.configure('TabActive.TButton', background=accent, foreground=bg, font=self.fonts["body"], borderwidth=0, padding=(10, 6))
+        style.map('TabActive.TButton', background=[('active', accent)], foreground=[('active', bg)])
         style.configure('Entry.TEntry', fieldbackground=self.palette["input"], foreground=text, font=self.fonts["body"])
         style.configure('MathEntry.TEntry', fieldbackground=self.palette["input"], foreground=text, font=('Consolas', 16))
         style.configure('TCombobox', fieldbackground=self.palette["input"], background=self.palette["input"], foreground=text)
@@ -650,9 +655,9 @@ class MatrixCRUDApp:
         num_content_stack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.num_canvas = tk.Canvas(num_content_stack, bg=self.palette["panel"], highlightthickness=0, bd=0)
-        num_scrollbar = ttk.Scrollbar(num_content_stack, orient=tk.VERTICAL, command=self.num_canvas.yview, style='Invisible.Vertical.TScrollbar')
+        num_scrollbar = ttk.Scrollbar(num_content_stack, orient=tk.VERTICAL, command=self.num_canvas.yview, style='CalcVisible.Vertical.TScrollbar')
         try:
-            num_scrollbar.configure(width=0)
+            num_scrollbar.configure(width=10)
         except Exception:
             pass
         self.num_scrollable_frame = ttk.Frame(self.num_canvas, style='Dark.TFrame')
@@ -714,12 +719,12 @@ class MatrixCRUDApp:
         self.num_left_panel = ttk.Frame(self.num_center_wrapper, style='Card.TFrame', padding=(10, 10))
         self.num_left_panel.grid(row=0, column=0, sticky='nsw', padx=(0,10), pady=(0,0))
         self.num_left_panel.grid_propagate(False)
-        self.num_left_panel.configure(width=260, height=705)
+        self.num_left_panel.configure(width=260, height=520)
         ttk.Label(self.num_left_panel, text="Ecuaciones almacenadas:", style='Dark.TLabel').grid(row=0, column=0, sticky='nw', pady=(12,5), padx=(20,0))
         eq_list_frame = ttk.Frame(self.num_left_panel, style='Card.TFrame')
         eq_list_frame.grid(row=1, column=0, sticky='nsew', pady=(0,10), padx=(20,0))
         eq_list_frame.grid_propagate(False)
-        eq_list_frame.configure(width=260, height=690)
+        eq_list_frame.configure(width=260, height=505)
         eq_list_frame.grid_columnconfigure(0, weight=1)
         # No reservar espacio; barra invisible con ancho 0
         try:
@@ -784,62 +789,111 @@ class MatrixCRUDApp:
         self.num_expr_entry.grid(row=1, column=0, sticky='we', padx=(0,12), pady=(0,4))
         self.num_expr_entry.bind("<KeyRelease>", lambda e: self._update_latex_preview())
 
-        # Vista previa grande renderizada (LaTeX)
-        self.num_expr_preview = ttk.Label(expr_card, text="", style='Hero.TLabel', anchor='w', justify='left')
-        self.num_expr_preview.grid(row=2, column=0, columnspan=2, sticky='w', pady=(6,0))
+        # Vista previa grande renderizada (LaTeX) en un cuadro dedicado y claro
+        preview_box = tk.Frame(expr_card, bg="#ffffff", highlightbackground=self.palette['outline'], highlightthickness=1, bd=0)
+        preview_box.configure(height=88)
+        try:
+            preview_box.grid_propagate(False)
+        except Exception:
+            pass
+        preview_box.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(6,0))
+        preview_box.grid_columnconfigure(0, weight=1)
+        self.num_expr_preview = tk.Label(
+            preview_box,
+            text="Vista previa LaTeX",
+            anchor='w',
+            justify='left',
+            bg="#ffffff",
+            fg="#0b0b0b",
+            font=('Segoe UI', 18),
+            padx=10,
+            pady=8,
+        )
+        self.num_expr_preview.grid(row=0, column=0, sticky='w')
         self._latex_preview_image = None
 
-    # Fila 3: Teclado matemático/LaTeX rápido
-        math_keys = [
-            # fila 1
-            [("x","x",None), ("y","y",None), ("z","z",None), ("+", "+", None), ("-", "-", None), ("·","\\cdot", None), ("÷","/ ", None), ("=", "=", None)],
-            # fila 2
-            [("(", "(", None), (")", ")", None), ("[", "[", None), ("]", "]", None), ("{", "{", None), ("}", "}", None), ("^", "^", None), ("_", "_", None)],
-            # fila 3
-            [("π","\\pi",None), ("e","e",None), ("√","\\sqrt{ }",6), ("frac","\\frac{ }{ }",6), ("^2","^2",None), ("^n","^{}",2), ("_|","_{ }",3)],
-            # fila 4
-            [("sin","\\sin()",5), ("cos","\\cos()",5), ("tan","\\tan()",5), ("ln","\\ln()",4), ("log","\\log()",5), ("exp","\\exp()",5), ("abs","\\left|  \\right|",8)],
-            # fila 5
-            [("≤","\\le",None), ("≥","\\ge",None), ("≠","\\neq",None), ("→","\\to",None), ("∞","\\infty",None), ("∫","\\int",None), ("Σ","\\sum",None), ("∏","\\prod",None)]
+    # Fila 3: Teclado matem?tico/LaTeX con pesta?as
+        math_tabs = [
+            ("123", [
+                [("x","x",None), ("y","y",None), ("?","\\pi",None), ("e","e",None), ("7","7",None), ("8","8",None), ("9","9",None), ("?","\\cdot",None), ("?","/ ",None)],
+                [("x?","x^2",None), ("y?","y^2",None), ("?","\\sqrt{ }",6), ("|x|","\\left|  \\right|",8), ("4","4",None), ("5","5",None), ("6","6",None), ("+","+",None), ("?","-",None)],
+                [("<","<",None), (">",">",None), ("?x?","\\lfloor  \\rfloor",9), ("?x?","\\lceil  \\rceil",9), ("1","1",None), ("2","2",None), ("3","3",None), ("=","=",None), (",",", ",None)],
+                [("ans","ans",None), ("(", "(", None), (")", ")", None), ("[", "[", None), ("]", "]", None), ("0","0",None), (".",".",None), ("?","<",None), ("?",">",None)],
+            ]),
+            ("f(x)", [
+                [("sen","\\sin()",5), ("cos","\\cos()",5), ("tg","\\tan()",5), ("sen??","\\sin^{-1}()",9), ("cos??","\\cos^{-1}()",9), ("tg??","\\tan^{-1}()",9), ("ln","\\ln()",4), ("log??","\\log_{10}()",10), ("log","\\log()",5)],
+                [("e?","e^{ }",3), ("10?","10^{ }",4), ("?x","\\sqrt{ }",6), ("?x","\\sqrt[3]{ }",10), ("x?","^{}",2), ("x?","_{ }",3), ("d/dx","\\frac{d}{dx}",10), ("?","\\partial",None), ("?","\\int ",None)],
+                [("?","\\sum",None), ("?","\\prod",None), ("lim","\\lim_{x\\to }",12), ("?","\\to",None), ("?","\\infty",None), ("?","\\approx",None), ("?","\\neq",None), ("?","\\le",None), ("?","\\ge",None)],
+                [("{","{",None), ("}","}",None), ("<", "<", None), (">", ">", None), ("(","(",None), (")",")",None), ("[","[",None), ("]","]",None), ("\\","\\\\ ",None)],
+            ]),
+            ("ABC", [
+                [("a","a",None), ("b","b",None), ("c","c",None), ("A","A",None), ("B","B",None), ("C","C",None), ("x","x",None), ("y","y",None), ("z","z",None)],
+                [("?","\\alpha",None), ("?","\\beta",None), ("?","\\gamma",None), ("?","\\theta",None), ("?","\\lambda",None), ("?","\\mu",None), ("?","\\pi",None), ("?","\\phi",None), ("?","\\omega",None)],
+                [("vec","\\vec{}",5), ("T","^{T}",2), ("det","\\det()",6), ("?","\\top",None), ("?","\\perp",None), ("?","\\in",None), ("?","\\notin",None), ("?","\\cup",None), ("?","\\cap",None)],
+                [("?","\\forall",None), ("?","\\exists",None), ("?","\\neg",None), ("?","\\Rightarrow",None), ("?","\\Leftrightarrow",None), ("?","\\therefore",None), ("?","\\because",None), ("?","\\subset",None), ("?","\\subseteq",None)],
+            ]),
+            ("#&?", [
+                [("%","%",None), ("!","!",None), ("$","$",None), ("?","^{\\circ}",3), ("|","|",None), (";",";",None), (":",":",None), ("^","^",None), ("_","_",None)],
+                [("<=","\\le",None), (">=","\\ge",None), ("?","\\neq",None), ("?","\\pm",None), ("?","\\cdot",None), ("?","\\mp",None), ("?","\\int ",None), ("?","\\oint",None), ("?","\\sum",None)],
+                [("?","\\to",None), ("?","\\mapsto",None), ("?","\\Uparrow",None), ("?","\\Downarrow",None), ("?","\\Leftrightarrow",None), ("?","\\nabla",None), ("?","\\otimes",None), ("?","\\oplus",None), ("?","\\partial",None)],
+                [("?","\\sqrt{ }",6), ("frac","\\frac{ }{ }",6), ("|x|","\\left|  \\right|",8), ("? ?","\\lfloor  \\rfloor",9), ("? ?","\\lceil  \\rceil",9), ("{ }","\\{\\}",2), ("[ ]","[]",1), ("( )","()",1), ("\\n","\\\\ ",None)],
+            ])
         ]
         kb_frame = ttk.Frame(container, style='Card.TFrame', padding=(8,6))
-        kb_frame.grid(row=3, column=0, columnspan=4, sticky='w', pady=(0,6))
-        for r, row in enumerate(math_keys):
-            for c, (label, token, offset) in enumerate(row):
-                btn = ttk.Button(kb_frame, text=label, style='Dark.TButton',
-                                 command=lambda t=token, o=offset: self._insert_math_token(t, o))
-                btn.grid(row=r, column=c, padx=2, pady=2, sticky='w')
-
+        kb_frame.grid(row=4, column=0, columnspan=4, sticky='w', pady=(0,6))
+        kb_tabbar = ttk.Frame(kb_frame, style='Surface.TFrame')
+        kb_tabbar.pack(anchor='w', pady=(0,6))
+        self._math_kb_frames = {}
+        self._math_kb_buttons = {}
+        def _show_math_tab(tab_name):
+            for name, frame in self._math_kb_frames.items():
+                frame.pack_forget()
+            frame = self._math_kb_frames.get(tab_name)
+            if frame:
+                frame.pack(fill='x', expand=True)
+            for name, btn in self._math_kb_buttons.items():
+                btn.configure(style='TabActive.TButton' if name == tab_name else 'TabInactive.TButton')
+        for tab_name, rows in math_tabs:
+            btn = ttk.Button(kb_tabbar, text=tab_name, style='TabInactive.TButton', command=lambda n=tab_name: _show_math_tab(n))
+            btn.pack(side=tk.LEFT, padx=(0,6))
+            self._math_kb_buttons[tab_name] = btn
+            tab_frame = ttk.Frame(kb_frame, style='Card.TFrame')
+            for r, row in enumerate(rows):
+                for c, (label, token, offset) in enumerate(row):
+                    b = ttk.Button(tab_frame, text=label, style='Dark.TButton',
+                                   command=lambda t=token, o=offset: self._insert_math_token(t, o))
+                    b.grid(row=r, column=c, padx=2, pady=2, sticky='w')
+            self._math_kb_frames[tab_name] = tab_frame
+        _show_math_tab("123")
     # Fila 4: a, b
-        ttk.Label(container, text="a:", style='Dark.TLabel').grid(row=4, column=0, sticky='w')
+        ttk.Label(container, text="a:", style='Dark.TLabel').grid(row=5, column=0, sticky='w')
         self.num_a_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
-        self.num_a_entry.grid(row=4, column=1, sticky='w')
-        ttk.Label(container, text="b:", style='Dark.TLabel').grid(row=4, column=2, sticky='e', padx=(0,5))
+        self.num_a_entry.grid(row=5, column=1, sticky='w')
+        ttk.Label(container, text="b:", style='Dark.TLabel').grid(row=5, column=2, sticky='e', padx=(0,5))
         self.num_b_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
-        self.num_b_entry.grid(row=4, column=3, sticky='w')
+        self.num_b_entry.grid(row=5, column=3, sticky='w')
 
     # Fila 5: tol
-        ttk.Label(container, text="tolerancia:", style='Dark.TLabel').grid(row=5, column=0, sticky='w')
+        ttk.Label(container, text="tolerancia:", style='Dark.TLabel').grid(row=6, column=0, sticky='w')
         self.num_tol_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
-        self.num_tol_entry.grid(row=5, column=1, sticky='w')
+        self.num_tol_entry.grid(row=6, column=1, sticky='w')
 
-        # Botón largo centrado tipo "Crear Conjunto de Vectores"
-        ttk.Button(container, text="Crear ecuación", command=self.create_equation, style='Dark.TButton')\
-            .grid(row=6, column=0, columnspan=4, pady=(10, 20), sticky='ew')
-
-        # Botonera de acciones CRUD centrada (como en otras pestañas)
+        # Botonera de acciones CRUD centrada (incluye Auto-intervalo) justo debajo de la expresion
         eq_action_frame = ttk.Frame(container, style='Surface.TFrame')
-        eq_action_frame.grid(row=7, column=0, columnspan=4, sticky='ew')
+        eq_action_frame.grid(row=3, column=0, columnspan=4, sticky='ew', pady=(4,4))
         eq_action_buttons = ttk.Frame(eq_action_frame, style='Card.TFrame')
         eq_action_buttons.pack(anchor='center')
         ttk.Button(eq_action_buttons, text="Ver", command=self.view_equation, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(eq_action_buttons, text="Modificar", command=self.modify_equation_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(eq_action_buttons, text="Eliminar", command=self.delete_equation, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(eq_action_buttons, text="Resolver", command=self._num_run, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        self.num_plot_btn = ttk.Button(eq_action_buttons, text="Gráfica", command=self._num_plot_function, style='Dark.TButton')
+        self.num_plot_btn = ttk.Button(eq_action_buttons, text="Grafica", command=self._num_plot_function, style='Dark.TButton')
         self.num_plot_btn.pack(side=tk.LEFT, padx=5)
         ttk.Button(eq_action_buttons, text="Auto-intervalo", command=self._num_auto_interval, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(eq_action_buttons, text="Limpiar", command=self.clear_numeric_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+
+        # Boton largo centrado tipo "Crear Conjunto de Vectores"
+        ttk.Button(container, text="Crear ecuacion", command=self.create_equation, style='Dark.TButton')            .grid(row=7, column=0, columnspan=4, pady=(10, 20), sticky='ew')
 
         # Fila separada para el botón de Mostrar decimales, centrado
         eq_toggle_frame = ttk.Frame(container, style='Surface.TFrame')
@@ -856,7 +910,7 @@ class MatrixCRUDApp:
         eqdata_container = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
         # Margen más pequeño como en Independencia de Vectores
         # Importante: no expandir verticalmente esta sección para evitar huecos vacíos
-        eqdata_container.grid(row=8, column=0, columnspan=4, sticky='ew', pady=(4,0))
+        eqdata_container.grid(row=9, column=0, columnspan=4, sticky='ew', pady=(4,0))
         # No configurar weight en la fila para que no se estire en Y
         eqdata_container.grid_columnconfigure(0, weight=1)
         ttk.Label(eqdata_container, text="Datos de la ecuación", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
@@ -876,7 +930,7 @@ class MatrixCRUDApp:
         # Resultado (igual estilo que otras pestañas)
         result_container = ttk.Frame(container, style='Card.TFrame', padding=(14, 12))
         # Mantener mismo margen vertical superior que en "Datos del conjunto" de la pestaña de Vectores
-        result_container.grid(row=9, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        result_container.grid(row=10, column=0, columnspan=4, sticky='nsew', pady=(10,0))
         result_container.grid_rowconfigure(1, weight=1)
         result_container.grid_columnconfigure(0, weight=1)
         ttk.Label(result_container, text="Resultado", style='CardTitle.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
@@ -1692,17 +1746,19 @@ class MatrixCRUDApp:
         except Exception:
             return
         if not expr:
-            self.num_expr_preview.config(text="")
+            self.num_expr_preview.config(text="Vista previa LaTeX", image=None, bg="#ffffff", fg="#0b0b0b")
             self._latex_preview_image = None
             return
         try:
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-            fig = Figure(figsize=(4, 1), dpi=150)
+            fig = Figure(figsize=(5.6, 1.4), dpi=170)
+            fig.patch.set_facecolor("#ffffff")
             ax = fig.add_axes([0, 0, 1, 1])
+            ax.set_facecolor("#ffffff")
             ax.axis('off')
-            ax.text(0.02, 0.5, f"${expr}$", fontsize=20, va='center', ha='left', color=self.palette["text"])
+            ax.text(0.02, 0.5, f"${expr}$", fontsize=26, va='center', ha='left', color="#0b0b0b")
 
             buf = io.BytesIO()
             canvas = FigureCanvasAgg(fig)
@@ -1712,10 +1768,10 @@ class MatrixCRUDApp:
             b64 = base64.b64encode(buf.getvalue())
             # tkinter PhotoImage acepta PNG base64
             self._latex_preview_image = tk.PhotoImage(data=b64)
-            self.num_expr_preview.config(image=self._latex_preview_image, text="")
+            self.num_expr_preview.config(image=self._latex_preview_image, text="", bg="#ffffff")
         except Exception:
             # Fallback: mostrar texto plano si falla el render
-            self.num_expr_preview.config(text=expr, image=None)
+            self.num_expr_preview.config(text=expr, image=None, fg="#0b0b0b", bg="#ffffff")
             self._latex_preview_image = None
 
     def _num_toggle_decimal(self):
