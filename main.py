@@ -345,6 +345,15 @@ class MatrixCRUDApp:
         self.root.after(200, apply_once)
 
 
+    def _add_tab_header(self, container, title, subtitle, columns):
+        """Cabecera reutilizable para las pestañas con título y descripción corta."""
+        header_card = ttk.Frame(container, style='Card.TFrame', padding=(18, 16))
+        header_card.grid(row=0, column=0, columnspan=columns, sticky="ew", pady=(0, 12))
+        header_card.grid_columnconfigure(0, weight=1)
+        ttk.Label(header_card, text=title, style='CardHero.TLabel').grid(row=0, column=0, sticky="w")
+        ttk.Label(header_card, text=subtitle, style='CardMuted.TLabel').grid(row=1, column=0, sticky="w", pady=(6, 0))
+        return header_card
+
     def create_widgets(self):
         # El contenido de este metodo ahora se dibuja dentro de self.content_container
         main_frame = self.content_container
@@ -352,10 +361,12 @@ class MatrixCRUDApp:
 
         text_color = self.palette["text"]
 
-        header_card = ttk.Frame(main_frame, style='Card.TFrame', padding=(18, 16))
-        header_card.grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, 12))
-        ttk.Label(header_card, text="Solucionador Sistema de ecuaciones", style='CardHero.TLabel').grid(row=0, column=0, sticky="w")
-        ttk.Label(header_card, text="Gestiona, resuelve y guarda sistemas de ecuaciones con pasos claros y una lectura elegante.", style='CardMuted.TLabel').grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self._add_tab_header(
+            main_frame,
+            "Solucionador Sistema de ecuaciones",
+            "Gestiona, resuelve y guarda sistemas con panel lateral de procedimiento y lectura cómoda.",
+            columns=4,
+        )
 
         form_card = ttk.Frame(main_frame, style='Card.TFrame', padding=(16, 14))
         form_card.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(0, 12))
@@ -372,15 +383,9 @@ class MatrixCRUDApp:
             form_card,
             textvariable=self.method_var,
             values=[
-                "Métodos de sistemas",
                 "Gauss-Jordan",
                 "Gauss",
                 "Cramer",
-                "Operaciones adicionales",
-                "Transponer",
-                "Inversa",
-                "Determinante",
-                "Independencia",
             ],
             state="readonly",
             width=16,
@@ -406,7 +411,7 @@ class MatrixCRUDApp:
         ttk.Button(action_buttons, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_buttons, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_buttons, text="Resolver", command=lambda: self.solve_matrix(), style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Limpiar", command=self.clear_calculator_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         ttk.Label(self.calc_left_panel, text="Matrices almacenadas:", style='Dark.TLabel').grid(row=0, column=0, sticky="nw", pady=(12, 5), padx=(20, 0))
@@ -452,6 +457,15 @@ class MatrixCRUDApp:
         ttk.Label(equations_card, text="Escribe ecuaciones con '=' y separa con nueva l?nea o \\ en LaTeX.", style='CardMuted.TLabel').grid(row=1, column=1, sticky='nw', pady=(0,4))
         ttk.Label(equations_card, text="Ejemplo LaTeX: 2x + 3y &= 5 \\ x - y &= 1", style='CardMuted.TLabel').grid(row=2, column=1, sticky='nw')
         ttk.Button(equations_card, text="Generar matriz y resolver", style='Dark.TButton', command=self.solve_equations_from_calculator).grid(row=3, column=1, sticky='nw', pady=(6,0))
+        # Botonera específica para resolver directamente con Gauss-Jordan, Gauss o Cramer desde ecuaciones
+        eq_methods_frame = ttk.Frame(equations_card, style='Card.TFrame')
+        eq_methods_frame.grid(row=4, column=0, columnspan=2, sticky='w', pady=(8, 0))
+        ttk.Label(eq_methods_frame, text="Resolver con:", style='Dark.TLabel').pack(anchor='w', pady=(0,4))
+        eq_btns = ttk.Frame(eq_methods_frame, style='Card.TFrame')
+        eq_btns.pack(anchor='w')
+        ttk.Button(eq_btns, text="Gauss-Jordan", style='Dark.TButton', command=lambda: self.solve_equations_from_calculator("Gauss-Jordan")).pack(side=tk.LEFT, padx=4)
+        ttk.Button(eq_btns, text="Gauss", style='Dark.TButton', command=lambda: self.solve_equations_from_calculator("Gauss")).pack(side=tk.LEFT, padx=4)
+        ttk.Button(eq_btns, text="Cramer", style='Dark.TButton', command=lambda: self.solve_equations_from_calculator("Cramer")).pack(side=tk.LEFT, padx=4)
 
         result_container = ttk.Frame(main_frame, style='Card.TFrame', padding=(14, 12))
         result_container.grid(row=4, column=0, columnspan=4, sticky="nsew", pady=(0, 6))
@@ -561,25 +575,35 @@ class MatrixCRUDApp:
         for c in range(4):
             container.grid_columnconfigure(c, weight=1)
 
-        # Título
-        ttk.Label(container, text="Independencia de Vectores", style='CardTitle.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 20))
+        # Cabecera destacada
+        self._add_tab_header(
+            container,
+            "Independencia de Vectores",
+            "Construye conjuntos, verifica independencia y revisa pasos en paralelo.",
+            columns=4,
+        )
+
+        vec_form_card = ttk.Frame(container, style='Card.TFrame', padding=(16, 14))
+        vec_form_card.grid(row=1, column=0, columnspan=4, sticky='ew', pady=(0, 12))
+        for c in range(4):
+            vec_form_card.grid_columnconfigure(c, weight=1)
 
         # --- Controles superiores ---
-        ttk.Label(container, text="Nombre:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
-        self.vector_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
-        self.vector_name_entry.grid(row=1, column=1, sticky='w', padx=(0, 20))
+        ttk.Label(vec_form_card, text="Nombre:", style='Dark.TLabel').grid(row=0, column=0, sticky='w')
+        self.vector_name_entry = ttk.Entry(vec_form_card, width=18, style='Entry.TEntry')
+        self.vector_name_entry.grid(row=0, column=1, sticky='w', padx=(0, 20))
 
-        ttk.Label(container, text="Nº Vectores:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=5)
+        ttk.Label(vec_form_card, text="Nº Vectores:", style='Dark.TLabel').grid(row=1, column=0, sticky='w', pady=5)
         self.num_vectors_var = tk.StringVar(value="0")
-        num_vectors_spinbox = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.num_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
-        num_vectors_spinbox.grid(row=2, column=1, sticky='w', padx=(0,20))
+        num_vectors_spinbox = tk.Spinbox(vec_form_card, from_=1, to=20, width=6, textvariable=self.num_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
+        num_vectors_spinbox.grid(row=1, column=1, sticky='w', padx=(0,20))
 
-        ttk.Label(container, text="Dimensión:", style='Dark.TLabel').grid(row=2, column=2, sticky='e', padx=(0,5))
+        ttk.Label(vec_form_card, text="Dimensión:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
         self.dim_vectors_var = tk.StringVar(value="0")
-        dim_vectors_spinbox = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.dim_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
-        dim_vectors_spinbox.grid(row=2, column=3, sticky='w')
+        dim_vectors_spinbox = tk.Spinbox(vec_form_card, from_=1, to=20, width=6, textvariable=self.dim_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
+        dim_vectors_spinbox.grid(row=1, column=3, sticky='w')
 
-        ttk.Button(container, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky='ew')
+        ttk.Button(vec_form_card, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=2, column=0, columnspan=4, pady=(10, 20), sticky='ew')
 
         # --- Lista de Conjuntos y Acciones (distribución similar a matrices) ---
         # --- Lista de Conjuntos de Vectores en panel lateral izquierdo (Vectores) ---
@@ -607,9 +631,9 @@ class MatrixCRUDApp:
         self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
 
         # Botonera centrada (alinea con "Crear Conjunto de Vectores")
-        vector_action_frame = ttk.Frame(container, style='Surface.TFrame')
-        vector_action_frame.grid(row=5, column=0, columnspan=4)
-        vector_action_buttons = ttk.Frame(vector_action_frame, style='Card.TFrame')
+        vector_action_frame = ttk.Frame(vec_form_card, style='Card.TFrame')
+        vector_action_frame.grid(row=3, column=0, columnspan=4, pady=(0, 4))
+        vector_action_buttons = ttk.Frame(vector_action_frame, style='Surface.TFrame')
         vector_action_buttons.pack(anchor='center')
         ttk.Button(vector_action_buttons, text="Ver", command=self.view_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(vector_action_buttons, text="Modificar", command=self.modify_vector_set_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
@@ -619,13 +643,13 @@ class MatrixCRUDApp:
         ttk.Button(vector_action_buttons, text="Limpiar", command=self.clear_independence_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # --- Área de datos de vectores ---
-        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=6, column=0, columnspan=4, sticky='w', pady=(10,5))
+        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=2, column=0, columnspan=4, sticky='w', pady=(10,5))
         self.vector_entries_frame = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
-        self.vector_entries_frame.grid(row=7, column=0, columnspan=4, sticky='ew', pady=(0,10))
+        self.vector_entries_frame.grid(row=3, column=0, columnspan=4, sticky='ew', pady=(0,10))
 
         # --- Área de resultados con scroll (igual estilo que matrices) ---
         results_container = ttk.Frame(container, style='Card.TFrame', padding=(14, 12))
-        results_container.grid(row=8, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        results_container.grid(row=4, column=0, columnspan=4, sticky='nsew', pady=(10,0))
         results_container.grid_rowconfigure(1, weight=1)
         results_container.grid_rowconfigure(3, weight=1)
         results_container.grid_columnconfigure(0, weight=1)
@@ -763,23 +787,33 @@ class MatrixCRUDApp:
         for c in range(4):
             container.grid_columnconfigure(c, weight=1)
 
-        # Título
-        ttk.Label(container, text="Métodos numéricos", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0,20))
+        # Cabecera destacada
+        self._add_tab_header(
+            container,
+            "Métodos numéricos",
+            "Ejecuta Bisección, Falsa Posición, Newton y Secante con panel de pasos y vista previa LaTeX.",
+            columns=4,
+        )
+
+        num_form_card = ttk.Frame(container, style='Card.TFrame', padding=(16, 14))
+        num_form_card.grid(row=1, column=0, columnspan=4, sticky='ew', pady=(0, 12))
+        for c in range(4):
+            num_form_card.grid_columnconfigure(c, weight=1)
 
     # Fila 1: Nombre + Método (alineado como en otras pestañas)
-        ttk.Label(container, text="Nombre de la ecuación:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
-        self.num_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
-        self.num_name_entry.grid(row=1, column=1, sticky='w', padx=(0,20))
-        ttk.Label(container, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
+        ttk.Label(num_form_card, text="Nombre de la ecuación:", style='Dark.TLabel').grid(row=0, column=0, sticky='w')
+        self.num_name_entry = ttk.Entry(num_form_card, width=18, style='Entry.TEntry')
+        self.num_name_entry.grid(row=0, column=1, sticky='w', padx=(0,20))
+        ttk.Label(num_form_card, text="Método:", style='Dark.TLabel').grid(row=0, column=2, sticky='e', padx=(0,5))
         self.num_method_var = tk.StringVar(value="Bisección")
         self.num_method_combobox = ttk.Combobox(
-            container,
+            num_form_card,
             textvariable=self.num_method_var,
             values=["Bisección", "Falsa Posición", "Newton-Raphson", "Secante"],
             state="readonly",
             width=16,
         )
-        self.num_method_combobox.grid(row=1, column=3, sticky='w')
+        self.num_method_combobox.grid(row=0, column=3, sticky='w')
 
     # Fila 2: Expresión
         expr_card = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
@@ -2015,41 +2049,51 @@ class MatrixCRUDApp:
         for c in range(8):
             container.grid_columnconfigure(c, weight=1)
 
-        # Título
-        ttk.Label(container, text="Operadores de Matrices", style='CardTitle.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 20))
+        # Cabecera destacada
+        self._add_tab_header(
+            container,
+            "Operadores de Matrices",
+            "Crea conjuntos, combina matrices y sigue el procedimiento en paralelo.",
+            columns=8,
+        )
 
         # Controles superiores
-        ttk.Label(container, text="Nombre del conjunto:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
-        self.ops_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
-        self.ops_name_entry.grid(row=1, column=1, sticky='w', padx=(0, 20))
+        ops_form_card = ttk.Frame(container, style='Card.TFrame', padding=(16, 14))
+        ops_form_card.grid(row=1, column=0, columnspan=8, sticky='ew', pady=(0, 12))
+        for c in range(8):
+            ops_form_card.grid_columnconfigure(c, weight=1)
 
-        ttk.Label(container, text="Nº Matrices:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=5)
+        ttk.Label(ops_form_card, text="Nombre del conjunto:", style='Dark.TLabel').grid(row=0, column=0, sticky='w', pady=(0,4))
+        self.ops_name_entry = ttk.Entry(ops_form_card, width=18, style='Entry.TEntry')
+        self.ops_name_entry.grid(row=0, column=1, sticky='w', padx=(0, 20))
+
+        ttk.Label(ops_form_card, text="Nº Matrices:", style='Dark.TLabel').grid(row=1, column=0, sticky='w', pady=5)
         self.num_mats_var = tk.StringVar(value="0")
-        num_mats_spin = tk.Spinbox(container, from_=1, to=10, width=6, textvariable=self.num_mats_var, bg=self.palette["input"], fg=self.palette["text"])
-        num_mats_spin.grid(row=2, column=1, sticky='w', padx=(0, 20))
+        num_mats_spin = tk.Spinbox(ops_form_card, from_=1, to=10, width=6, textvariable=self.num_mats_var, bg=self.palette["input"], fg=self.palette["text"])
+        num_mats_spin.grid(row=1, column=1, sticky='w', padx=(0, 20))
 
-        ttk.Label(container, text="Filas:", style='Dark.TLabel').grid(row=2, column=2, sticky='e')
+        ttk.Label(ops_form_card, text="Filas:", style='Dark.TLabel').grid(row=1, column=2, sticky='e')
         self.ops_rows_var = tk.StringVar(value="0")
-        ops_rows_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_rows_var, bg=self.palette["input"], fg=self.palette["text"])
-        ops_rows_spin.grid(row=2, column=3, sticky='w')
+        ops_rows_spin = tk.Spinbox(ops_form_card, from_=1, to=20, width=6, textvariable=self.ops_rows_var, bg=self.palette["input"], fg=self.palette["text"])
+        ops_rows_spin.grid(row=1, column=3, sticky='w')
 
-        ttk.Label(container, text="Columnas:", style='Dark.TLabel').grid(row=2, column=4, sticky='e')
+        ttk.Label(ops_form_card, text="Columnas:", style='Dark.TLabel').grid(row=1, column=4, sticky='e')
         self.ops_cols_var = tk.StringVar(value="0")
-        ops_cols_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_cols_var, bg=self.palette["input"], fg=self.palette["text"])
-        ops_cols_spin.grid(row=2, column=5, sticky='w')
+        ops_cols_spin = tk.Spinbox(ops_form_card, from_=1, to=20, width=6, textvariable=self.ops_cols_var, bg=self.palette["input"], fg=self.palette["text"])
+        ops_cols_spin.grid(row=1, column=5, sticky='w')
 
         # Selector de operación al lado derecho de Filas y Columnas
-        ttk.Label(container, text="Operacion:", style='Dark.TLabel').grid(row=2, column=6, sticky='e', padx=(10,5))
+        ttk.Label(ops_form_card, text="Operacion:", style='Dark.TLabel').grid(row=1, column=6, sticky='e', padx=(10,5))
         self.ops_method_var = tk.StringVar(value=" ")
-        self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicacion", "Multiplicacion escalar"], state="readonly", width=18)
-        self.ops_method_combobox.grid(row=2, column=7, sticky='w')
+        self.ops_method_combobox = ttk.Combobox(ops_form_card, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicacion", "Multiplicacion escalar", "Transponer", "Inversa", "Determinante", "Independencia"], state="readonly", width=18)
+        self.ops_method_combobox.grid(row=1, column=7, sticky='w')
 
-        ttk.Label(container, text="Escalar:", style='Dark.TLabel').grid(row=3, column=0, sticky='w', pady=4)
+        ttk.Label(ops_form_card, text="Escalar:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=4)
         self.ops_scalar_var = tk.StringVar(value="1")
-        self.ops_scalar_entry = ttk.Entry(container, textvariable=self.ops_scalar_var, width=12, style='Entry.TEntry')
-        self.ops_scalar_entry.grid(row=3, column=1, sticky='w', padx=(0, 20))
+        self.ops_scalar_entry = ttk.Entry(ops_form_card, textvariable=self.ops_scalar_var, width=12, style='Entry.TEntry')
+        self.ops_scalar_entry.grid(row=2, column=1, sticky='w', padx=(0, 20))
 
-        ttk.Button(container, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=4, column=0, columnspan=8, pady=(10, 20), sticky='ew')
+        ttk.Button(ops_form_card, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=3, column=0, columnspan=8, pady=(10, 20), sticky='ew')
 
         # Lista de conjuntos + acciones
         # --- Lista de Conjuntos de Matrices en panel lateral izquierdo (Operadores) ---
@@ -2073,9 +2117,9 @@ class MatrixCRUDApp:
         self.matrix_set_listbox.bind('<<ListboxSelect>>', self._on_matrix_set_select)
 
         # Botonera centrada (alinea con "Crear Conjunto de Matrices")
-        ops_action_frame = ttk.Frame(container, style='Surface.TFrame')
-        ops_action_frame.grid(row=5, column=0, columnspan=8)
-        ops_action_buttons = ttk.Frame(ops_action_frame, style='Card.TFrame')
+        ops_action_frame = ttk.Frame(ops_form_card, style='Card.TFrame')
+        ops_action_frame.grid(row=4, column=0, columnspan=8, pady=(0, 4))
+        ops_action_buttons = ttk.Frame(ops_action_frame, style='Surface.TFrame')
         ops_action_buttons.pack(anchor='center')
         ttk.Button(ops_action_buttons, text="Ver", style='Dark.TButton', command=self.view_matrix_set).pack(side=tk.LEFT, padx=5)
         ttk.Button(ops_action_buttons, text="Modificar", style='Dark.TButton', command=self.modify_matrix_set_ui).pack(side=tk.LEFT, padx=5)
@@ -2085,14 +2129,14 @@ class MatrixCRUDApp:
         ttk.Button(ops_action_buttons, text="Limpiar", style='Dark.TButton', command=self.clear_ops_tab).pack(side=tk.LEFT, padx=5)
 
         # Área de entradas de matrices
-        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=6, column=0, columnspan=8, sticky='w', pady=(10,5))
+        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=2, column=0, columnspan=8, sticky='w', pady=(10,5))
         self.ops_entries_frame = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
-        self.ops_entries_frame.grid(row=7, column=0, columnspan=8, sticky='ew', pady=(0,10))
+        self.ops_entries_frame.grid(row=3, column=0, columnspan=8, sticky='ew', pady=(0,10))
 
 
         # Resultados
         results_container = ttk.Frame(container, style='Card.TFrame', padding=(14, 12))
-        results_container.grid(row=8, column=0, columnspan=8, sticky='nsew', pady=(10,0))
+        results_container.grid(row=4, column=0, columnspan=8, sticky='nsew', pady=(10,0))
         results_container.grid_rowconfigure(1, weight=1)
         results_container.grid_columnconfigure(0, weight=1)
         ttk.Label(results_container, text="Resultado", style='CardTitle.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
@@ -2317,9 +2361,10 @@ class MatrixCRUDApp:
             def show_matrix_block(title, mat_list):
                 self.ops_steps_text.insert(tk.END, f"{title}\\n")
                 self.ops_steps_text.insert(tk.END, self._format_matrix_for_display(mat_list))
-                self.ops_steps_text.insert(tk.END, "\\n")
+                self.ops_steps_text.insert(tk.END, "\\n\\n")
 
             if op == "Suma":
+                self.ops_steps_text.insert(tk.END, "Suma de matrices\n------------------\n\n")
                 for idx, m in enumerate(mats, start=1):
                     show_matrix_block(f"M{idx}:", m.to_list())
                 res = mats[0]
@@ -2331,13 +2376,14 @@ class MatrixCRUDApp:
                     for i in range(len(A)):
                         for j in range(len(A[0])):
                             self.ops_steps_text.insert(tk.END, f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} + {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\\n")
-                    show_matrix_block("\\nResultado parcial:", R)
+                    show_matrix_block("Resultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
                 self.ops_result_text.insert(tk.END, "Resultado de la suma:\\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
 
             elif op == "Resta":
+                self.ops_steps_text.insert(tk.END, "Resta de matrices\n-----------------\n\n")
                 for idx, m in enumerate(mats, start=1):
                     show_matrix_block(f"M{idx}:", m.to_list())
                 res = mats[0]; paso = 1
@@ -2348,13 +2394,14 @@ class MatrixCRUDApp:
                     for i in range(len(A)):
                         for j in range(len(A[0])):
                             self.ops_steps_text.insert(tk.END, f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} - {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\\n")
-                    show_matrix_block("\\nResultado parcial:", R)
+                    show_matrix_block("Resultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
                 self.ops_result_text.insert(tk.END, "Resultado de la resta (M1 - M2 - ...):\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
 
             elif op == "Multiplicacion":
+                self.ops_steps_text.insert(tk.END, "Multiplicación de matrices\n-----------------------\n\n")
                 for idx, m in enumerate(mats, start=1):
                     show_matrix_block(f"M{idx}:", m.to_list())
                 res = mats[0]; paso = 1
@@ -2374,13 +2421,14 @@ class MatrixCRUDApp:
                                 s += float(A[i][k]) * float(B[k][j])
                             R[i][j] = s
                             self.ops_steps_text.insert(tk.END, f"  r[{i+1},{j+1}] = " + " + ".join(terms) + f" = {fmt_val(s)}\\n")
-                    show_matrix_block("\\nResultado parcial:", R)
+                    show_matrix_block("Resultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
                 self.ops_result_text.insert(tk.END, "Resultado de la multiplicacion (M1 @ M2 @ ...):\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
 
             elif op == "Multiplicacion escalar":
+                self.ops_steps_text.insert(tk.END, "Multiplicación escalar\n----------------------\n\n")
                 try:
                     factor = float(self.ops_scalar_var.get())
                 except Exception:
@@ -2398,6 +2446,77 @@ class MatrixCRUDApp:
                 for idx, m in enumerate(mats, start=1):
                     scaled = m.multiplicar(factor).to_list()
                     self.ops_result_text.insert(tk.END, f"M{idx} escalar:\n{self._format_matrix_for_display(scaled)}\n\n")
+
+            elif op == "Transponer":
+                self.ops_steps_text.insert(tk.END, "Transponer matriz\n-----------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para transponer.")
+                    return
+                mat = mats[0]
+                res = mat.trasponer()
+                self.ops_steps_text.insert(tk.END, "Transposición de la matriz:\n\n")
+                self.ops_steps_text.insert(tk.END, self._format_matrix_for_display(mat.to_list()) + "\n\n")
+                self.ops_result_text.insert(tk.END, "Matriz transpuesta:\n")
+                self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
+
+            elif op == "Inversa":
+                self.ops_steps_text.insert(tk.END, "Inversa de matriz\n-----------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para calcular la inversa.")
+                    return
+                mat = mats[0]
+                try:
+                    inv_res = mat.inversa(mostrar_pasos=True)
+                    self.ops_steps_text.insert(tk.END, "Pasos para la inversa (Gauss-Jordan sobre [A|I]):\n")
+                    for paso in inv_res.get("pasos", []):
+                        self.ops_steps_text.insert(tk.END, str(paso) + "\n")
+                    inv_text = inv_res.get("inversa")
+                    if inv_text is None:
+                        self.ops_result_text.insert(tk.END, inv_res.get("mensaje", "La matriz es singular."))
+                    else:
+                        self.ops_result_text.insert(tk.END, inv_res.get("mensaje", "") + "\n\n")
+                        self.ops_result_text.insert(tk.END, inv_text)
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo calcular la inversa: {e}")
+                    return
+
+            elif op == "Determinante":
+                self.ops_steps_text.insert(tk.END, "Determinante\n-------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para el determinante.")
+                    return
+                mat = mats[0]
+                try:
+                    det_res = matrices.determinante_por_gauss_con_pasos(mat.to_list(), mostrar_pasos=True)
+                    self.ops_steps_text.insert(tk.END, "Pasos para el determinante (Gauss):\n")
+                    for paso in det_res.get("pasos", []):
+                        self.ops_steps_text.insert(tk.END, str(paso) + "\n\n")
+                    det_val = det_res.get("determinante")
+                    self.ops_result_text.insert(tk.END, f"Determinante: {det_val}")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo calcular el determinante: {e}")
+                    return
+
+            elif op == "Independencia":
+                self.ops_steps_text.insert(tk.END, "Independencia de vectores\n--------------------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para verificar independencia.")
+                    return
+                mat = mats[0]
+                try:
+                    res_ind = mat.independencia_vectores(mat.to_list())
+                    self.ops_result_text.insert(tk.END, res_ind.get("mensaje", "") + "\n")
+                    if res_ind.get("pasos"):
+                        self.ops_steps_text.insert(tk.END, "Pasos:\n")
+                        for idx, paso in enumerate(res_ind["pasos"], start=1):
+                            desc = paso.get("descripcion", "")
+                            matriz_txt = paso.get("matriz", "")
+                            self.ops_steps_text.insert(tk.END, f"Paso {idx}: {desc}\n")
+                            if matriz_txt:
+                                self.ops_steps_text.insert(tk.END, f"{matriz_txt}\n\n")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo verificar independencia: {e}")
+                    return
 
             else:
                 messagebox.showerror("Operacion desconocida", op)
@@ -2843,22 +2962,22 @@ class MatrixCRUDApp:
             self.selected_vector_set = self.vector_set_listbox.get(selection[0])
 
     def _get_method_selection(self):
-        allowed = {"Gauss-Jordan", "Gauss", "Cramer", "Transponer", "Inversa", "Determinante", "Independencia"}
+        allowed = {"Gauss-Jordan", "Gauss", "Cramer"}
         val = (self.method_var.get() or "").strip()
         return val if val in allowed else None
 
     def _on_method_select(self, event):
         val = (self.method_var.get() or "").strip()
-        allowed = {"Gauss-Jordan", "Gauss", "Cramer", "Transponer", "Inversa", "Determinante", "Independencia"}
+        allowed = {"Gauss-Jordan", "Gauss", "Cramer"}
         if val in allowed:
             self.selected_method = val
         else:
             self.selected_method = None
             self.method_var.set("")
 
-    def solve_matrix(self):
+    def solve_matrix(self, metodo_override=None):
         matrix_name = getattr(self, 'selected_matrix', None)
-        metodo = self._get_method_selection()
+        metodo = metodo_override or self._get_method_selection()
 
         if not matrix_name:
             selection = self.matrix_listbox.curselection()
@@ -2963,14 +3082,14 @@ class MatrixCRUDApp:
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la resolución de la matriz: {e}")
     
-    def solve_equations_from_calculator(self):
+    def solve_equations_from_calculator(self, metodo_override=None):
         """Convierte ecuaciones (texto o LaTeX) en matriz y resuelve con el metodo seleccionado."""
         raw_text = self.equations_text.get("1.0", tk.END).strip()
         if not raw_text:
             messagebox.showwarning("Datos requeridos", "Ingresa al menos una ecuacion o un bloque LaTeX.")
             return
 
-        metodo = self._get_method_selection()
+        metodo = metodo_override or self._get_method_selection()
         if not metodo:
             messagebox.showwarning(
                 "Seleccion requerida",
