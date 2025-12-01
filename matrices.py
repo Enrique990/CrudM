@@ -28,8 +28,9 @@ class Matriz:
 
     """ Si es un numero entero, asi se muestra. Si tiene decimales, se muestra con 4 decimales"""
     def _format_number(self, x):
-        if abs(x - int(x)) < 1e-10:
-            return str(int(x))
+        # Tolerancia más amplia para redondear enteros cercanos
+        if abs(x - int(round(x))) < 1e-8:
+            return str(int(round(x)))
         else:
             return f"{x:.4f}"
     # utiliza la funcion de arriba, pero la aplica a toda la matriz
@@ -599,8 +600,8 @@ def determinante_por_gauss_con_pasos(A, mostrar_pasos=True):
     M = [list(map(float, row[:])) for row in A]
 
     def fmt(x):
-        # entero sin decimales vs 4 decimales
-        return str(int(round(x))) if abs(x - round(x)) < 1e-10 else f"{x:.4f}"
+        # entero sin decimales vs 4 decimales, con tolerancia más amplia para redondear valores cercanos
+        return str(int(round(x))) if abs(x - round(x)) < 1e-6 else f"{x:.4f}"
 
     def mat_fmt(M_):
         return [[fmt(x) for x in fila] for fila in M_]
@@ -768,7 +769,8 @@ def cramer_con_pasos(A, b, mostrar_pasos=True):
 
 def _format_scalar_value(x):
     """Formateo simple para resultados numericos (entero sin decimales o con 4 decimales)."""
-    if abs(x - int(round(x))) < 1e-10:
+    # Alinear tolerancia de redondeo con el resto de la app
+    if abs(x - int(round(x))) < 1e-8:
         return str(int(round(x)))
     return f"{x:.4f}"
 

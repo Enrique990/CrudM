@@ -56,6 +56,8 @@ class NewtonRaphsonSolver:
         txt = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", txt)
         txt = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", txt)
         txt = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", txt)
+        # corrección: evitar '*' entre nombre de función y '('
+        txt = re.sub(r"\b(sin|cos|tan|exp|log|ln|sqrt|abs|asin|acos|atan|cot|sec|csc)\s*\*\s*\(", r"\1(", txt, flags=re.IGNORECASE)
         return txt
 
     @staticmethod
@@ -68,6 +70,8 @@ class NewtonRaphsonSolver:
         txt = re.sub(r'(?<=\d)(?=[A-Za-z\(])', '*', txt)
         txt = re.sub(r'(?<=\))(?=[A-Za-z0-9])', '*', txt)
         txt = re.sub(r'(?<=[xXyYzZ])(?=\()', '*', txt)
+        # corrección adicional: no dejar '*' entre función y '('
+        txt = re.sub(r"\b(sin|cos|tan|exp|log|ln|sqrt|abs|asin|acos|atan|cot|sec|csc)\s*\*\s*\(", r"\1(", txt, flags=re.IGNORECASE)
         x = sp.Symbol('x')
         locals_map = {'e': sp.E, 'pi': sp.pi, 'x': x}
         try:

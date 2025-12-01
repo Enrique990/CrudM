@@ -80,12 +80,14 @@ def _to_callable(f: Any):
         expr = re.sub(r"\bcot\s*\(", '1/tan(', expr, flags=re.IGNORECASE)
         expr = re.sub(r"\bsec\s*\(", '1/cos(', expr, flags=re.IGNORECASE)
         expr = re.sub(r"\bcsc\s*\(", '1/sin(', expr, flags=re.IGNORECASE)
-        # impl�cita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x
+        # implícita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x
         # espacios como multiplicación implícita: "2 3", "3 x", "(x+1) 2"
         expr = re.sub(r"(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])", "*", expr)
         expr = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", expr)
         expr = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", expr)
         expr = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", expr)
+        # corrección: si se insertó '*' entre nombre de función y '(', revertirlo (cos*(x) -> cos(x))
+        expr = re.sub(r"\b(sin|cos|tan|exp|log|ln|sqrt|abs|asin|acos|atan|cot|sec|csc)\s*\*\s*\(", r"\1(", expr, flags=re.IGNORECASE)
         try:
             tree = ast.parse(expr, mode='eval')
             tree = _NumToFraction().visit(tree)
@@ -359,18 +361,27 @@ class MetodoBiseccion:
         Útil para la interfaz de graficado que espera un callable vectorizable.
         """
         txt = expr_str.replace('^', '**')
+        # Normalizar \sqrt{..} / \sqrt(..) antes de quitar barras invertidas
+        txt = re.sub(r"\\sqrt\s*\{([^}]*)\}", r"sqrt(\1)", txt)
+        txt = re.sub(r"\\sqrt\s*\(([^)]*)\)", r"sqrt(\1)", txt)
+        # Quitar barras invertidas y normalizar alias comunes (LaTeX/español)
+        txt = txt.replace('\\', '')  # p.ej., \\cos(x) -> cos(x)
+        txt = re.sub(r"\bln\s*\(", 'log(', txt, flags=re.IGNORECASE)
+        txt = re.sub(r"\bsen\s*\(", 'sin(', txt, flags=re.IGNORECASE)
         # Multiplicación implícita por espacios: "2 3", "3 x", "(x+1) 2" -> agrega '*'
         txt = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', txt)
         # implícita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x
         txt = re.sub(r"(?<=\d)(?=[A-Za-z\(])", "*", txt)
         txt = re.sub(r"(?<=\))(?=[A-Za-z0-9])", "*", txt)
         txt = re.sub(r"(?<=[xXyYzZ])(?=\()", "*", txt)
+        # corrección: si quedó '*' entre nombre de función y '(', revertirlo (p.ej., cos*(x) -> cos(x))
+        txt = re.sub(r"\b(sin|cos|tan|exp|log|ln|sqrt|abs|asin|acos|atan|cot|sec|csc)\s*\*\s*\(", r"\1(", txt, flags=re.IGNORECASE)
         x = sp.Symbol('x')
         try:
             sym_f = parse_expr(
                 txt,
                 transformations=standard_transformations + (implicit_multiplication_application,),
-                local_dict={'x': x}
+                local_dict={'x': x, 'e': sp.E, 'pi': sp.pi}
             )
         except Exception as e:
             raise ValueError(f"Expresión inválida: {e}")

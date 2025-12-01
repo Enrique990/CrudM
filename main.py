@@ -1285,6 +1285,9 @@ class MatrixCRUDApp:
 
         import re
 
+        # Quitar barras invertidas de entradas tipo LaTeX (p.ej., \cos -> cos)
+        expr = expr.replace('\\', '')
+
         # Trigonométricas inversas con notación ^-1 o superíndice −1
         minus_one_variants = [r"\^\-1", "⁻¹"]
         trig_map = {
@@ -1497,6 +1500,7 @@ class MatrixCRUDApp:
         a_txt = self.num_a_entry.get().strip()
         b_txt = self.num_b_entry.get().strip()
         a = b = None
+        newton_x0 = None
 
         # Si faltan datos en los campos y hay una ecuación seleccionada, recuperar del almacenamiento
         selected_data = None
@@ -1509,7 +1513,8 @@ class MatrixCRUDApp:
 
         # Determinar expresión
         if not expr and selected_data:
-            expr = (selected_data or {}).get('expr', '')
+            # Normalizar también la expresión guardada
+            expr = self._num_normalize_expression((selected_data or {}).get('expr', ''))
         if not expr:
             messagebox.showerror('Error', 'Debes ingresar una expresión o seleccionar una ecuación de la lista.')
             return
@@ -1542,25 +1547,53 @@ class MatrixCRUDApp:
             messagebox.showerror('Entrada inválida', f'Error con los extremos: {e}')
             return
 
-        if a is None or b is None:
-            # intentar auto-intervalo
+        if method != 'Newton-Raphson':
+            if a is None or b is None:
+                # intentar auto-intervalo (solo para métodos que lo requieren)
+                try:
+                    res = self.mb_num.find_bracketing_interval(expr)
+                except Exception as e:
+                    res = {"interval": None, "mensaje": str(e)}
+                interval = None
+                if isinstance(res, dict):
+                    interval = res.get('interval')
+                elif isinstance(res, tuple) and len(res) >= 2:
+                    interval = (res[0], res[1])
+                if interval is None:
+                    messagebox.showwarning('Intervalo', (res.get('mensaje') if isinstance(res, dict) else 'No se encontró intervalo válido.'))
+                    return
+                try:
+                    a = float(interval[0]); b = float(interval[1])
+                except Exception:
+                    messagebox.showwarning('Intervalo', f"Intervalo encontrado: {interval} (no se pudo convertir a float)")
+                    return
+        else:
+            # Newton-Raphson: no requiere cambio de signo; elegir x0 flexible
             try:
-                res = self.mb_num.find_bracketing_interval(expr)
-            except Exception as e:
-                res = {"interval": None, "mensaje": str(e)}
-            interval = None
-            if isinstance(res, dict):
-                interval = res.get('interval')
-            elif isinstance(res, tuple) and len(res) >= 2:
-                interval = (res[0], res[1])
-            if interval is None:
-                messagebox.showwarning('Intervalo', (res.get('mensaje') if isinstance(res, dict) else 'No se encontró intervalo válido.'))
-                return
-            try:
-                a = float(interval[0]); b = float(interval[1])
+                if a is not None and b is not None:
+                    newton_x0 = (float(a) + float(b)) / 2.0
+                elif a is not None:
+                    newton_x0 = float(a)
+                elif b is not None:
+                    newton_x0 = float(b)
+                else:
+                    # Intentar encontrar un intervalo para un buen x0; si falla, usar 0.5
+                    try:
+                        res = self.mb_num.find_bracketing_interval(expr)
+                        interval = None
+                        if isinstance(res, dict):
+                            interval = res.get('interval')
+                        elif isinstance(res, tuple) and len(res) >= 2:
+                            interval = (res[0], res[1])
+                        if interval is not None:
+                            a = float(interval[0]); b = float(interval[1])
+                            newton_x0 = (a + b) / 2.0
+                        else:
+                            newton_x0 = 0.5
+                    except Exception:
+                        newton_x0 = 0.5
             except Exception:
-                messagebox.showwarning('Intervalo', f"Intervalo encontrado: {interval} (no se pudo convertir a float)")
-                return
+                newton_x0 = 0.5
 
         try:
             if method == 'Bisección':
@@ -1597,11 +1630,8 @@ class MatrixCRUDApp:
                 if self.mb_newton is None:
                     messagebox.showinfo('Dependencia faltante', 'El método Newton-Raphson requiere sympy y numpy.\nInstálalos e inténtalo de nuevo.')
                     return
-                # Usar x0 como el punto medio del intervalo [a,b]
-                try:
-                    x0 = (float(a) + float(b)) / 2.0
-                except Exception:
-                    x0 = float(a)
+                # Usar x0 determinado sin requerir intervalo con cambio de signo
+                x0 = newton_x0 if newton_x0 is not None else (float(a) if a is not None else 0.5)
                 rows, result = self.mb_newton.solve(expr, x0=x0, tol=tol)
                 pasos = []
                 for r in rows:
@@ -1699,7 +1729,7 @@ class MatrixCRUDApp:
             except Exception:
                 selected_data = None
             if selected_data:
-                expr = (selected_data or {}).get('expr', '')
+                expr = self._num_normalize_expression((selected_data or {}).get('expr', ''))
         if not expr:
             messagebox.showwarning('Falta expresión', 'Ingresa una expresión f(x) o selecciona una ecuación.')
             return
@@ -1728,11 +1758,16 @@ class MatrixCRUDApp:
         except Exception:
             # Fallback: eval con math en entorno controlado
             import math
+            import re
             allowed = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
-            allowed.update({'pi': math.pi, 'e': math.e})
+            # Añadir constantes/funciones comunes no incluidas automáticamente
+            allowed.update({'pi': math.pi, 'e': math.e, 'abs': abs})
             def fnum(x):
                 safe_expr = expr.replace('^','**')
+                # Insertar multiplicación implícita por espacios
                 safe_expr = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', safe_expr)
+                # Corrección: evitar '*' entre nombre de función y '(' (p.ej., cos*(x) -> cos(x))
+                safe_expr = re.sub(r"\b(sin|cos|tan|exp|log|ln|sqrt|abs|asin|acos|atan|cot|sec|csc)\s*\*\s*\(", r"\1(", safe_expr, flags=re.IGNORECASE)
                 return eval(safe_expr, {'__builtins__': {}}, {**allowed, 'x': x})
 
         # Intervalo: usar [a,b] si válido; si no, intentar detectar uno; si falla, usar [-10,10]
@@ -3261,7 +3296,8 @@ class MatrixCRUDApp:
             resultado = matrices.determinante_por_gauss_con_pasos(A, mostrar_pasos=True)
 
             det = resultado.get("determinante", 0.0)
-            det_fmt = f"{int(round(det))}" if abs(det - round(det)) < 1e-10 else f"{det:.4f}"
+            # Usar tolerancia más amplia para redondear enteros cercanos
+            det_fmt = f"{int(round(det))}" if abs(det - round(det)) < 1e-6 else f"{det:.4f}"
 
             self.result_text.delete(1.0, tk.END)
             self.steps_text.delete(1.0, tk.END)
@@ -3424,6 +3460,18 @@ class MatrixCRUDApp:
             # Mostrar el mensaje principal del resultado
             if "mensaje" in resultado:
                 self.result_text.insert(tk.END, resultado["mensaje"] + "\n\n")
+            # Mostrar solución (valores de variables) si está disponible
+            try:
+                solucion = resultado.get("solucion")
+                if isinstance(solucion, dict):
+                    for var, val in solucion.items():
+                        self.result_text.insert(tk.END, f"{var} = {val}\n")
+                    if solucion:
+                        self.result_text.insert(tk.END, "\n")
+                elif isinstance(solucion, str):
+                    self.result_text.insert(tk.END, solucion + "\n\n")
+            except Exception:
+                pass
             # Mostrar los pasos si existen
             if "pasos" in resultado and resultado["pasos"]:
                 self.steps_text.insert(tk.END, "Procedimiento:\n")
