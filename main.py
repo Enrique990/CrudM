@@ -1288,6 +1288,20 @@ class MatrixCRUDApp:
         # Quitar barras invertidas de entradas tipo LaTeX (p.ej., \cos -> cos)
         expr = expr.replace('\\', '')
 
+        # Normalizar alias comunes: ln->log, sen->sin
+        expr = re.sub(r"\bln\s*\(", 'log(', expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\bsen\s*\(", 'sin(', expr, flags=re.IGNORECASE)
+        # Otras variantes frecuentes
+        expr = re.sub(r"\btg\s*\(", 'tan(', expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\barcsen\s*\(", 'asin(', expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\barctg\s*\(", 'atan(', expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\barctan\s*\(", 'atan(', expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\barccos\s*\(", 'acos(', expr, flags=re.IGNORECASE)
+        # Recíprocas: cot, sec, csc
+        expr = re.sub(r"\bcot\s*\(", '1/tan(', expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\bsec\s*\(", '1/cos(', expr, flags=re.IGNORECASE)
+        expr = re.sub(r"\bcsc\s*\(", '1/sin(', expr, flags=re.IGNORECASE)
+
         # Trigonométricas inversas con notación ^-1 o superíndice −1
         minus_one_variants = [r"\^\-1", "⁻¹"]
         trig_map = {
@@ -1308,7 +1322,16 @@ class MatrixCRUDApp:
         for k, v in super_map.items():
             expr = expr.replace(k, v)
 
+        # Normalizar e^(...) -> exp(...), e^x -> e**x (antes de convertir ^ a **)
+        expr = re.sub(r"\be\^\s*\(", 'exp(', expr)
+        expr = re.sub(r"\be\^", 'e**', expr)
+        # Normalizar \sqrt{..} / \sqrt(..)
+        expr = re.sub(r"\\sqrt\s*\{([^}]*)\}", r"sqrt(\1)", expr)
+        expr = re.sub(r"\\sqrt\s*\(([^)]*)\)", r"sqrt(\1)", expr)
+
         # 2) Multiplicación implícita habitual: 5x, (x+1)(x-1), 2(x+1), x(x+1), (x+1)2, 5e^x, etc.
+        # Espacios como multiplicación implícita: "2 3", "3 x", "(x+1) 2"
+        expr = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', expr)
         # Entre número y variable/constante: 5x -> 5*x, 5e -> 5*e
         expr = re.sub(r"(\d)([a-df-zA-DF-Z])", r"\1*\2", expr)  # excluimos 'e' aquí para tratarla aparte
         # 2a) Multiplicación implícita con e: 5e^x, 5e^-x -> 5*e^x, 5*e^-x
@@ -1341,6 +1364,9 @@ class MatrixCRUDApp:
         # Antes ya hemos hecho 5e^x -> 5*e^x, aquí pasamos ^ a ** para alinearlo con
         # el parser de SecantSolver._normalize_expr, que también convierte ^ a **.
         expr = expr.replace('^', '**')
+
+        # 4b) Corrección final: evitar patrón func*(x) por si algún paso anterior lo introdujo
+        expr = re.sub(r"\b(sin|cos|tan|exp|log|ln|sqrt|abs|asin|acos|atan|cot|sec|csc)\s*\*\s*\(", r"\1(", expr, flags=re.IGNORECASE)
 
         # 5) Quitar espacios sobrantes
         expr = expr.strip()
