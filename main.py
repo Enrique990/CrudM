@@ -3832,4 +3832,10 @@ class MatrixCRUDApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = MatrixCRUDApp(root)
+    # Ventana alternativa para operar matrices con dimensiones individuales.
+    try:
+        import operators_fresh
+        operators_fresh.launch_new_operator_window(root)
+    except Exception:
+        pass
     root.mainloop()
