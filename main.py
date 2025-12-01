@@ -4,6 +4,7 @@ import tkinter.font as tkfont
 import math
 import io
 import base64
+import re
 from crud import (
     crear_matriz,
     actualizar_matriz,
@@ -40,7 +41,6 @@ class MatrixCRUDApp:
             "mono": ("Consolas", 12),
         }
         self.root.configure(bg=self.palette["background"])
-        
         # Ejecutar en pantalla completa (estilo Windows maximizado). Para modo kiosco se puede usar attributes('-fullscreen', True)
         try:
             self.root.state('zoomed')
@@ -112,14 +112,14 @@ class MatrixCRUDApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
 
-        # --- Pestaña 1: Operadores de Matrices (primera) ---
+        # --- Pestaña 1: Operador avanzado (reemplaza operador clásico) ---
         self.operators_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
-        self.notebook.add(self.operators_tab, text='Operadores de Matrices')
-        self.create_operators_widgets(self.operators_tab)
+        self.notebook.add(self.operators_tab, text='Operador avanzado')
+        self.create_fresh_operator_widgets(self.operators_tab)
 
-        # --- Pestaña 2: Calculadora de Matrices ---
+        # --- Pestaña 2: Solucionador Sistema de ecuaciones ---
         self.calculator_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
-        self.notebook.add(self.calculator_tab, text='Calculadora de Matrices')
+        self.notebook.add(self.calculator_tab, text='Solucionador Sistema de ecuaciones')
         self.create_calculator_widgets(self.calculator_tab)
 
         # --- Pestaña 3: Independencia de Vectores (última) ---
@@ -165,9 +165,216 @@ class MatrixCRUDApp:
         self.update_matrix_set_list()
         # Fijar el tamaño inicial de ambos listboxes una sola vez (sin sincronizaciones posteriores)
         self._apply_initial_listbox_size()
+        # Mostrar portada inicial
+        self.create_start_screen()
+
+    def create_start_screen(self):
+        """Portada inicial CalcuGebra con hero y equipo."""
+        try:
+            self.notebook.pack_forget()
+        except Exception:
+            pass
+
+        self.start_frame = tk.Frame(self.root, bg=self.palette["background"])
+        self.start_frame.pack(fill="both", expand=True)
+
+        # Canvas con scroll invisible para toda la portada
+        self.start_canvas = tk.Canvas(self.start_frame, bg=self.palette["background"], highlightthickness=0, bd=0)
+        start_scroll = ttk.Scrollbar(self.start_frame, orient=tk.VERTICAL, command=self.start_canvas.yview, style='App.Vertical.TScrollbar')
+        try:
+            start_scroll.configure(width=8)
+        except Exception:
+            pass
+        self.start_canvas.configure(yscrollcommand=start_scroll.set)
+        self.start_canvas.pack(side=tk.LEFT, fill="both", expand=True)
+        start_scroll.pack(side=tk.RIGHT, fill="y")
+
+        start_inner = tk.Frame(self.start_canvas, bg=self.palette["background"])
+        inner_window = self.start_canvas.create_window((0, 0), window=start_inner, anchor="nw")
+        start_inner.bind("<Configure>", lambda e: self.start_canvas.configure(scrollregion=self.start_canvas.bbox("all")))
+        self.start_canvas.bind("<Configure>", lambda e: self.start_canvas.itemconfig(inner_window, width=e.width))
+        def _on_start_wheel(ev):
+            self.start_canvas.yview_scroll(int(-1 * (ev.delta / 120)), "units")
+        # Scroll con rueda en cualquier zona de la portada (Windows/mac) y botones 4/5 (Linux)
+        def _bind_global():
+            try:
+                self.root.bind_all("<MouseWheel>", _on_start_wheel)
+                self.root.bind_all("<Button-4>", lambda e: self.start_canvas.yview_scroll(-1, "units"))
+                self.root.bind_all("<Button-5>", lambda e: self.start_canvas.yview_scroll(1, "units"))
+            except Exception:
+                pass
+        _bind_global()
+
+        hero_height = 320
+        self.hero_canvas = tk.Canvas(
+            start_inner,
+            bg=self.palette["background"],
+            height=hero_height,
+            highlightthickness=0,
+            bd=0,
+        )
+        self.hero_canvas.pack(fill="x", expand=False)
+        self.hero_canvas.bind("<Configure>", lambda e: self._paint_start_hero(e.width, hero_height))
+
+        content = tk.Frame(start_inner, bg=self.palette["background"])
+        content.pack(fill="both", expand=True, padx=30, pady=(10, 30))
+
+        card = tk.Frame(content, bg=self.palette["panel"], padx=32, pady=28, bd=0, highlightthickness=0)
+        card.pack(fill="both", expand=True)
+
+        tk.Label(card, text="CalcuGebra", font=self.fonts["hero"], fg=self.palette["text"], bg=self.palette["panel"]).pack(anchor="w")
+        tk.Label(
+            card,
+            text="Calculadora creativa de algebra lineal: matrices, resolucion de sistemas de ecuaciones lineales y metodos numericos que muestran cada paso.",
+            font=self.fonts["label"],
+            fg=self.palette["accent"],
+            bg=self.palette["panel"],
+            wraplength=880,
+            justify="left",
+        ).pack(anchor="w", pady=(8, 16))
+
+        origin_text = (
+            "Nacio en la clase de Algebra Lineal como laboratorio vivo: construir, probar y visualizar algoritmos reales "
+            "para que cualquier persona pueda entenderlos y aplicarlos sin perder precision academica."
+        )
+        tk.Label(
+            card,
+            text=origin_text,
+            font=self.fonts["body"],
+            fg=self.palette["text"],
+            bg=self.palette["panel"],
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 16))
+
+        highlights = tk.Frame(card, bg=self.palette["panel"])
+        highlights.pack(fill="x", pady=(0, 12))
+        for title, desc in [
+            ("Resolucion guiada", "Sistemas de ecuaciones lineales con pasos visibles y resultados claros."),
+            ("Operadores de matrices", "Suma, producto, inversas y mas en un panel ordenado."),
+            ("Metodos numericos", "Biseccion y compania con trazabilidad de iteraciones."),
+        ]:
+            block = tk.Frame(highlights, bg=self.palette["card"], padx=14, pady=12)
+            block.pack(side="left", expand=True, fill="both", padx=6)
+            tk.Label(block, text=title, font=self.fonts["label"], fg=self.palette["accent_soft"], bg=self.palette["card"]).pack(anchor="w")
+            tk.Label(block, text=desc, font=self.fonts["body"], fg=self.palette["text"], bg=self.palette["card"], wraplength=240, justify="left").pack(anchor="w", pady=(4, 0))
+
+        tk.Label(card, text="Equipo creador", font=self.fonts["label"], fg=self.palette["accent_soft"], bg=self.palette["panel"]).pack(anchor="w", pady=(10, 4))
+        names_frame = tk.Frame(card, bg=self.palette["panel"])
+        names_frame.pack(anchor="w", fill="x", pady=(0, 10))
+        for name in [
+            "ALICIA MASSIEL ESTRADA ACEVEDO",
+            "STEPHANY DAIANA FLORES BALTODANO",
+            "ENRIQUE JOSE TALENO NUNEZ",
+        ]:
+            row = tk.Frame(names_frame, bg=self.palette["panel"])
+            row.pack(anchor="w", pady=2, fill="x")
+            badge = tk.Canvas(row, width=10, height=10, bg=self.palette["panel"], highlightthickness=0)
+            badge.create_oval(1, 1, 9, 9, fill=self.palette["accent"], outline=self.palette["accent"])
+            badge.pack(side="left", padx=(0, 8))
+            tk.Label(row, text=name, font=self.fonts["body"], fg=self.palette["text"], bg=self.palette["panel"]).pack(side="left")
+
+        tk.Label(
+            card,
+            text="Objetivo: dominar algoritmos de algebra lineal mientras se comparte una herramienta accesible y vistosa para resolverlos rapido.",
+            font=self.fonts["body"],
+            fg=self.palette["muted"],
+            bg=self.palette["panel"],
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 18))
+
+        ttk.Button(card, text="Entrar a CalcuGebra", style='Dark.TButton', command=self._show_main_app).pack(anchor="w", pady=(6, 0))
+
+    def _paint_start_hero(self, width, height):
+        """Dibuja hero con plano cartesiano y parabola."""
+        canvas = self.hero_canvas
+        canvas.delete("all")
+        stripes = ["#132035", "#0f172a", "#0b1220"]
+        stripe_h = max(1, height // len(stripes))
+        for i, color in enumerate(stripes):
+            canvas.create_rectangle(0, i * stripe_h, width, (i + 1) * stripe_h, fill=color, outline="")
+
+        canvas.create_oval(width * 0.05, height * 0.25, width * 0.55, height * 1.05, fill=self.palette["card_alt"], outline=self.palette["card_alt"])
+        canvas.create_polygon(
+            width * 0.12, height * 0.7,
+            width * 0.55, height * 0.32,
+            width * 0.96, height * 0.9,
+            width * 0.14, height * 0.98,
+            fill=self.palette["card"],
+            outline="",
+            smooth=True,
+        )
+
+        plane_x = width * 0.62
+        plane_y = height * 0.2
+        plane_w = width * 0.3
+        plane_h = height * 0.55
+        grid_color = self.palette["accent_soft"]
+        canvas.create_rectangle(plane_x, plane_y, plane_x + plane_w, plane_y + plane_h, outline=self.palette["outline"], width=2, fill=self.palette["panel"])
+        for i in range(1, 5):
+            gx = plane_x + (plane_w / 5) * i
+            canvas.create_line(gx, plane_y, gx, plane_y + plane_h, fill=grid_color, dash=(2, 4))
+        for i in range(1, 5):
+            gy = plane_y + (plane_h / 5) * i
+            canvas.create_line(plane_x, gy, plane_x + plane_w, gy, fill=grid_color, dash=(2, 4))
+        canvas.create_line(plane_x, plane_y + plane_h / 2, plane_x + plane_w, plane_y + plane_h / 2, fill=self.palette["accent"], width=2)
+        canvas.create_line(plane_x + plane_w / 2, plane_y, plane_x + plane_w / 2, plane_y + plane_h, fill=self.palette["accent"], width=2)
+        points = []
+        for t in range(-40, 41, 3):
+            nx = t / 40
+            px = plane_x + (nx + 1) * (plane_w / 2)
+            py = plane_y + plane_h - ((nx ** 2) * plane_h * 0.7 + plane_h * 0.08)
+            points.append(px)
+            points.append(py)
+        canvas.create_line(points, fill=self.palette["accent_soft"], width=3, smooth=True)
+
+        spark_color = self.palette["accent_soft"]
+        for dx, dy, r in [(0.74, 0.16, 8), (0.68, 0.34, 6), (0.84, 0.46, 7), (0.9, 0.26, 5)]:
+            cx = width * dx
+            cy = height * dy
+            canvas.create_oval(cx - r, cy - r, cx + r, cy + r, fill=spark_color, outline=spark_color)
+            canvas.create_line(cx - r * 1.4, cy, cx + r * 1.4, cy, fill=spark_color, width=2)
+            canvas.create_line(cx, cy - r * 1.4, cx, cy + r * 1.4, fill=spark_color, width=2)
+
+        canvas.create_text(width * 0.08, height * 0.25, text="CalcuGebra", anchor="w", font=self.fonts["hero"], fill=self.palette["text"])
+        canvas.create_text(
+            width * 0.08,
+            height * 0.42,
+            text="Algebra lineal con actitud: matrices, resolucion de sistemas lineales y metodos numericos listos para explorar.",
+            anchor="w",
+            font=self.fonts["label"],
+            fill=self.palette["accent"],
+            width=width * 0.6,
+        )
+        canvas.create_text(
+            width * 0.08,
+            height * 0.58,
+            text="Hecho en clase como proyecto vivo para aprender haciendo y compartirlo con mas personas.",
+            anchor="w",
+            font=self.fonts["body"],
+            fill=self.palette["text"],
+            width=width * 0.55,
+        )
+
+    def _show_main_app(self):
+        """Cerrar portada y mostrar tabs."""
+        try:
+            if hasattr(self, 'start_frame') and self.start_frame.winfo_exists():
+                self.start_frame.destroy()
+        except Exception:
+            pass
+        try:
+            self.root.unbind_all("<MouseWheel>")
+            self.root.unbind_all("<Button-4>")
+            self.root.unbind_all("<Button-5>")
+        except Exception:
+            pass
+        if not self.notebook.winfo_ismapped():
+            self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
 
     def create_calculator_widgets(self, parent_frame):
-        """Crea todos los widgets para la pestaña de la calculadora de matrices."""
+        """Crea todos los widgets para la pestaña del solucionador de sistemas."""
         # Frame principal con scroll + panel de Procedimiento a la derecha
         main_frame = ttk.Frame(parent_frame, style='Surface.TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
@@ -344,6 +551,15 @@ class MatrixCRUDApp:
         self.root.after(200, apply_once)
 
 
+    def _add_tab_header(self, container, title, subtitle, columns):
+        """Cabecera reutilizable para las pestañas con título y descripción corta."""
+        header_card = ttk.Frame(container, style='Card.TFrame', padding=(18, 16))
+        header_card.grid(row=0, column=0, columnspan=columns, sticky="ew", pady=(0, 12))
+        header_card.grid_columnconfigure(0, weight=1)
+        ttk.Label(header_card, text=title, style='CardHero.TLabel').grid(row=0, column=0, sticky="w")
+        ttk.Label(header_card, text=subtitle, style='CardMuted.TLabel').grid(row=1, column=0, sticky="w", pady=(6, 0))
+        return header_card
+
     def create_widgets(self):
         # El contenido de este metodo ahora se dibuja dentro de self.content_container
         main_frame = self.content_container
@@ -351,10 +567,12 @@ class MatrixCRUDApp:
 
         text_color = self.palette["text"]
 
-        header_card = ttk.Frame(main_frame, style='Card.TFrame', padding=(18, 16))
-        header_card.grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, 12))
-        ttk.Label(header_card, text="Calculadora de Matrices", style='CardHero.TLabel').grid(row=0, column=0, sticky="w")
-        ttk.Label(header_card, text="Gestiona, resuelve y guarda matrices con pasos claros y una lectura elegante.", style='CardMuted.TLabel').grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self._add_tab_header(
+            main_frame,
+            "Solucionador Sistema de ecuaciones",
+            "Gestiona, resuelve y guarda sistemas con panel lateral de procedimiento y lectura cómoda.",
+            columns=4,
+        )
 
         form_card = ttk.Frame(main_frame, style='Card.TFrame', padding=(16, 14))
         form_card.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(0, 12))
@@ -374,10 +592,6 @@ class MatrixCRUDApp:
                 "Gauss-Jordan",
                 "Gauss",
                 "Cramer",
-                "Transponer",
-                "Inversa",
-                "Determinante",
-                "Independencia",
             ],
             state="readonly",
             width=16,
@@ -403,7 +617,7 @@ class MatrixCRUDApp:
         ttk.Button(action_buttons, text="Ver", command=self.view_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Modificar", command=self.modify_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Eliminar", command=self.delete_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(action_buttons, text="Resolver", command=self.solve_matrix, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_buttons, text="Resolver", command=lambda: self.solve_matrix(), style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(action_buttons, text="Limpiar", command=self.clear_calculator_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         ttk.Label(self.calc_left_panel, text="Matrices almacenadas:", style='Dark.TLabel').grid(row=0, column=0, sticky="nw", pady=(12, 5), padx=(20, 0))
@@ -449,6 +663,15 @@ class MatrixCRUDApp:
         ttk.Label(equations_card, text="Escribe ecuaciones con '=' y separa con nueva l?nea o \\ en LaTeX.", style='CardMuted.TLabel').grid(row=1, column=1, sticky='nw', pady=(0,4))
         ttk.Label(equations_card, text="Ejemplo LaTeX: 2x + 3y &= 5 \\ x - y &= 1", style='CardMuted.TLabel').grid(row=2, column=1, sticky='nw')
         ttk.Button(equations_card, text="Generar matriz y resolver", style='Dark.TButton', command=self.solve_equations_from_calculator).grid(row=3, column=1, sticky='nw', pady=(6,0))
+        # Botonera específica para resolver directamente con Gauss-Jordan, Gauss o Cramer desde ecuaciones
+        eq_methods_frame = ttk.Frame(equations_card, style='Card.TFrame')
+        eq_methods_frame.grid(row=4, column=0, columnspan=2, sticky='w', pady=(8, 0))
+        ttk.Label(eq_methods_frame, text="Resolver con:", style='Dark.TLabel').pack(anchor='w', pady=(0,4))
+        eq_btns = ttk.Frame(eq_methods_frame, style='Card.TFrame')
+        eq_btns.pack(anchor='w')
+        ttk.Button(eq_btns, text="Gauss-Jordan", style='Dark.TButton', command=lambda: self.solve_equations_from_calculator("Gauss-Jordan")).pack(side=tk.LEFT, padx=4)
+        ttk.Button(eq_btns, text="Gauss", style='Dark.TButton', command=lambda: self.solve_equations_from_calculator("Gauss")).pack(side=tk.LEFT, padx=4)
+        ttk.Button(eq_btns, text="Cramer", style='Dark.TButton', command=lambda: self.solve_equations_from_calculator("Cramer")).pack(side=tk.LEFT, padx=4)
 
         result_container = ttk.Frame(main_frame, style='Card.TFrame', padding=(14, 12))
         result_container.grid(row=4, column=0, columnspan=4, sticky="nsew", pady=(0, 6))
@@ -558,25 +781,35 @@ class MatrixCRUDApp:
         for c in range(4):
             container.grid_columnconfigure(c, weight=1)
 
-        # Título
-        ttk.Label(container, text="Independencia de Vectores", style='CardTitle.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 20))
+        # Cabecera destacada
+        self._add_tab_header(
+            container,
+            "Independencia de Vectores",
+            "Construye conjuntos, verifica independencia y revisa pasos en paralelo.",
+            columns=4,
+        )
+
+        vec_form_card = ttk.Frame(container, style='Card.TFrame', padding=(16, 14))
+        vec_form_card.grid(row=1, column=0, columnspan=4, sticky='ew', pady=(0, 12))
+        for c in range(4):
+            vec_form_card.grid_columnconfigure(c, weight=1)
 
         # --- Controles superiores ---
-        ttk.Label(container, text="Nombre:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
-        self.vector_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
-        self.vector_name_entry.grid(row=1, column=1, sticky='w', padx=(0, 20))
+        ttk.Label(vec_form_card, text="Nombre:", style='Dark.TLabel').grid(row=0, column=0, sticky='w')
+        self.vector_name_entry = ttk.Entry(vec_form_card, width=18, style='Entry.TEntry')
+        self.vector_name_entry.grid(row=0, column=1, sticky='w', padx=(0, 20))
 
-        ttk.Label(container, text="Nº Vectores:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=5)
+        ttk.Label(vec_form_card, text="Nº Vectores:", style='Dark.TLabel').grid(row=1, column=0, sticky='w', pady=5)
         self.num_vectors_var = tk.StringVar(value="0")
-        num_vectors_spinbox = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.num_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
-        num_vectors_spinbox.grid(row=2, column=1, sticky='w', padx=(0,20))
+        num_vectors_spinbox = tk.Spinbox(vec_form_card, from_=1, to=20, width=6, textvariable=self.num_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
+        num_vectors_spinbox.grid(row=1, column=1, sticky='w', padx=(0,20))
 
-        ttk.Label(container, text="Dimensión:", style='Dark.TLabel').grid(row=2, column=2, sticky='e', padx=(0,5))
+        ttk.Label(vec_form_card, text="Dimensión:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
         self.dim_vectors_var = tk.StringVar(value="0")
-        dim_vectors_spinbox = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.dim_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
-        dim_vectors_spinbox.grid(row=2, column=3, sticky='w')
+        dim_vectors_spinbox = tk.Spinbox(vec_form_card, from_=1, to=20, width=6, textvariable=self.dim_vectors_var, bg=self.palette["input"], fg=self.palette["text"])
+        dim_vectors_spinbox.grid(row=1, column=3, sticky='w')
 
-        ttk.Button(container, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky='ew')
+        ttk.Button(vec_form_card, text="Crear Conjunto de Vectores", style='Dark.TButton', command=self.create_vector_set_ui).grid(row=2, column=0, columnspan=4, pady=(10, 20), sticky='ew')
 
         # --- Lista de Conjuntos y Acciones (distribución similar a matrices) ---
         # --- Lista de Conjuntos de Vectores en panel lateral izquierdo (Vectores) ---
@@ -604,9 +837,9 @@ class MatrixCRUDApp:
         self.vector_set_listbox.bind('<<ListboxSelect>>', self._on_vector_set_select)
 
         # Botonera centrada (alinea con "Crear Conjunto de Vectores")
-        vector_action_frame = ttk.Frame(container, style='Surface.TFrame')
-        vector_action_frame.grid(row=5, column=0, columnspan=4)
-        vector_action_buttons = ttk.Frame(vector_action_frame, style='Card.TFrame')
+        vector_action_frame = ttk.Frame(vec_form_card, style='Card.TFrame')
+        vector_action_frame.grid(row=3, column=0, columnspan=4, pady=(0, 4))
+        vector_action_buttons = ttk.Frame(vector_action_frame, style='Surface.TFrame')
         vector_action_buttons.pack(anchor='center')
         ttk.Button(vector_action_buttons, text="Ver", command=self.view_vector_set, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(vector_action_buttons, text="Modificar", command=self.modify_vector_set_ui, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
@@ -616,13 +849,13 @@ class MatrixCRUDApp:
         ttk.Button(vector_action_buttons, text="Limpiar", command=self.clear_independence_tab, style='Dark.TButton').pack(side=tk.LEFT, padx=5)
 
         # --- Área de datos de vectores ---
-        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=6, column=0, columnspan=4, sticky='w', pady=(10,5))
+        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=2, column=0, columnspan=4, sticky='w', pady=(10,5))
         self.vector_entries_frame = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
-        self.vector_entries_frame.grid(row=7, column=0, columnspan=4, sticky='ew', pady=(0,10))
+        self.vector_entries_frame.grid(row=3, column=0, columnspan=4, sticky='ew', pady=(0,10))
 
         # --- Área de resultados con scroll (igual estilo que matrices) ---
         results_container = ttk.Frame(container, style='Card.TFrame', padding=(14, 12))
-        results_container.grid(row=8, column=0, columnspan=4, sticky='nsew', pady=(10,0))
+        results_container.grid(row=4, column=0, columnspan=4, sticky='nsew', pady=(10,0))
         results_container.grid_rowconfigure(1, weight=1)
         results_container.grid_rowconfigure(3, weight=1)
         results_container.grid_columnconfigure(0, weight=1)
@@ -644,6 +877,24 @@ class MatrixCRUDApp:
         self.independence_result_text.configure(yscrollcommand=result_scrollbar_vec.set)
 
     # (Procedimiento movido al panel derecho)
+
+    def create_fresh_operator_widgets(self, parent_frame):
+        """Embebe el operador dual en una pestaña dedicada con el estilo de la app."""
+        container = ttk.Frame(parent_frame, style='Surface.TFrame')
+        container.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        try:
+            import operators_fresh
+
+            self.embedded_operator = operators_fresh.create_embedded_operator(
+                container, palette=self.palette, fonts=self.fonts
+            )
+            if hasattr(self.embedded_operator, "container"):
+                self.embedded_operator.container.pack(fill=tk.BOTH, expand=True)
+        except Exception as exc:
+            fallback = ttk.Frame(container, style='Card.TFrame', padding=14)
+            fallback.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+            ttk.Label(fallback, text="No se pudo cargar el operador de matrices.", style='CardTitle.TLabel').pack(anchor="w")
+            ttk.Label(fallback, text=str(exc), style='CardMuted.TLabel', wraplength=800, justify='left').pack(anchor="w", pady=(8, 0))
 
     def create_numeric_widgets(self, parent_frame):
         """Crea la pestaña 'Métodos numéricos' con el mismo layout base."""
@@ -760,23 +1011,33 @@ class MatrixCRUDApp:
         for c in range(4):
             container.grid_columnconfigure(c, weight=1)
 
-        # Título
-        ttk.Label(container, text="Métodos numéricos", style='Title.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0,20))
+        # Cabecera destacada
+        self._add_tab_header(
+            container,
+            "Métodos numéricos",
+            "Ejecuta Bisección, Falsa Posición, Newton y Secante con panel de pasos y vista previa LaTeX.",
+            columns=4,
+        )
+
+        num_form_card = ttk.Frame(container, style='Card.TFrame', padding=(16, 14))
+        num_form_card.grid(row=1, column=0, columnspan=4, sticky='ew', pady=(0, 12))
+        for c in range(4):
+            num_form_card.grid_columnconfigure(c, weight=1)
 
     # Fila 1: Nombre + Método (alineado como en otras pestañas)
-        ttk.Label(container, text="Nombre de la ecuación:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
-        self.num_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
-        self.num_name_entry.grid(row=1, column=1, sticky='w', padx=(0,20))
-        ttk.Label(container, text="Método:", style='Dark.TLabel').grid(row=1, column=2, sticky='e', padx=(0,5))
+        ttk.Label(num_form_card, text="Nombre de la ecuación:", style='Dark.TLabel').grid(row=0, column=0, sticky='w')
+        self.num_name_entry = ttk.Entry(num_form_card, width=18, style='Entry.TEntry')
+        self.num_name_entry.grid(row=0, column=1, sticky='w', padx=(0,20))
+        ttk.Label(num_form_card, text="Método:", style='Dark.TLabel').grid(row=0, column=2, sticky='e', padx=(0,5))
         self.num_method_var = tk.StringVar(value="Bisección")
         self.num_method_combobox = ttk.Combobox(
-            container,
+            num_form_card,
             textvariable=self.num_method_var,
             values=["Bisección", "Falsa Posición", "Newton-Raphson", "Secante"],
             state="readonly",
             width=16,
         )
-        self.num_method_combobox.grid(row=1, column=3, sticky='w')
+        self.num_method_combobox.grid(row=0, column=3, sticky='w')
 
     # Fila 2: Expresión
         expr_card = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
@@ -786,18 +1047,27 @@ class MatrixCRUDApp:
 
         ttk.Label(expr_card, text="Expresión f(x):", style='Title.TLabel').grid(row=0, column=0, sticky='w', pady=(0,4))
         self.num_expr_entry = ttk.Entry(expr_card, width=52, style='MathEntry.TEntry')
+        # Destacar el cursor de inserción para saber dónde se escribe
+        try:
+            self.num_expr_entry.configure(
+                insertbackground=self.palette["accent"],
+                insertwidth=2,
+            )
+        except Exception:
+            pass
         self.num_expr_entry.grid(row=1, column=0, sticky='we', padx=(0,12), pady=(0,4))
         self.num_expr_entry.bind("<KeyRelease>", lambda e: self._update_latex_preview())
 
         # Vista previa grande renderizada (LaTeX) en un cuadro dedicado y claro
         preview_box = tk.Frame(expr_card, bg="#ffffff", highlightbackground=self.palette['outline'], highlightthickness=1, bd=0)
-        preview_box.configure(height=88)
+        preview_box.configure(height=110)
         try:
             preview_box.grid_propagate(False)
         except Exception:
             pass
         preview_box.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(6,0))
         preview_box.grid_columnconfigure(0, weight=1)
+        preview_box.grid_rowconfigure(0, weight=1)
         self.num_expr_preview = tk.Label(
             preview_box,
             text="Vista previa LaTeX",
@@ -805,38 +1075,38 @@ class MatrixCRUDApp:
             justify='left',
             bg="#ffffff",
             fg="#0b0b0b",
-            font=('Segoe UI', 18),
-            padx=10,
-            pady=8,
+            font=('Segoe UI', 16),
+            padx=6,
+            pady=4,
         )
-        self.num_expr_preview.grid(row=0, column=0, sticky='w')
+        self.num_expr_preview.grid(row=0, column=0, sticky='nsew')
         self._latex_preview_image = None
 
     # Fila 3: Teclado matem?tico/LaTeX con pesta?as
         math_tabs = [
             ("123", [
-                [("x","x",None), ("y","y",None), ("?","\\pi",None), ("e","e",None), ("7","7",None), ("8","8",None), ("9","9",None), ("?","\\cdot",None), ("?","/ ",None)],
-                [("x?","x^2",None), ("y?","y^2",None), ("?","\\sqrt{ }",6), ("|x|","\\left|  \\right|",8), ("4","4",None), ("5","5",None), ("6","6",None), ("+","+",None), ("?","-",None)],
-                [("<","<",None), (">",">",None), ("?x?","\\lfloor  \\rfloor",9), ("?x?","\\lceil  \\rceil",9), ("1","1",None), ("2","2",None), ("3","3",None), ("=","=",None), (",",", ",None)],
-                [("ans","ans",None), ("(", "(", None), (")", ")", None), ("[", "[", None), ("]", "]", None), ("0","0",None), (".",".",None), ("?","<",None), ("?",">",None)],
+                [("x","x",None), ("y","y",None), ("π","\\pi",None), ("e","e",None), ("7","7",None), ("8","8",None), ("9","9",None), ("·","\\cdot",None), ("÷","/ ",None)],
+                [("x²","x^2",None), ("y²","y^2",None), ("√","\\sqrt{ }",6), ("|x|","\\left|  \\right|",8), ("4","4",None), ("5","5",None), ("6","6",None), ("+","+",None), ("-","-",None)],
+                [("<","<",None), (">",">",None), ("⌊x⌋","\\lfloor  \\rfloor",9), ("⌈x⌉","\\lceil  \\rceil",9), ("1","1",None), ("2","2",None), ("3","3",None), ("=","=",None), (",",", ",None)],
+                [("ans","ans",None), ("(", "(", None), (")", ")", None), ("[", "[", None), ("]", "]", None), ("0","0",None), (".",".",None), ("<","<",None), (">",">",None)],
             ]),
             ("f(x)", [
-                [("sen","\\sin()",5), ("cos","\\cos()",5), ("tg","\\tan()",5), ("sen??","\\sin^{-1}()",9), ("cos??","\\cos^{-1}()",9), ("tg??","\\tan^{-1}()",9), ("ln","\\ln()",4), ("log??","\\log_{10}()",10), ("log","\\log()",5)],
-                [("e?","e^{ }",3), ("10?","10^{ }",4), ("?x","\\sqrt{ }",6), ("?x","\\sqrt[3]{ }",10), ("x?","^{}",2), ("x?","_{ }",3), ("d/dx","\\frac{d}{dx}",10), ("?","\\partial",None), ("?","\\int ",None)],
-                [("?","\\sum",None), ("?","\\prod",None), ("lim","\\lim_{x\\to }",12), ("?","\\to",None), ("?","\\infty",None), ("?","\\approx",None), ("?","\\neq",None), ("?","\\le",None), ("?","\\ge",None)],
+                [("sen","\\sin()",5), ("cos","\\cos()",5), ("tg","\\tan()",5), ("sen^-1","\\sin^{-1}()",9), ("cos^-1","\\cos^{-1}()",9), ("tg^-1","\\tan^{-1}()",9), ("ln","\\ln()",4), ("log10","\\log_{10}()",10), ("log","\\log()",5)],
+                [("e^","e^{ }",3), ("10^","10^{ }",4), ("√x","\\sqrt{ }",6), ("∛x","\\sqrt[3]{ }",10), ("^","^{}",2), ("_","_{ }",3), ("d/dx","\\frac{d}{dx}",10), ("∂","\\partial",None), ("∫","\\int ",None)],
+                [("∑","\\sum",None), ("∏","\\prod",None), ("lim","\\lim_{x\\to }",12), ("→","\\to",None), ("∞","\\infty",None), ("≈","\\approx",None), ("≠","\\neq",None), ("≤","\\le",None), ("≥","\\ge",None)],
                 [("{","{",None), ("}","}",None), ("<", "<", None), (">", ">", None), ("(","(",None), (")",")",None), ("[","[",None), ("]","]",None), ("\\","\\\\ ",None)],
             ]),
             ("ABC", [
                 [("a","a",None), ("b","b",None), ("c","c",None), ("A","A",None), ("B","B",None), ("C","C",None), ("x","x",None), ("y","y",None), ("z","z",None)],
-                [("?","\\alpha",None), ("?","\\beta",None), ("?","\\gamma",None), ("?","\\theta",None), ("?","\\lambda",None), ("?","\\mu",None), ("?","\\pi",None), ("?","\\phi",None), ("?","\\omega",None)],
-                [("vec","\\vec{}",5), ("T","^{T}",2), ("det","\\det()",6), ("?","\\top",None), ("?","\\perp",None), ("?","\\in",None), ("?","\\notin",None), ("?","\\cup",None), ("?","\\cap",None)],
-                [("?","\\forall",None), ("?","\\exists",None), ("?","\\neg",None), ("?","\\Rightarrow",None), ("?","\\Leftrightarrow",None), ("?","\\therefore",None), ("?","\\because",None), ("?","\\subset",None), ("?","\\subseteq",None)],
+                [("α","\\alpha",None), ("β","\\beta",None), ("γ","\\gamma",None), ("θ","\\theta",None), ("λ","\\lambda",None), ("μ","\\mu",None), ("π","\\pi",None), ("φ","\\phi",None), ("ω","\\omega",None)],
+                [("vec","\\vec{}",5), ("T","^{T}",2), ("det","\\det()",6), ("⊤","\\top",None), ("⊥","\\perp",None), ("∈","\\in",None), ("∉","\\notin",None), ("∪","\\cup",None), ("∩","\\cap",None)],
+                [("∀","\\forall",None), ("∃","\\exists",None), ("¬","\\neg",None), ("⇒","\\Rightarrow",None), ("⇔","\\Leftrightarrow",None), ("∴","\\therefore",None), ("∵","\\because",None), ("⊂","\\subset",None), ("⊆","\\subseteq",None)],
             ]),
             ("#&?", [
-                [("%","%",None), ("!","!",None), ("$","$",None), ("?","^{\\circ}",3), ("|","|",None), (";",";",None), (":",":",None), ("^","^",None), ("_","_",None)],
-                [("<=","\\le",None), (">=","\\ge",None), ("?","\\neq",None), ("?","\\pm",None), ("?","\\cdot",None), ("?","\\mp",None), ("?","\\int ",None), ("?","\\oint",None), ("?","\\sum",None)],
-                [("?","\\to",None), ("?","\\mapsto",None), ("?","\\Uparrow",None), ("?","\\Downarrow",None), ("?","\\Leftrightarrow",None), ("?","\\nabla",None), ("?","\\otimes",None), ("?","\\oplus",None), ("?","\\partial",None)],
-                [("?","\\sqrt{ }",6), ("frac","\\frac{ }{ }",6), ("|x|","\\left|  \\right|",8), ("? ?","\\lfloor  \\rfloor",9), ("? ?","\\lceil  \\rceil",9), ("{ }","\\{\\}",2), ("[ ]","[]",1), ("( )","()",1), ("\\n","\\\\ ",None)],
+                [("%","%",None), ("!","!",None), ("$","$",None), ("°","^{\\circ}",3), ("|","|",None), (";",";",None), (":",":",None), ("^","^",None), ("_","_",None)],
+                [("<=","\\le",None), (">=","\\ge",None), ("≠","\\neq",None), ("±","\\pm",None), ("·","\\cdot",None), ("∓","\\mp",None), ("∫","\\int ",None), ("∮","\\oint",None), ("∑","\\sum",None)],
+                [("→","\\to",None), ("↦","\\mapsto",None), ("⇑","\\Uparrow",None), ("⇓","\\Downarrow",None), ("⇔","\\Leftrightarrow",None), ("∇","\\nabla",None), ("⊗","\\otimes",None), ("⊕","\\oplus",None), ("∂","\\partial",None)],
+                [("√","\\sqrt{ }",6), ("frac","\\frac{ }{ }",6), ("|x|","\\left|  \\right|",8), ("⌊⌋","\\lfloor  \\rfloor",9), ("⌈⌉","\\lceil  \\rceil",9), ("{ }","\\{\\}",2), ("[ ]","[]",1), ("( )","()",1), ("\\n","\\\\ ",None)],
             ])
         ]
         kb_frame = ttk.Frame(container, style='Card.TFrame', padding=(8,6))
@@ -877,6 +1147,9 @@ class MatrixCRUDApp:
         ttk.Label(container, text="tolerancia:", style='Dark.TLabel').grid(row=6, column=0, sticky='w')
         self.num_tol_entry = ttk.Entry(container, width=10, style='Entry.TEntry')
         self.num_tol_entry.grid(row=6, column=1, sticky='w')
+        # Botón dedicado para detectar intervalos automáticamente
+        self.num_detect_interval_btn = ttk.Button(container, text="Detectar intervalos", command=self._num_auto_interval, style='Dark.TButton')
+        self.num_detect_interval_btn.grid(row=6, column=2, columnspan=2, sticky='ew', padx=(6,0))
 
         # Botonera de acciones CRUD centrada (incluye Auto-intervalo) justo debajo de la expresion
         eq_action_frame = ttk.Frame(container, style='Surface.TFrame')
@@ -1339,7 +1612,9 @@ class MatrixCRUDApp:
             allowed = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
             allowed.update({'pi': math.pi, 'e': math.e})
             def fnum(x):
-                return eval(expr.replace('^','**'), {'__builtins__': {}}, {**allowed, 'x': x})
+                safe_expr = expr.replace('^','**')
+                safe_expr = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', safe_expr)
+                return eval(safe_expr, {'__builtins__': {}}, {**allowed, 'x': x})
 
         # Intervalo: usar [a,b] si válido; si no, intentar detectar uno; si falla, usar [-10,10]
         if a is None or b is None:
@@ -1736,7 +2011,139 @@ class MatrixCRUDApp:
                 entry.icursor(pos + cursor_offset)
             except Exception:
                 pass
+        try:
+            entry.focus_set()
+        except Exception:
+            pass
         self._update_latex_preview()
+
+    def _format_expr_fractions(self, expr: str) -> str:
+        """Convierte divisiones simples en \\frac{num}{den} para que se vean como fraccion en LaTeX."""
+        def _read_token_forward(s, start):
+            if start >= len(s):
+                return None, start
+            ch = s[start]
+            if ch in '([':
+                open_ch = ch
+                close_ch = ')' if ch == '(' else ']'
+                depth = 1
+                j = start + 1
+                while j < len(s) and depth > 0:
+                    if s[j] == open_ch:
+                        depth += 1
+                    elif s[j] == close_ch:
+                        depth -= 1
+                    j += 1
+                return s[start:j], j - 1
+            j = start
+            while j < len(s) and (s[j].isalnum() or s[j] in '._'):
+                j += 1
+            if j == start:
+                return None, start
+            return s[start:j], j - 1
+
+        def _read_token_backward(s, start):
+            if start < 0:
+                return None, start
+            ch = s[start]
+            if ch in ')]':
+                close_ch = ch
+                open_ch = '(' if ch == ')' else '['
+                depth = 1
+                j = start - 1
+                while j >= 0 and depth > 0:
+                    if s[j] == close_ch:
+                        depth += 1
+                    elif s[j] == open_ch:
+                        depth -= 1
+                    j -= 1
+                return s[j + 1:start + 1], j + 1
+            j = start
+            while j >= 0 and (s[j].isalnum() or s[j] in '._'):
+                j -= 1
+            if j >= 0 and s[j] == '-':
+                j -= 1
+            if j == start:
+                return None, start
+            return s[j + 1:start + 1], j + 1
+
+        res = []
+        cursor = 0
+        i = 0
+        while i < len(expr):
+            if expr[i] != '/':
+                i += 1
+                continue
+            num_token, num_start = _read_token_backward(expr, i - 1)
+            den_token, den_end = _read_token_forward(expr, i + 1)
+            if num_token and den_token:
+                # Agregar texto pendiente antes del numerador y la fraccion formateada
+                res.append(expr[cursor:num_start])
+                res.append(f"\\frac{{{num_token}}}{{{den_token}}}")
+                cursor = den_end + 1
+                i = den_end + 1
+            else:
+                i += 1
+        res.append(expr[cursor:])
+        return ''.join(res)
+
+    def _format_expr_exponents(self, expr: str) -> str:
+        """Agrupa exponentes para que matplotlib los muestre completos (p.ej. x^-1 -> x^{-1})."""
+        res = []
+        i = 0
+        while i < len(expr):
+            ch = expr[i]
+            if ch != '^':
+                res.append(ch)
+                i += 1
+                continue
+
+            # Procesar exponente
+            res.append('^')
+            i += 1
+            if i >= len(expr):
+                break
+            nxt = expr[i]
+
+            # Si ya viene en llaves, dejarlo tal cual
+            if nxt == '{':
+                res.append('{')
+                i += 1
+                continue
+
+            # Agrupar paréntesis o corchetes completos
+            if nxt in '([':
+                open_ch = nxt
+                close_ch = ')' if nxt == '(' else ']'
+                depth = 1
+                j = i + 1
+                while j < len(expr) and depth > 0:
+                    if expr[j] == open_ch:
+                        depth += 1
+                    elif expr[j] == close_ch:
+                        depth -= 1
+                    j += 1
+                res.append('{')
+                res.append(expr[i:j])
+                res.append('}')
+                i = j
+                continue
+
+            # Capturar tokens simples (numeros, variables, signos)
+            start = i
+            if nxt == '-':
+                i += 1
+            while i < len(expr) and (expr[i].isalnum() or expr[i] in '._'):
+                i += 1
+            segment = expr[start:i]
+            if segment:
+                res.append('{')
+                res.append(segment)
+                res.append('}')
+            else:
+                res.append(nxt)
+                i += 1
+        return ''.join(res)
 
     def _update_latex_preview(self):
         """Renderiza la vista previa en LaTeX usando matplotlib (sin escribir archivos)."""
@@ -1746,19 +2153,25 @@ class MatrixCRUDApp:
         except Exception:
             return
         if not expr:
-            self.num_expr_preview.config(text="Vista previa LaTeX", image=None, bg="#ffffff", fg="#0b0b0b")
+            self.num_expr_preview.config(text="Vista previa LaTeX", image=None, bg="#ffffff", fg="#0b0b0b", anchor='w', justify='left')
             self._latex_preview_image = None
             return
+        # Ajustar fracciones y exponentes para que se muestren completos en LaTeX
+        expr_latex = self._format_expr_exponents(self._format_expr_fractions(expr))
         try:
             from matplotlib.figure import Figure
             from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-            fig = Figure(figsize=(5.6, 1.4), dpi=170)
+            expr_len = len(expr)
+            base_fs = 26
+            fs = base_fs if expr_len <= 20 else max(14, base_fs - (expr_len - 20) * 0.5)
+
+            fig = Figure(figsize=(6.4, 1.2), dpi=150)
             fig.patch.set_facecolor("#ffffff")
             ax = fig.add_axes([0, 0, 1, 1])
             ax.set_facecolor("#ffffff")
             ax.axis('off')
-            ax.text(0.02, 0.5, f"${expr}$", fontsize=26, va='center', ha='left', color="#0b0b0b")
+            ax.text(0.02, 0.55, f"${expr_latex}$", fontsize=fs, va='center', ha='left', color="#0b0b0b")
 
             buf = io.BytesIO()
             canvas = FigureCanvasAgg(fig)
@@ -1769,6 +2182,13 @@ class MatrixCRUDApp:
             # tkinter PhotoImage acepta PNG base64
             self._latex_preview_image = tk.PhotoImage(data=b64)
             self.num_expr_preview.config(image=self._latex_preview_image, text="", bg="#ffffff")
+            # Si por alguna razón el render no produjo imagen, mostrar texto plano
+            try:
+                if not self._latex_preview_image or self._latex_preview_image.width() == 0:
+                    raise ValueError("Imagen LaTeX vacía")
+            except Exception:
+                self.num_expr_preview.config(text=expr, image=None, fg="#0b0b0b", bg="#ffffff")
+                self._latex_preview_image = None
         except Exception:
             # Fallback: mostrar texto plano si falla el render
             self.num_expr_preview.config(text=expr, image=None, fg="#0b0b0b", bg="#ffffff")
@@ -1853,41 +2273,51 @@ class MatrixCRUDApp:
         for c in range(8):
             container.grid_columnconfigure(c, weight=1)
 
-        # Título
-        ttk.Label(container, text="Operadores de Matrices", style='CardTitle.TLabel').grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 20))
+        # Cabecera destacada
+        self._add_tab_header(
+            container,
+            "Operadores de Matrices",
+            "Crea conjuntos, combina matrices y sigue el procedimiento en paralelo.",
+            columns=8,
+        )
 
         # Controles superiores
-        ttk.Label(container, text="Nombre del conjunto:", style='Dark.TLabel').grid(row=1, column=0, sticky='w')
-        self.ops_name_entry = ttk.Entry(container, width=18, style='Entry.TEntry')
-        self.ops_name_entry.grid(row=1, column=1, sticky='w', padx=(0, 20))
+        ops_form_card = ttk.Frame(container, style='Card.TFrame', padding=(16, 14))
+        ops_form_card.grid(row=1, column=0, columnspan=8, sticky='ew', pady=(0, 12))
+        for c in range(8):
+            ops_form_card.grid_columnconfigure(c, weight=1)
 
-        ttk.Label(container, text="Nº Matrices:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=5)
+        ttk.Label(ops_form_card, text="Nombre del conjunto:", style='Dark.TLabel').grid(row=0, column=0, sticky='w', pady=(0,4))
+        self.ops_name_entry = ttk.Entry(ops_form_card, width=18, style='Entry.TEntry')
+        self.ops_name_entry.grid(row=0, column=1, sticky='w', padx=(0, 20))
+
+        ttk.Label(ops_form_card, text="Nº Matrices:", style='Dark.TLabel').grid(row=1, column=0, sticky='w', pady=5)
         self.num_mats_var = tk.StringVar(value="0")
-        num_mats_spin = tk.Spinbox(container, from_=1, to=10, width=6, textvariable=self.num_mats_var, bg=self.palette["input"], fg=self.palette["text"])
-        num_mats_spin.grid(row=2, column=1, sticky='w', padx=(0, 20))
+        num_mats_spin = tk.Spinbox(ops_form_card, from_=1, to=10, width=6, textvariable=self.num_mats_var, bg=self.palette["input"], fg=self.palette["text"])
+        num_mats_spin.grid(row=1, column=1, sticky='w', padx=(0, 20))
 
-        ttk.Label(container, text="Filas:", style='Dark.TLabel').grid(row=2, column=2, sticky='e')
+        ttk.Label(ops_form_card, text="Filas:", style='Dark.TLabel').grid(row=1, column=2, sticky='e')
         self.ops_rows_var = tk.StringVar(value="0")
-        ops_rows_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_rows_var, bg=self.palette["input"], fg=self.palette["text"])
-        ops_rows_spin.grid(row=2, column=3, sticky='w')
+        ops_rows_spin = tk.Spinbox(ops_form_card, from_=1, to=20, width=6, textvariable=self.ops_rows_var, bg=self.palette["input"], fg=self.palette["text"])
+        ops_rows_spin.grid(row=1, column=3, sticky='w')
 
-        ttk.Label(container, text="Columnas:", style='Dark.TLabel').grid(row=2, column=4, sticky='e')
+        ttk.Label(ops_form_card, text="Columnas:", style='Dark.TLabel').grid(row=1, column=4, sticky='e')
         self.ops_cols_var = tk.StringVar(value="0")
-        ops_cols_spin = tk.Spinbox(container, from_=1, to=20, width=6, textvariable=self.ops_cols_var, bg=self.palette["input"], fg=self.palette["text"])
-        ops_cols_spin.grid(row=2, column=5, sticky='w')
+        ops_cols_spin = tk.Spinbox(ops_form_card, from_=1, to=20, width=6, textvariable=self.ops_cols_var, bg=self.palette["input"], fg=self.palette["text"])
+        ops_cols_spin.grid(row=1, column=5, sticky='w')
 
         # Selector de operación al lado derecho de Filas y Columnas
-        ttk.Label(container, text="Operacion:", style='Dark.TLabel').grid(row=2, column=6, sticky='e', padx=(10,5))
+        ttk.Label(ops_form_card, text="Operacion:", style='Dark.TLabel').grid(row=1, column=6, sticky='e', padx=(10,5))
         self.ops_method_var = tk.StringVar(value=" ")
-        self.ops_method_combobox = ttk.Combobox(container, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicacion", "Multiplicacion escalar"], state="readonly", width=18)
-        self.ops_method_combobox.grid(row=2, column=7, sticky='w')
+        self.ops_method_combobox = ttk.Combobox(ops_form_card, textvariable=self.ops_method_var, values=["Suma", "Resta", "Multiplicacion", "Multiplicacion escalar", "Transponer", "Inversa", "Determinante", "Independencia"], state="readonly", width=18)
+        self.ops_method_combobox.grid(row=1, column=7, sticky='w')
 
-        ttk.Label(container, text="Escalar:", style='Dark.TLabel').grid(row=3, column=0, sticky='w', pady=4)
+        ttk.Label(ops_form_card, text="Escalar:", style='Dark.TLabel').grid(row=2, column=0, sticky='w', pady=4)
         self.ops_scalar_var = tk.StringVar(value="1")
-        self.ops_scalar_entry = ttk.Entry(container, textvariable=self.ops_scalar_var, width=12, style='Entry.TEntry')
-        self.ops_scalar_entry.grid(row=3, column=1, sticky='w', padx=(0, 20))
+        self.ops_scalar_entry = ttk.Entry(ops_form_card, textvariable=self.ops_scalar_var, width=12, style='Entry.TEntry')
+        self.ops_scalar_entry.grid(row=2, column=1, sticky='w', padx=(0, 20))
 
-        ttk.Button(container, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=4, column=0, columnspan=8, pady=(10, 20), sticky='ew')
+        ttk.Button(ops_form_card, text="Crear Conjunto de Matrices", style='Dark.TButton', command=self.create_matrix_set_ui).grid(row=3, column=0, columnspan=8, pady=(10, 20), sticky='ew')
 
         # Lista de conjuntos + acciones
         # --- Lista de Conjuntos de Matrices en panel lateral izquierdo (Operadores) ---
@@ -1911,9 +2341,9 @@ class MatrixCRUDApp:
         self.matrix_set_listbox.bind('<<ListboxSelect>>', self._on_matrix_set_select)
 
         # Botonera centrada (alinea con "Crear Conjunto de Matrices")
-        ops_action_frame = ttk.Frame(container, style='Surface.TFrame')
-        ops_action_frame.grid(row=5, column=0, columnspan=8)
-        ops_action_buttons = ttk.Frame(ops_action_frame, style='Card.TFrame')
+        ops_action_frame = ttk.Frame(ops_form_card, style='Card.TFrame')
+        ops_action_frame.grid(row=4, column=0, columnspan=8, pady=(0, 4))
+        ops_action_buttons = ttk.Frame(ops_action_frame, style='Surface.TFrame')
         ops_action_buttons.pack(anchor='center')
         ttk.Button(ops_action_buttons, text="Ver", style='Dark.TButton', command=self.view_matrix_set).pack(side=tk.LEFT, padx=5)
         ttk.Button(ops_action_buttons, text="Modificar", style='Dark.TButton', command=self.modify_matrix_set_ui).pack(side=tk.LEFT, padx=5)
@@ -1923,14 +2353,14 @@ class MatrixCRUDApp:
         ttk.Button(ops_action_buttons, text="Limpiar", style='Dark.TButton', command=self.clear_ops_tab).pack(side=tk.LEFT, padx=5)
 
         # Área de entradas de matrices
-        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=6, column=0, columnspan=8, sticky='w', pady=(10,5))
+        ttk.Label(container, text="Datos del conjunto:", style='CardTitle.TLabel').grid(row=2, column=0, columnspan=8, sticky='w', pady=(10,5))
         self.ops_entries_frame = ttk.Frame(container, style='Card.TFrame', padding=(12, 10))
-        self.ops_entries_frame.grid(row=7, column=0, columnspan=8, sticky='ew', pady=(0,10))
+        self.ops_entries_frame.grid(row=3, column=0, columnspan=8, sticky='ew', pady=(0,10))
 
 
         # Resultados
         results_container = ttk.Frame(container, style='Card.TFrame', padding=(14, 12))
-        results_container.grid(row=8, column=0, columnspan=8, sticky='nsew', pady=(10,0))
+        results_container.grid(row=4, column=0, columnspan=8, sticky='nsew', pady=(10,0))
         results_container.grid_rowconfigure(1, weight=1)
         results_container.grid_columnconfigure(0, weight=1)
         ttk.Label(results_container, text="Resultado", style='CardTitle.TLabel').grid(row=0, column=0, sticky='w', pady=(0,5))
@@ -2155,9 +2585,10 @@ class MatrixCRUDApp:
             def show_matrix_block(title, mat_list):
                 self.ops_steps_text.insert(tk.END, f"{title}\\n")
                 self.ops_steps_text.insert(tk.END, self._format_matrix_for_display(mat_list))
-                self.ops_steps_text.insert(tk.END, "\\n")
+                self.ops_steps_text.insert(tk.END, "\\n\\n")
 
             if op == "Suma":
+                self.ops_steps_text.insert(tk.END, "Suma de matrices\n------------------\n\n")
                 for idx, m in enumerate(mats, start=1):
                     show_matrix_block(f"M{idx}:", m.to_list())
                 res = mats[0]
@@ -2169,13 +2600,14 @@ class MatrixCRUDApp:
                     for i in range(len(A)):
                         for j in range(len(A[0])):
                             self.ops_steps_text.insert(tk.END, f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} + {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\\n")
-                    show_matrix_block("\\nResultado parcial:", R)
+                    show_matrix_block("Resultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
                 self.ops_result_text.insert(tk.END, "Resultado de la suma:\\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
 
             elif op == "Resta":
+                self.ops_steps_text.insert(tk.END, "Resta de matrices\n-----------------\n\n")
                 for idx, m in enumerate(mats, start=1):
                     show_matrix_block(f"M{idx}:", m.to_list())
                 res = mats[0]; paso = 1
@@ -2186,13 +2618,14 @@ class MatrixCRUDApp:
                     for i in range(len(A)):
                         for j in range(len(A[0])):
                             self.ops_steps_text.insert(tk.END, f"  r[{i+1},{j+1}] = {fmt_val(A[i][j])} - {fmt_val(B[i][j])} = {fmt_val(R[i][j])}\\n")
-                    show_matrix_block("\\nResultado parcial:", R)
+                    show_matrix_block("Resultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
                 self.ops_result_text.insert(tk.END, "Resultado de la resta (M1 - M2 - ...):\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
 
             elif op == "Multiplicacion":
+                self.ops_steps_text.insert(tk.END, "Multiplicación de matrices\n-----------------------\n\n")
                 for idx, m in enumerate(mats, start=1):
                     show_matrix_block(f"M{idx}:", m.to_list())
                 res = mats[0]; paso = 1
@@ -2212,13 +2645,14 @@ class MatrixCRUDApp:
                                 s += float(A[i][k]) * float(B[k][j])
                             R[i][j] = s
                             self.ops_steps_text.insert(tk.END, f"  r[{i+1},{j+1}] = " + " + ".join(terms) + f" = {fmt_val(s)}\\n")
-                    show_matrix_block("\\nResultado parcial:", R)
+                    show_matrix_block("Resultado parcial:", R)
                     res = matrices.Matriz(R)
                     paso += 1
                 self.ops_result_text.insert(tk.END, "Resultado de la multiplicacion (M1 @ M2 @ ...):\n")
                 self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
 
             elif op == "Multiplicacion escalar":
+                self.ops_steps_text.insert(tk.END, "Multiplicación escalar\n----------------------\n\n")
                 try:
                     factor = float(self.ops_scalar_var.get())
                 except Exception:
@@ -2236,6 +2670,77 @@ class MatrixCRUDApp:
                 for idx, m in enumerate(mats, start=1):
                     scaled = m.multiplicar(factor).to_list()
                     self.ops_result_text.insert(tk.END, f"M{idx} escalar:\n{self._format_matrix_for_display(scaled)}\n\n")
+
+            elif op == "Transponer":
+                self.ops_steps_text.insert(tk.END, "Transponer matriz\n-----------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para transponer.")
+                    return
+                mat = mats[0]
+                res = mat.trasponer()
+                self.ops_steps_text.insert(tk.END, "Transposición de la matriz:\n\n")
+                self.ops_steps_text.insert(tk.END, self._format_matrix_for_display(mat.to_list()) + "\n\n")
+                self.ops_result_text.insert(tk.END, "Matriz transpuesta:\n")
+                self.ops_result_text.insert(tk.END, self._format_matrix_for_display(res.to_list()))
+
+            elif op == "Inversa":
+                self.ops_steps_text.insert(tk.END, "Inversa de matriz\n-----------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para calcular la inversa.")
+                    return
+                mat = mats[0]
+                try:
+                    inv_res = mat.inversa(mostrar_pasos=True)
+                    self.ops_steps_text.insert(tk.END, "Pasos para la inversa (Gauss-Jordan sobre [A|I]):\n")
+                    for paso in inv_res.get("pasos", []):
+                        self.ops_steps_text.insert(tk.END, str(paso) + "\n")
+                    inv_text = inv_res.get("inversa")
+                    if inv_text is None:
+                        self.ops_result_text.insert(tk.END, inv_res.get("mensaje", "La matriz es singular."))
+                    else:
+                        self.ops_result_text.insert(tk.END, inv_res.get("mensaje", "") + "\n\n")
+                        self.ops_result_text.insert(tk.END, inv_text)
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo calcular la inversa: {e}")
+                    return
+
+            elif op == "Determinante":
+                self.ops_steps_text.insert(tk.END, "Determinante\n-------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para el determinante.")
+                    return
+                mat = mats[0]
+                try:
+                    det_res = matrices.determinante_por_gauss_con_pasos(mat.to_list(), mostrar_pasos=True)
+                    self.ops_steps_text.insert(tk.END, "Pasos para el determinante (Gauss):\n")
+                    for paso in det_res.get("pasos", []):
+                        self.ops_steps_text.insert(tk.END, str(paso) + "\n\n")
+                    det_val = det_res.get("determinante")
+                    self.ops_result_text.insert(tk.END, f"Determinante: {det_val}")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo calcular el determinante: {e}")
+                    return
+
+            elif op == "Independencia":
+                self.ops_steps_text.insert(tk.END, "Independencia de vectores\n--------------------------\n\n")
+                if len(mats) != 1:
+                    messagebox.showwarning("Operación", "Selecciona un conjunto con una sola matriz para verificar independencia.")
+                    return
+                mat = mats[0]
+                try:
+                    res_ind = mat.independencia_vectores(mat.to_list())
+                    self.ops_result_text.insert(tk.END, res_ind.get("mensaje", "") + "\n")
+                    if res_ind.get("pasos"):
+                        self.ops_steps_text.insert(tk.END, "Pasos:\n")
+                        for idx, paso in enumerate(res_ind["pasos"], start=1):
+                            desc = paso.get("descripcion", "")
+                            matriz_txt = paso.get("matriz", "")
+                            self.ops_steps_text.insert(tk.END, f"Paso {idx}: {desc}\n")
+                            if matriz_txt:
+                                self.ops_steps_text.insert(tk.END, f"{matriz_txt}\n\n")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo verificar independencia: {e}")
+                    return
 
             else:
                 messagebox.showerror("Operacion desconocida", op)
@@ -2680,12 +3185,23 @@ class MatrixCRUDApp:
         if selection:
             self.selected_vector_set = self.vector_set_listbox.get(selection[0])
 
-    def _on_method_select(self, event):
-        self.selected_method = self.method_var.get()
+    def _get_method_selection(self):
+        allowed = {"Gauss-Jordan", "Gauss", "Cramer"}
+        val = (self.method_var.get() or "").strip()
+        return val if val in allowed else None
 
-    def solve_matrix(self):
+    def _on_method_select(self, event):
+        val = (self.method_var.get() or "").strip()
+        allowed = {"Gauss-Jordan", "Gauss", "Cramer"}
+        if val in allowed:
+            self.selected_method = val
+        else:
+            self.selected_method = None
+            self.method_var.set("")
+
+    def solve_matrix(self, metodo_override=None):
         matrix_name = getattr(self, 'selected_matrix', None)
-        metodo = getattr(self, 'selected_method', None) # Cambiado para forzar selección
+        metodo = metodo_override or self._get_method_selection()
 
         if not matrix_name:
             selection = self.matrix_listbox.curselection()
@@ -2790,14 +3306,14 @@ class MatrixCRUDApp:
         except Exception as e:
             messagebox.showerror("Error", f"Error durante la resolución de la matriz: {e}")
     
-    def solve_equations_from_calculator(self):
+    def solve_equations_from_calculator(self, metodo_override=None):
         """Convierte ecuaciones (texto o LaTeX) en matriz y resuelve con el metodo seleccionado."""
         raw_text = self.equations_text.get("1.0", tk.END).strip()
         if not raw_text:
             messagebox.showwarning("Datos requeridos", "Ingresa al menos una ecuacion o un bloque LaTeX.")
             return
 
-        metodo = (getattr(self, 'selected_method', None) or self.method_var.get() or "").strip()
+        metodo = metodo_override or self._get_method_selection()
         if not metodo:
             messagebox.showwarning(
                 "Seleccion requerida",
