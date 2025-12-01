@@ -1,6 +1,22 @@
-import tkinter as tk
+﻿import tkinter as tk
 from tkinter import ttk, messagebox
 import matrices
+
+
+def _default_palette():
+    """Paleta por defecto (alineada con la calculadora principal)."""
+    return {
+        "background": "#0b1220",
+        "panel": "#0f172a",
+        "card": "#111d2f",
+        "card_alt": "#0d1626",
+        "accent": "#e9c46a",
+        "accent_soft": "#8bd3dd",
+        "text": "#e5e7eb",
+        "muted": "#94a3b8",
+        "input": "#0d1828",
+        "outline": "#1f2a3c",
+    }
 
 
 def _format_matrix_for_display(matrix):
@@ -16,60 +32,76 @@ def _format_matrix_for_display(matrix):
 
 
 class MatrixPanel:
-    """Panel individual con cuadrícula y operaciones básicas."""
+    """Panel individual con cuadrÃ­cula y operaciones bÃ¡sicas."""
 
-    def __init__(self, parent, title, on_result):
+    def __init__(self, parent, title, on_result, styles=None, palette=None, fonts=None):
         self.on_result = on_result
         self.title = title
-        self.frame = ttk.LabelFrame(parent, text=title, padding=8)
+        self.styles = styles or {}
+        self.palette = palette or _default_palette()
+        self.fonts = fonts or {}
+        self.frame = ttk.LabelFrame(parent, text=title, padding=8, style=self.styles.get("labelframe", ""))
         self.rows_var = tk.IntVar(value=3)
         self.cols_var = tk.IntVar(value=3)
         self.scalar_var = tk.DoubleVar(value=1.0)
-        self.power_var = tk.IntVar(value=1)
+        self.power_var = tk.IntVar(value=1)  # fija (sin UI) para evitar ruido
 
-        header = ttk.Frame(self.frame)
+        header = ttk.Frame(self.frame, style=self.styles.get("card", ""))
         header.grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 6))
-        ttk.Label(header, text="Filas:").pack(side=tk.LEFT, padx=(0, 4))
-        tk.Spinbox(header, from_=1, to=10, width=4, textvariable=self.rows_var, command=self._rebuild).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(header, text="Columnas:").pack(side=tk.LEFT, padx=(0, 4))
-        tk.Spinbox(header, from_=1, to=10, width=4, textvariable=self.cols_var, command=self._rebuild).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(header, text="+", width=2, command=self._inc_cols).pack(side=tk.RIGHT, padx=(4, 0))
-        ttk.Button(header, text="-", width=2, command=self._dec_cols).pack(side=tk.RIGHT, padx=(4, 0))
-        ttk.Button(header, text="+ fila", width=6, command=self._inc_rows).pack(side=tk.RIGHT, padx=(6, 0))
-        ttk.Button(header, text="- fila", width=6, command=self._dec_rows).pack(side=tk.RIGHT, padx=(6, 0))
+        ttk.Label(header, text="Filas:", style=self.styles.get("label", "")).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Spinbox(
+            header,
+            from_=1,
+            to=10,
+            width=4,
+            textvariable=self.rows_var,
+            command=self._rebuild,
+            bg=self.palette["input"],
+            fg=self.palette["text"],
+            insertbackground=self.palette["text"],
+            disabledbackground=self.palette["panel"],
+            highlightbackground=self.palette["outline"],
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(header, text="Columnas:", style=self.styles.get("label", "")).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Spinbox(
+            header,
+            from_=1,
+            to=10,
+            width=4,
+            textvariable=self.cols_var,
+            command=self._rebuild,
+            bg=self.palette["input"],
+            fg=self.palette["text"],
+            insertbackground=self.palette["text"],
+            disabledbackground=self.palette["panel"],
+            highlightbackground=self.palette["outline"],
+        ).pack(side=tk.LEFT, padx=(0, 8))
 
-        self.grid_frame = ttk.Frame(self.frame)
+        self.grid_frame = ttk.Frame(self.frame, style=self.styles.get("card", ""))
         self.grid_frame.grid(row=1, column=0, columnspan=4, sticky="w")
         self.entries = []
         self._rebuild()
 
-        ops = ttk.Frame(self.frame)
+        ops = ttk.Frame(self.frame, style=self.styles.get("card", ""))
         ops.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(8, 0))
-        ttk.Button(ops, text="Determinante", command=self._det).grid(row=0, column=0, sticky="ew", padx=2, pady=2)
-        ttk.Button(ops, text="Inversa", command=self._inv).grid(row=0, column=1, sticky="ew", padx=2, pady=2)
-        ttk.Button(ops, text="Transpuesta", command=self._transpose).grid(row=0, column=2, sticky="ew", padx=2, pady=2)
-        ttk.Button(ops, text="Multiplicar por", command=self._scale).grid(row=1, column=0, sticky="ew", padx=2, pady=2)
-        tk.Spinbox(ops, from_=-50, to=50, increment=0.5, width=6, textvariable=self.scalar_var).grid(row=1, column=1, sticky="w", padx=2, pady=2)
-        ttk.Label(ops, text="Elevada a").grid(row=1, column=2, sticky="ew", padx=2, pady=2)
-        tk.Spinbox(ops, from_=-5, to=8, width=4, textvariable=self.power_var, state="readonly").grid(row=1, column=3, sticky="w", padx=2, pady=2)
-        ttk.Button(ops, text="Independencia", command=self._independence).grid(row=2, column=0, columnspan=4, sticky="ew", padx=2, pady=(6, 2))
-
-    # --- layout helpers ---
-    def _inc_rows(self):
-        self.rows_var.set(self.rows_var.get() + 1)
-        self._rebuild()
-
-    def _dec_rows(self):
-        self.rows_var.set(max(1, self.rows_var.get() - 1))
-        self._rebuild()
-
-    def _inc_cols(self):
-        self.cols_var.set(self.cols_var.get() + 1)
-        self._rebuild()
-
-    def _dec_cols(self):
-        self.cols_var.set(max(1, self.cols_var.get() - 1))
-        self._rebuild()
+        ttk.Button(ops, text="Determinante", command=self._det, style=self.styles.get("button", "")).grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+        ttk.Button(ops, text="Inversa", command=self._inv, style=self.styles.get("button", "")).grid(row=0, column=1, sticky="ew", padx=2, pady=2)
+        ttk.Button(ops, text="Transpuesta", command=self._transpose, style=self.styles.get("button", "")).grid(row=0, column=2, sticky="ew", padx=2, pady=2)
+        ttk.Button(ops, text="Multiplicar por", command=self._scale, style=self.styles.get("button", "")).grid(row=1, column=0, sticky="ew", padx=2, pady=2)
+        tk.Spinbox(
+            ops,
+            from_=-50,
+            to=50,
+            increment=0.5,
+            width=6,
+            textvariable=self.scalar_var,
+            bg=self.palette["input"],
+            fg=self.palette["text"],
+            insertbackground=self.palette["text"],
+            disabledbackground=self.palette["panel"],
+            highlightbackground=self.palette["outline"],
+        ).grid(row=1, column=1, sticky="w", padx=2, pady=2)
+        ttk.Button(ops, text="Independencia", command=self._independence, style=self.styles.get("button", "")).grid(row=2, column=0, columnspan=3, sticky="ew", padx=2, pady=(6, 2))
 
     def _rebuild(self):
         rows = max(1, int(self.rows_var.get()))
@@ -81,7 +113,7 @@ class MatrixPanel:
         for i in range(rows):
             row_entries = []
             for j in range(cols):
-                e = ttk.Entry(self.grid_frame, width=8)
+                e = ttk.Entry(self.grid_frame, width=8, style=self.styles.get("entry", ""))
                 default = prev[i][j] if i < len(prev) and j < len(prev[i]) else "0"
                 e.insert(0, default)
                 e.grid(row=i, column=j, padx=2, pady=2)
@@ -196,93 +228,244 @@ class MatrixPanel:
 class DualOperatorsWindow:
     """Ventana principal con dos paneles visibles y soporte para N matrices."""
 
-    def __init__(self, master):
+    def __init__(self, master, palette=None, fonts=None, styles=None, as_toplevel=True):
         self.master = master
-        self.top = tk.Toplevel(master)
-        self.top.title("Operador de matrices (dual)")
-        self.top.geometry("1200x720")
+        self.palette = palette or _default_palette()
+        self.fonts = fonts or {
+            "body": ("Segoe UI", 11),
+            "label": ("Segoe UI Semibold", 11),
+            "title": ("Segoe UI Semibold", 16),
+            "mono": ("Consolas", 12),
+        }
+        self.styles = styles or self._build_styles()
+        self.as_toplevel = as_toplevel
 
-        root = ttk.Frame(self.top, padding=10)
-        root.pack(fill=tk.BOTH, expand=True)
+        if as_toplevel:
+            self.container = tk.Toplevel(master)
+            self.container.title("Operador de matrices (dual)")
+            self.container.geometry("1200x720")
+            parent_for_root = self.container
+        else:
+            self.container = ttk.Frame(master, style=self.styles.get("surface", ""))
+            parent_for_root = self.container
+
+        # Contenedor con scroll para evitar cortes en pantallas pequeÃ±as
+        scroll_wrap = ttk.Frame(parent_for_root, style=self.styles.get("surface", ""))
+        scroll_wrap.pack(fill=tk.BOTH, expand=True)
+        self.canvas = tk.Canvas(scroll_wrap, bg=self.palette["panel"], highlightthickness=0, bd=0)
+        vscroll = ttk.Scrollbar(scroll_wrap, orient=tk.VERTICAL, command=self.canvas.yview, style=self.styles.get("scrollbar", ""))
+        self.canvas.configure(yscrollcommand=vscroll.set)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vscroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        root = ttk.Frame(self.canvas, padding=8, style=self.styles.get("surface", ""))
+        self.canvas_window = self.canvas.create_window((0, 0), window=root, anchor="nw")
+        root.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self.canvas_window, width=e.width))
+        self._bind_global_scroll()
         root.columnconfigure(0, weight=1)
-        root.columnconfigure(1, weight=0)
-        root.columnconfigure(2, weight=1)
+        root.columnconfigure(1, weight=1)
 
-        # Toolbar
-        toolbar = ttk.Frame(root)
-        toolbar.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
-        ttk.Button(toolbar, text="Agregar matriz", command=self._add_panel).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(toolbar, text="Operar:").pack(side=tk.LEFT, padx=(0, 4))
+        # Cabecera alineada al resto de pestaÃ±as
+        header = ttk.Frame(root, style=self.styles.get("surface", ""))
+        header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        ttk.Label(header, text="Operador avanzado", style=self.styles.get("title", "")).pack(anchor="w")
+        ttk.Label(header, text="Opera matrices, guarda resultados y observa el procedimiento paso a paso.", style=self.styles.get("muted", "")).pack(anchor="w", pady=(2, 0))
+
+        # Acciones superiores (agregar/operar/guardar) en la parte superior izquierda
+        actions_box = ttk.Frame(root, style=self.styles.get("surface", ""))
+        actions_box.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 4))
+        row1 = ttk.Frame(actions_box, style=self.styles.get("surface", ""))
+        row1.grid(row=0, column=0, sticky="w")
+        ttk.Button(row1, text="Agregar matriz", command=self._add_panel, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(row1, text="Operar:", style=self.styles.get("label", "")).pack(side=tk.LEFT, padx=(0, 4))
         self.sel_left = tk.StringVar()
         self.sel_right = tk.StringVar()
-        self.combo_left = ttk.Combobox(toolbar, width=12, textvariable=self.sel_left, state="readonly")
-        self.combo_right = ttk.Combobox(toolbar, width=12, textvariable=self.sel_right, state="readonly")
+        self.combo_left = ttk.Combobox(row1, width=12, textvariable=self.sel_left, state="readonly", style=self.styles.get("combo", ""))
+        self.combo_right = ttk.Combobox(row1, width=12, textvariable=self.sel_right, state="readonly", style=self.styles.get("combo", ""))
         self.combo_left.pack(side=tk.LEFT, padx=(0, 6))
         self.combo_right.pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(toolbar, text="×", width=4, command=self._mul_ab).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="+", width=4, command=self._add_ab).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="A-B", width=5, command=self._sub_ab).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="B-A", width=5, command=self._sub_ba).pack(side=tk.LEFT, padx=2)
-        self.save_btn = ttk.Button(toolbar, text="Guardar resultado como matriz", command=self._save_result_as_panel, state="disabled")
-        self.save_btn.pack(side=tk.LEFT, padx=(12, 0))
+        row2 = ttk.Frame(actions_box, style=self.styles.get("surface", ""))
+        row2.grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ttk.Button(row2, text="A x B", width=6, command=self._mul_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(row2, text="A+B", width=6, command=self._add_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(row2, text="A-B", width=6, command=self._sub_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(row2, text="B-A", width=6, command=self._sub_ba, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        self.save_btn = ttk.Button(row2, text="Guardar resultado como matriz", command=self._save_result_as_panel, state="disabled", style=self.styles.get("button", ""))
+        self.save_btn.pack(side=tk.LEFT, padx=(10, 0))
 
-        # Lista de matrices para operaciones con más de 2
-        listbox_frame = ttk.Frame(root)
-        listbox_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
-        ttk.Label(listbox_frame, text="Selecciona matrices (orden para × y -):").pack(anchor="w")
-        self.selection_list = tk.Listbox(listbox_frame, selectmode=tk.EXTENDED, height=4, exportselection=False)
-        self.selection_list.pack(fill=tk.X, pady=4)
-        multibar = ttk.Frame(listbox_frame)
-        multibar.pack(anchor="w", pady=2)
-        ttk.Button(multibar, text="Σ Seleccion", command=self._sum_selected).pack(side=tk.LEFT, padx=2)
-        ttk.Button(multibar, text="Restar secuencia", command=self._sub_selected).pack(side=tk.LEFT, padx=2)
-        ttk.Button(multibar, text="Multiplicar secuencia", command=self._mul_selected).pack(side=tk.LEFT, padx=2)
+        # Bandeja de matrices (debajo de la barra, abarcando el ancho)
+        bandeja_frame = ttk.Frame(root, style=self.styles.get("surface", ""))
+<<<<<<< ours
+        bandeja_frame.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+=======
+        bandeja_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+>>>>>>> theirs
+        listbox_card = ttk.Frame(bandeja_frame, style=self.styles.get("card", ""), padding=6)
+        listbox_card.pack(fill="x")
+        top_bandeja = ttk.Frame(listbox_card, style=self.styles.get("card", ""))
+        top_bandeja.pack(fill="x", pady=(0, 4))
+        ttk.Label(top_bandeja, text="Bandeja de matrices (orden para x y -)", style=self.styles.get("label", "")).pack(side=tk.LEFT)
+        actions = ttk.Frame(top_bandeja, style=self.styles.get("card", ""))
+        actions.pack(side=tk.RIGHT)
+        ttk.Button(actions, text="Sumar seleccion", command=self._sum_selected, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(actions, text="Restar secuencia", command=self._sub_selected, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=4)
+        ttk.Button(actions, text="Multiplicar secuencia", command=self._mul_selected, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=4)
 
-        left = ttk.Frame(root)
-        left.grid(row=1, column=0, sticky="nsew", padx=(0, 16))
-        right = ttk.Frame(root)
-        right.grid(row=1, column=2, sticky="nsew", padx=(16, 0))
+        self.selection_list = tk.Listbox(
+            listbox_card,
+            selectmode=tk.EXTENDED,
+            height=5,
+            exportselection=False,
+            bg=self.palette["card"],
+            fg=self.palette["text"],
+            selectbackground=self.palette["accent"],
+            selectforeground=self.palette["background"],
+            highlightthickness=0,
+            borderwidth=0,
+            relief="flat",
+        )
+        self.selection_list.pack(fill=tk.X)
+
+        # Columna izquierda: paneles apilados con scroll
+        left_column = ttk.Frame(root, style=self.styles.get("surface", ""))
+        left_column.grid(row=3, column=0, sticky="nsew")
+        left_column.columnconfigure(0, weight=1)
+        left_column.rowconfigure(0, weight=1)
+
+        panels_wrapper = ttk.Frame(left_column, style=self.styles.get("surface", ""))
+        panels_wrapper.grid(row=0, column=0, sticky="nsew")
+        panels_wrapper.rowconfigure(0, weight=1)
+        panels_wrapper.columnconfigure(0, weight=1)
+        panels_canvas = tk.Canvas(panels_wrapper, bg=self.palette["panel"], highlightthickness=0, bd=0)
+        panels_scroll = ttk.Scrollbar(panels_wrapper, orient=tk.VERTICAL, command=panels_canvas.yview, style=self.styles.get("scrollbar", ""))
+        panels_canvas.configure(yscrollcommand=panels_scroll.set)
+        panels_canvas.grid(row=0, column=0, sticky="nsew")
+        panels_scroll.grid(row=0, column=1, sticky="ns")
+        self.panels_container = ttk.Frame(panels_canvas, style=self.styles.get("surface", ""))
+        self.panels_window = panels_canvas.create_window((0, 0), window=self.panels_container, anchor="nw")
+        self.panels_container.bind("<Configure>", lambda e: panels_canvas.configure(scrollregion=panels_canvas.bbox("all")))
+        panels_canvas.bind("<Configure>", lambda e: panels_canvas.itemconfigure(self.panels_window, width=e.width))
 
         self.panels = []
-        self._container_left = left
-        self._container_right = right
+        self._container_left = self.panels_container
+        self._container_right = self.panels_container
         self.last_result_matrix = None
         self._add_panel()
         self._add_panel()
 
-        result_area = ttk.Frame(root)
-        result_area.grid(row=2, column=0, columnspan=3, sticky="nsew", pady=(16, 0))
-        result_area.columnconfigure(0, weight=1)
-        result_area.columnconfigure(1, weight=1)
-        result_area.rowconfigure(0, weight=1)
-
-        result_box = ttk.LabelFrame(result_area, text="Resultado", padding=8)
-        result_box.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-        result_box.columnconfigure(0, weight=1)
-        result_box.rowconfigure(0, weight=1)
-        self.result_text = tk.Text(result_box, height=10, wrap="word")
-        self.result_text.grid(row=0, column=0, sticky="nsew")
-        ttk.Scrollbar(result_box, command=self.result_text.yview).grid(row=0, column=1, sticky="ns")
+        # Columna derecha: resultado arriba, pasos abajo
+        root.rowconfigure(2, weight=1)
+        root.rowconfigure(3, weight=1)
+        right_res = ttk.LabelFrame(root, text="Resultado", padding=10, style=self.styles.get("labelframe", ""))
+        right_res.grid(row=2, column=1, sticky="nsew", padx=(8, 0))
+        right_res.columnconfigure(0, weight=1)
+        right_res.rowconfigure(1, weight=1)
+        ttk.Label(right_res, text="Matriz resultante", style=self.styles.get("label", "")).grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self.result_text = tk.Text(
+            right_res,
+            height=12,
+            wrap="word",
+            bg=self.palette["card_alt"],
+            fg=self.palette["text"],
+            insertbackground=self.palette["text"],
+            bd=0,
+            highlightthickness=0,
+            font=self.fonts.get("mono", ("Consolas", 12)),
+        )
+        self.result_text.grid(row=1, column=0, sticky="nsew")
+        ttk.Scrollbar(right_res, command=self.result_text.yview, style=self.styles.get("scrollbar", "")).grid(row=1, column=1, sticky="ns")
         self.result_text.configure(yscrollcommand=self.result_text.yview)
 
-        steps_box = ttk.LabelFrame(result_area, text="Pasos", padding=8)
-        steps_box.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
-        steps_box.columnconfigure(0, weight=1)
-        steps_box.rowconfigure(0, weight=1)
-        self.steps_text = tk.Text(steps_box, height=10, wrap="word")
-        self.steps_text.grid(row=0, column=0, sticky="nsew")
-        ttk.Scrollbar(steps_box, command=self.steps_text.yview).grid(row=0, column=1, sticky="ns")
+        right_steps = ttk.LabelFrame(root, text="Pasos", padding=10, style=self.styles.get("labelframe", ""))
+        right_steps.grid(row=3, column=1, sticky="nsew", padx=(8, 0), pady=(6, 0))
+        right_steps.columnconfigure(0, weight=1)
+        right_steps.rowconfigure(1, weight=1)
+        ttk.Label(right_steps, text="Procedimiento detallado", style=self.styles.get("label", "")).grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self.steps_text = tk.Text(
+            right_steps,
+            height=12,
+            wrap="word",
+            bg=self.palette["card_alt"],
+            fg=self.palette["text"],
+            insertbackground=self.palette["text"],
+            bd=0,
+            highlightthickness=0,
+            font=self.fonts.get("mono", ("Consolas", 12)),
+        )
+        self.steps_text.grid(row=1, column=0, sticky="nsew")
+        ttk.Scrollbar(right_steps, command=self.steps_text.yview, style=self.styles.get("scrollbar", "")).grid(row=1, column=1, sticky="ns")
         self.steps_text.configure(yscrollcommand=self.steps_text.yview)
 
-        root.rowconfigure(2, weight=1)
+        root.rowconfigure(3, weight=1)
+
+    def _build_styles(self):
+        """Define estilos locales coherentes con la app principal."""
+        style = ttk.Style(self.master)
+        p = self.palette
+        styles = {
+            "surface": "Ops.Surface.TFrame",
+            "card": "Ops.Card.TFrame",
+            "labelframe": "Ops.Card.TLabelframe",
+            "label": "Ops.TLabel",
+            "muted": "Ops.Muted.TLabel",
+            "title": "Ops.Title.TLabel",
+            "cardtitle": "Ops.CardTitle.TLabel",
+            "button": "Ops.Button.TButton",
+            "combo": "Ops.TCombobox",
+            "entry": "Ops.Entry.TEntry",
+            "scrollbar": "Ops.Vertical.TScrollbar",
+        }
+        style.configure(styles["surface"], background=p["panel"])
+        style.configure(styles["card"], background=p["card"])
+        style.configure(styles["labelframe"], background=p["card"], foreground=p["accent"], borderwidth=0, relief="flat", padding=4)
+        style.configure(styles["labelframe"] + ".Label", background=p["card"], foreground=p["accent"], font=self.fonts.get("label"))
+        style.configure(styles["label"], background=p["panel"], foreground=p["text"], font=self.fonts.get("body"))
+        style.configure(styles["muted"], background=p["panel"], foreground=p["muted"], font=self.fonts.get("body"))
+        style.configure(styles["title"], background=p["panel"], foreground=p["accent"], font=self.fonts.get("title"))
+        style.configure(styles["cardtitle"], background=p["card"], foreground=p["accent"], font=self.fonts.get("title"))
+        style.configure(styles["button"], background=p["card"], foreground=p["text"], font=self.fonts.get("label"), borderwidth=0, padding=(10, 6))
+        style.map(styles["button"], background=[("active", p["accent"])], foreground=[("active", p["background"])])
+        style.configure(styles["combo"], fieldbackground=p["input"], background=p["input"], foreground=p["text"])
+        style.configure(styles["entry"], fieldbackground=p["input"], background=p["input"], foreground=p["text"])
+        # Scrollbar discreta (casi invisible) para integrarse al panel
+        style.configure(styles["scrollbar"], troughcolor=p["panel"], background=p["panel"], bordercolor=p["panel"], arrowcolor=p["panel"])
+        style.map(styles["scrollbar"], background=[("active", p["panel"])], arrowcolor=[("active", p["panel"])])
+        return styles
 
     def _add_panel(self):
         name = chr(ord("A") + len(self.panels))
         parent = self._container_left if len(self.panels) % 2 == 0 else self._container_right
-        panel = MatrixPanel(parent, f"Matriz {name}", self._show_result)
+        panel = MatrixPanel(parent, f"Matriz {name}", self._show_result, styles=self.styles, palette=self.palette, fonts=self.fonts)
         panel.frame.pack(anchor="n", fill=tk.X, pady=4)
         self.panels.append(panel)
         self._refresh_selectors()
+
+    def _bind_global_scroll(self):
+        """Permite hacer scroll con rueda desde cualquier zona."""
+        def _on_mousewheel(event):
+            num = getattr(event, "num", None)
+            if num in (4, 5):  # Linux buttons
+                delta = -1 if num == 4 else 1
+            else:
+                try:
+                    delta = -1 if event.delta > 0 else 1
+                except Exception:
+                    delta = 0
+            if delta:
+                self.canvas.yview_scroll(delta, "units")
+            return "break"
+
+        top = self.master.winfo_toplevel()
+        top.bind_all("<MouseWheel>", _on_mousewheel, add="+")
+        top.bind_all("<Button-4>", _on_mousewheel, add="+")
+        top.bind_all("<Button-5>", _on_mousewheel, add="+")
+        # Asegurar que el canvas tenga el foco al entrar en cualquier zona
+        for widget in (self.canvas, self.container, top):
+            try:
+                widget.bind("<Enter>", lambda e: self.canvas.focus_set(), add="+")
+            except Exception:
+                pass
 
     def _refresh_selectors(self):
         names = [f"Matriz {chr(ord('A') + idx)}" for idx in range(len(self.panels))]
@@ -324,16 +507,16 @@ class DualOperatorsWindow:
     def _mul_ab(self):
         try:
             A, B, names = self._get_selected_two(return_names=True)
-            res, pasos = self._dot_with_steps(A, B, f"{names[0]} × {names[1]}")
-            self._show_result("A × B", res, pasos)
+            res, pasos = self._dot_with_steps(A, B, f"{names[0]} x {names[1]}")
+            self._show_result("A x B", res, pasos)
         except Exception as e:
             messagebox.showerror("Producto", str(e))
 
     def _mul_ba(self):
         try:
             B, A, names = self._get_selected_two(return_names=True)
-            res, pasos = self._dot_with_steps(B, A, f"{names[0]} × {names[1]}")
-            self._show_result("B × A", res, pasos)
+            res, pasos = self._dot_with_steps(B, A, f"{names[0]} x {names[1]}")
+            self._show_result("B x A", res, pasos)
         except Exception as e:
             messagebox.showerror("Producto", str(e))
 
@@ -362,8 +545,8 @@ class DualOperatorsWindow:
             idxs = self._selected_indices()
             mats = [self.panels[i].get_effective_matrix() for i in idxs]
             names = [self.selection_list.get(i) for i in idxs]
-            res, pasos = self._sum_matrices(mats, names, "Suma de selección")
-            self._show_result("Suma de selección", res, pasos)
+            res, pasos = self._sum_matrices(mats, names, "Suma de selecciÃ³n")
+            self._show_result("Suma de selecciÃ³n", res, pasos)
         except Exception as e:
             messagebox.showerror("Suma", str(e))
 
@@ -371,7 +554,7 @@ class DualOperatorsWindow:
         try:
             idxs = self._selected_indices()
             if len(idxs) < 2:
-                raise ValueError("Selecciona 2 o más matrices para restar secuencialmente.")
+                raise ValueError("Selecciona 2 o mÃ¡s matrices para restar secuencialmente.")
             mats = [self.panels[i].get_effective_matrix() for i in idxs]
             names = [self.selection_list.get(i) for i in idxs]
             pasos = [f"Inicio con {names[0]}"]
@@ -388,13 +571,13 @@ class DualOperatorsWindow:
         try:
             idxs = self._selected_indices()
             if len(idxs) < 2:
-                raise ValueError("Selecciona 2 o más matrices para multiplicar.")
+                raise ValueError("Selecciona 2 o mÃ¡s matrices para multiplicar.")
             mats = [self.panels[i].get_effective_matrix() for i in idxs]
             names = [self.selection_list.get(i) for i in idxs]
             pasos_all = []
             res = mats[0]
             for idx in range(1, len(mats)):
-                res, pasos = self._dot_with_steps(res, mats[idx], f"{names[idx-1]} × {names[idx]}")
+                res, pasos = self._dot_with_steps(res, mats[idx], f"{names[idx-1]} x {names[idx]}")
                 pasos_all.extend(pasos)
             pasos_all.append("Producto secuencial completo.")
             self._show_result("Producto secuencial", res, pasos_all)
@@ -416,21 +599,32 @@ class DualOperatorsWindow:
         self.steps_text.delete("1.0", tk.END)
         if steps:
             if isinstance(steps, list):
-                self.steps_text.insert(tk.END, "\n".join(steps))
+                rendered = []
+                for item in steps:
+                    if isinstance(item, dict):
+                        if "descripcion" in item:
+                            rendered.append(str(item["descripcion"]))
+                        if "matriz" in item:
+                            rendered.append(_format_matrix_for_display(item["matriz"]))
+                        if not item:
+                            rendered.append("{}")
+                    else:
+                        rendered.append(str(item))
+                self.steps_text.insert(tk.END, "\n".join(rendered))
             else:
                 self.steps_text.insert(tk.END, str(steps))
         else:
-            self.steps_text.insert(tk.END, "Procedimiento no disponible para esta operación.")
+            self.steps_text.insert(tk.END, "Procedimiento no disponible para esta operaciÃ³n.")
 
     # ---- helpers ----
     def _dot_with_steps(self, A, B, etiqueta):
         if not A or not B:
-            raise ValueError("Matrices vacías.")
+            raise ValueError("Matrices vacÃ­as.")
         if len(A[0]) != len(B):
             raise ValueError(f"Dimensiones incompatibles: {len(A)}x{len(A[0])} con {len(B)}x{len(B[0])}")
         n, k, p = len(A), len(B), len(B[0])
         out = [[0.0 for _ in range(p)] for _ in range(n)]
-        pasos = [f"{etiqueta}: {n}x{k} · {k}x{p}"]
+        pasos = [f"{etiqueta}: {n}x{k} x {k}x{p}"]
         for i in range(n):
             for j in range(p):
                 terms = [f"{A[i][t]}*{B[t][j]}" for t in range(k)]
@@ -445,7 +639,7 @@ class DualOperatorsWindow:
         r, c = len(mats[0]), len(mats[0][0])
         for m in mats:
             if len(m) != r or len(m[0]) != c:
-                raise ValueError("Todas las matrices deben tener el mismo tamaño para sumar/restar.")
+                raise ValueError("Todas las matrices deben tener el mismo tamaÃ±o para sumar/restar.")
         pasos = [f"{title} ({r}x{c})"]
         for name, m in zip(names, mats):
             pasos.append(f"{name}:")
@@ -470,4 +664,11 @@ class DualOperatorsWindow:
 
 
 def launch_new_operator_window(root):
-    return DualOperatorsWindow(root)
+    """Abrir el operador en una ventana aparte (modo anterior)."""
+    return DualOperatorsWindow(root, as_toplevel=True)
+
+
+def create_embedded_operator(parent, palette=None, fonts=None):
+    """Crear el operador embebido en un contenedor existente."""
+    return DualOperatorsWindow(parent, palette=palette, fonts=fonts, as_toplevel=False)
+
