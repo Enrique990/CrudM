@@ -3295,6 +3295,20 @@ class MatrixCRUDApp:
             # Mostrar el mensaje principal del resultado
             if "mensaje" in resultado:
                 self.result_text.insert(tk.END, resultado["mensaje"] + "\n\n")
+            # Mostrar la solucion completa
+            solucion = resultado.get("solucion")
+            if isinstance(solucion, dict):
+                self.result_text.insert(tk.END, "Solucion:\n")
+                for var, val in solucion.items():
+                    if isinstance(val, (int, float)):
+                        val_fmt = f"{int(round(val))}" if abs(val - round(val)) < 1e-10 else f"{val:.6f}"
+                    else:
+                        val_fmt = str(val)
+                    self.result_text.insert(tk.END, f"{var} = {val_fmt}\n")
+                if solucion:
+                    self.result_text.insert(tk.END, "\n")
+            elif isinstance(solucion, str):
+                self.result_text.insert(tk.END, solucion + "\n\n")
             # Mostrar los pasos si existen
             if "pasos" in resultado and resultado["pasos"]:
                 self.steps_text.insert(tk.END, "Procedimiento:\n")
