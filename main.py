@@ -247,6 +247,25 @@ class MatrixCRUDApp:
             justify="left",
         ).pack(anchor="w", pady=(0, 16))
 
+        thanks_block = tk.Frame(card, bg=self.palette["panel"])
+        thanks_block.pack(anchor="w", fill="x", pady=(0, 14))
+        tk.Label(
+            thanks_block,
+            text="Profesor Carlos Iván Argüello",
+            font=self.fonts["hero"],
+            fg=self.palette["accent"],
+            bg=self.palette["panel"],
+        ).pack(anchor="w")
+        tk.Label(
+            thanks_block,
+            text="Agradecimiento especial por su guía y apoyo constante.",
+            font=self.fonts["body"],
+            fg=self.palette["accent_soft"],
+            bg=self.palette["panel"],
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
+
         highlights = tk.Frame(card, bg=self.palette["panel"])
         highlights.pack(fill="x", pady=(0, 12))
         for title, desc in [
