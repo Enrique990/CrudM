@@ -265,47 +265,63 @@ class DualOperatorsWindow:
         self._bind_global_scroll()
         root.columnconfigure(0, weight=1)
         root.columnconfigure(1, weight=1)
+        root.rowconfigure(0, weight=1)
 
-        # Cabecera alineada al resto de pestaÃ±as
-        header = ttk.Frame(root, style=self.styles.get("surface", ""))
-        header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        root.rowconfigure(0, weight=1)
+        content = ttk.Frame(root, style=self.styles.get("surface", ""))
+        content.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        content.columnconfigure(0, weight=1)
+        content.columnconfigure(1, weight=1)
+        content.rowconfigure(0, weight=1)
+
+        left_column = ttk.Frame(content, style=self.styles.get("surface", ""))
+        left_column.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        left_column.columnconfigure(0, weight=1)
+        left_column.rowconfigure(0, weight=0)
+        left_column.rowconfigure(1, weight=1)
+
+        # Cabecera, controles y bandeja a la izquierda
+        top_card = ttk.Frame(left_column, style=self.styles.get("card", ""), padding=10)
+        top_card.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        top_card.columnconfigure(0, weight=1)
+        top_card.columnconfigure(1, weight=1)
+
+        header = ttk.Frame(top_card, style=self.styles.get("card", ""))
+        header.grid(row=0, column=0, columnspan=2, sticky="ew")
         ttk.Label(header, text="Operador avanzado", style=self.styles.get("title", "")).pack(anchor="w")
         ttk.Label(header, text="Opera matrices, guarda resultados y observa el procedimiento paso a paso.", style=self.styles.get("muted", "")).pack(anchor="w", pady=(2, 0))
 
-        # Acciones superiores (agregar/operar/guardar) en la parte superior izquierda
-        actions_box = ttk.Frame(root, style=self.styles.get("surface", ""))
-        actions_box.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 4))
-        row1 = ttk.Frame(actions_box, style=self.styles.get("surface", ""))
-        row1.grid(row=0, column=0, sticky="w")
-        ttk.Button(row1, text="Agregar matriz", command=self._add_panel, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(row1, text="Operar:", style=self.styles.get("label", "")).pack(side=tk.LEFT, padx=(0, 4))
+        controls = ttk.Frame(top_card, style=self.styles.get("card", ""))
+        controls.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 4))
+        controls.columnconfigure(0, weight=1)
+        controls.columnconfigure(1, weight=1)
+
+        primary_row = ttk.Frame(controls, style=self.styles.get("card", ""))
+        primary_row.grid(row=0, column=0, sticky="w")
+        ttk.Button(primary_row, text="Nueva matriz", command=self._add_panel, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Label(primary_row, text="Operar:", style=self.styles.get("label", "")).pack(side=tk.LEFT, padx=(0, 6))
         self.sel_left = tk.StringVar()
         self.sel_right = tk.StringVar()
-        self.combo_left = ttk.Combobox(row1, width=12, textvariable=self.sel_left, state="readonly", style=self.styles.get("combo", ""))
-        self.combo_right = ttk.Combobox(row1, width=12, textvariable=self.sel_right, state="readonly", style=self.styles.get("combo", ""))
+        self.combo_left = ttk.Combobox(primary_row, width=12, textvariable=self.sel_left, state="readonly", style=self.styles.get("combo", ""))
+        self.combo_right = ttk.Combobox(primary_row, width=12, textvariable=self.sel_right, state="readonly", style=self.styles.get("combo", ""))
         self.combo_left.pack(side=tk.LEFT, padx=(0, 6))
         self.combo_right.pack(side=tk.LEFT, padx=(0, 10))
-        row2 = ttk.Frame(actions_box, style=self.styles.get("surface", ""))
-        row2.grid(row=1, column=0, sticky="w", pady=(4, 0))
-        ttk.Button(row2, text="A x B", width=6, command=self._mul_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
-        ttk.Button(row2, text="A+B", width=6, command=self._add_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
-        ttk.Button(row2, text="A-B", width=6, command=self._sub_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
-        ttk.Button(row2, text="B-A", width=6, command=self._sub_ba, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
-        self.save_btn = ttk.Button(row2, text="Guardar resultado como matriz", command=self._save_result_as_panel, state="disabled", style=self.styles.get("button", ""))
+
+        ops_row = ttk.Frame(controls, style=self.styles.get("card", ""))
+        ops_row.grid(row=0, column=1, sticky="e")
+        ttk.Button(ops_row, text="A x B", width=7, command=self._mul_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(ops_row, text="A+B", width=7, command=self._add_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(ops_row, text="A-B", width=7, command=self._sub_ab, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(ops_row, text="B-A", width=7, command=self._sub_ba, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=3)
+        self.save_btn = ttk.Button(ops_row, text="Guardar resultado", command=self._save_result_as_panel, state="disabled", style=self.styles.get("button", ""))
         self.save_btn.pack(side=tk.LEFT, padx=(10, 0))
 
-        # Bandeja de matrices (debajo de la barra, abarcando el ancho)
-        bandeja_frame = ttk.Frame(root, style=self.styles.get("surface", ""))
-<<<<<<< ours
-        bandeja_frame.grid(row=2, column=0, sticky="ew", pady=(0, 6))
-=======
-        bandeja_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
->>>>>>> theirs
-        listbox_card = ttk.Frame(bandeja_frame, style=self.styles.get("card", ""), padding=6)
-        listbox_card.pack(fill="x")
+        listbox_card = ttk.Frame(top_card, style=self.styles.get("card", ""), padding=8)
+        listbox_card.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        listbox_card.columnconfigure(0, weight=1)
         top_bandeja = ttk.Frame(listbox_card, style=self.styles.get("card", ""))
-        top_bandeja.pack(fill="x", pady=(0, 4))
-        ttk.Label(top_bandeja, text="Bandeja de matrices (orden para x y -)", style=self.styles.get("label", "")).pack(side=tk.LEFT)
+        top_bandeja.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        ttk.Label(top_bandeja, text="Bandeja de matrices (para sumar/restar/multiplicar en secuencia)", style=self.styles.get("label", "")).pack(side=tk.LEFT)
         actions = ttk.Frame(top_bandeja, style=self.styles.get("card", ""))
         actions.pack(side=tk.RIGHT)
         ttk.Button(actions, text="Sumar seleccion", command=self._sum_selected, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=(0, 4))
@@ -315,7 +331,7 @@ class DualOperatorsWindow:
         self.selection_list = tk.Listbox(
             listbox_card,
             selectmode=tk.EXTENDED,
-            height=5,
+            height=4,
             exportselection=False,
             bg=self.palette["card"],
             fg=self.palette["text"],
@@ -325,16 +341,10 @@ class DualOperatorsWindow:
             borderwidth=0,
             relief="flat",
         )
-        self.selection_list.pack(fill=tk.X)
-
-        # Columna izquierda: paneles apilados con scroll
-        left_column = ttk.Frame(root, style=self.styles.get("surface", ""))
-        left_column.grid(row=3, column=0, sticky="nsew")
-        left_column.columnconfigure(0, weight=1)
-        left_column.rowconfigure(0, weight=1)
+        self.selection_list.grid(row=1, column=0, sticky="ew")
 
         panels_wrapper = ttk.Frame(left_column, style=self.styles.get("surface", ""))
-        panels_wrapper.grid(row=0, column=0, sticky="nsew")
+        panels_wrapper.grid(row=1, column=0, sticky="nsew")
         panels_wrapper.rowconfigure(0, weight=1)
         panels_wrapper.columnconfigure(0, weight=1)
         panels_canvas = tk.Canvas(panels_wrapper, bg=self.palette["panel"], highlightthickness=0, bd=0)
@@ -346,25 +356,29 @@ class DualOperatorsWindow:
         self.panels_window = panels_canvas.create_window((0, 0), window=self.panels_container, anchor="nw")
         self.panels_container.bind("<Configure>", lambda e: panels_canvas.configure(scrollregion=panels_canvas.bbox("all")))
         panels_canvas.bind("<Configure>", lambda e: panels_canvas.itemconfigure(self.panels_window, width=e.width))
+        self.panels_container.columnconfigure(0, weight=1)
+        self._container_left = self.panels_container  # pila vertical
+        self._container_right = self.panels_container
 
         self.panels = []
-        self._container_left = self.panels_container
-        self._container_right = self.panels_container
         self.last_result_matrix = None
         self._add_panel()
         self._add_panel()
 
-        # Columna derecha: resultado arriba, pasos abajo
-        root.rowconfigure(2, weight=1)
-        root.rowconfigure(3, weight=1)
-        right_res = ttk.LabelFrame(root, text="Resultado", padding=10, style=self.styles.get("labelframe", ""))
-        right_res.grid(row=2, column=1, sticky="nsew", padx=(8, 0))
+        right_column = ttk.Frame(content, style=self.styles.get("surface", ""))
+        right_column.grid(row=0, column=1, sticky="nsew")
+        right_column.columnconfigure(0, weight=1)
+        # Dar m��s espacio vertical a los pasos que al resultado
+        right_column.rowconfigure(0, weight=1, minsize=40)
+        right_column.rowconfigure(1, weight=5)
+
+        right_res = ttk.LabelFrame(right_column, text="Resultado", padding=10, style=self.styles.get("labelframe", ""))
+        right_res.grid(row=0, column=0, sticky="nsew")
         right_res.columnconfigure(0, weight=1)
         right_res.rowconfigure(1, weight=1)
         ttk.Label(right_res, text="Matriz resultante", style=self.styles.get("label", "")).grid(row=0, column=0, sticky="w", pady=(0, 4))
         self.result_text = tk.Text(
             right_res,
-            height=12,
             wrap="word",
             bg=self.palette["card_alt"],
             fg=self.palette["text"],
@@ -377,14 +391,13 @@ class DualOperatorsWindow:
         ttk.Scrollbar(right_res, command=self.result_text.yview, style=self.styles.get("scrollbar", "")).grid(row=1, column=1, sticky="ns")
         self.result_text.configure(yscrollcommand=self.result_text.yview)
 
-        right_steps = ttk.LabelFrame(root, text="Pasos", padding=10, style=self.styles.get("labelframe", ""))
-        right_steps.grid(row=3, column=1, sticky="nsew", padx=(8, 0), pady=(6, 0))
+        right_steps = ttk.LabelFrame(right_column, text="Pasos", padding=10, style=self.styles.get("labelframe", ""))
+        right_steps.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         right_steps.columnconfigure(0, weight=1)
         right_steps.rowconfigure(1, weight=1)
         ttk.Label(right_steps, text="Procedimiento detallado", style=self.styles.get("label", "")).grid(row=0, column=0, sticky="w", pady=(0, 4))
         self.steps_text = tk.Text(
             right_steps,
-            height=12,
             wrap="word",
             bg=self.palette["card_alt"],
             fg=self.palette["text"],
@@ -396,8 +409,6 @@ class DualOperatorsWindow:
         self.steps_text.grid(row=1, column=0, sticky="nsew")
         ttk.Scrollbar(right_steps, command=self.steps_text.yview, style=self.styles.get("scrollbar", "")).grid(row=1, column=1, sticky="ns")
         self.steps_text.configure(yscrollcommand=self.steps_text.yview)
-
-        root.rowconfigure(3, weight=1)
 
     def _build_styles(self):
         """Define estilos locales coherentes con la app principal."""

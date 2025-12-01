@@ -41,7 +41,6 @@ class MatrixCRUDApp:
             "mono": ("Consolas", 12),
         }
         self.root.configure(bg=self.palette["background"])
-        
         # Ejecutar en pantalla completa (estilo Windows maximizado). Para modo kiosco se puede usar attributes('-fullscreen', True)
         try:
             self.root.state('zoomed')
@@ -113,10 +112,10 @@ class MatrixCRUDApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
 
-        # --- Pestaña 1: Operadores de Matrices (primera) ---
+        # --- Pestaña 1: Operador avanzado (reemplaza operador clásico) ---
         self.operators_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
-        self.notebook.add(self.operators_tab, text='Operadores de Matrices')
-        self.create_operators_widgets(self.operators_tab)
+        self.notebook.add(self.operators_tab, text='Operador avanzado')
+        self.create_fresh_operator_widgets(self.operators_tab)
 
         # --- Pestaña 2: Solucionador Sistema de ecuaciones ---
         self.calculator_tab = ttk.Frame(self.notebook, style='Dark.TFrame')
@@ -878,6 +877,24 @@ class MatrixCRUDApp:
         self.independence_result_text.configure(yscrollcommand=result_scrollbar_vec.set)
 
     # (Procedimiento movido al panel derecho)
+
+    def create_fresh_operator_widgets(self, parent_frame):
+        """Embebe el operador dual en una pestaña dedicada con el estilo de la app."""
+        container = ttk.Frame(parent_frame, style='Surface.TFrame')
+        container.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        try:
+            import operators_fresh
+
+            self.embedded_operator = operators_fresh.create_embedded_operator(
+                container, palette=self.palette, fonts=self.fonts
+            )
+            if hasattr(self.embedded_operator, "container"):
+                self.embedded_operator.container.pack(fill=tk.BOTH, expand=True)
+        except Exception as exc:
+            fallback = ttk.Frame(container, style='Card.TFrame', padding=14)
+            fallback.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+            ttk.Label(fallback, text="No se pudo cargar el operador de matrices.", style='CardTitle.TLabel').pack(anchor="w")
+            ttk.Label(fallback, text=str(exc), style='CardMuted.TLabel', wraplength=800, justify='left').pack(anchor="w", pady=(8, 0))
 
     def create_numeric_widgets(self, parent_frame):
         """Crea la pestaña 'Métodos numéricos' con el mismo layout base."""
@@ -3832,10 +3849,4 @@ class MatrixCRUDApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = MatrixCRUDApp(root)
-    # Ventana alternativa para operar matrices con dimensiones individuales.
-    try:
-        import operators_fresh
-        operators_fresh.launch_new_operator_window(root)
-    except Exception:
-        pass
     root.mainloop()
