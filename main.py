@@ -166,6 +166,213 @@ class MatrixCRUDApp:
         self.update_matrix_set_list()
         # Fijar el tamaño inicial de ambos listboxes una sola vez (sin sincronizaciones posteriores)
         self._apply_initial_listbox_size()
+        # Mostrar portada inicial
+        self.create_start_screen()
+
+    def create_start_screen(self):
+        """Portada inicial CalcuGebra con hero y equipo."""
+        try:
+            self.notebook.pack_forget()
+        except Exception:
+            pass
+
+        self.start_frame = tk.Frame(self.root, bg=self.palette["background"])
+        self.start_frame.pack(fill="both", expand=True)
+
+        # Canvas con scroll invisible para toda la portada
+        self.start_canvas = tk.Canvas(self.start_frame, bg=self.palette["background"], highlightthickness=0, bd=0)
+        start_scroll = ttk.Scrollbar(self.start_frame, orient=tk.VERTICAL, command=self.start_canvas.yview, style='App.Vertical.TScrollbar')
+        try:
+            start_scroll.configure(width=8)
+        except Exception:
+            pass
+        self.start_canvas.configure(yscrollcommand=start_scroll.set)
+        self.start_canvas.pack(side=tk.LEFT, fill="both", expand=True)
+        start_scroll.pack(side=tk.RIGHT, fill="y")
+
+        start_inner = tk.Frame(self.start_canvas, bg=self.palette["background"])
+        inner_window = self.start_canvas.create_window((0, 0), window=start_inner, anchor="nw")
+        start_inner.bind("<Configure>", lambda e: self.start_canvas.configure(scrollregion=self.start_canvas.bbox("all")))
+        self.start_canvas.bind("<Configure>", lambda e: self.start_canvas.itemconfig(inner_window, width=e.width))
+        def _on_start_wheel(ev):
+            self.start_canvas.yview_scroll(int(-1 * (ev.delta / 120)), "units")
+        # Scroll con rueda en cualquier zona de la portada (Windows/mac) y botones 4/5 (Linux)
+        def _bind_global():
+            try:
+                self.root.bind_all("<MouseWheel>", _on_start_wheel)
+                self.root.bind_all("<Button-4>", lambda e: self.start_canvas.yview_scroll(-1, "units"))
+                self.root.bind_all("<Button-5>", lambda e: self.start_canvas.yview_scroll(1, "units"))
+            except Exception:
+                pass
+        _bind_global()
+
+        hero_height = 320
+        self.hero_canvas = tk.Canvas(
+            start_inner,
+            bg=self.palette["background"],
+            height=hero_height,
+            highlightthickness=0,
+            bd=0,
+        )
+        self.hero_canvas.pack(fill="x", expand=False)
+        self.hero_canvas.bind("<Configure>", lambda e: self._paint_start_hero(e.width, hero_height))
+
+        content = tk.Frame(start_inner, bg=self.palette["background"])
+        content.pack(fill="both", expand=True, padx=30, pady=(10, 30))
+
+        card = tk.Frame(content, bg=self.palette["panel"], padx=32, pady=28, bd=0, highlightthickness=0)
+        card.pack(fill="both", expand=True)
+
+        tk.Label(card, text="CalcuGebra", font=self.fonts["hero"], fg=self.palette["text"], bg=self.palette["panel"]).pack(anchor="w")
+        tk.Label(
+            card,
+            text="Calculadora creativa de algebra lineal: matrices, resolucion de sistemas de ecuaciones lineales y metodos numericos que muestran cada paso.",
+            font=self.fonts["label"],
+            fg=self.palette["accent"],
+            bg=self.palette["panel"],
+            wraplength=880,
+            justify="left",
+        ).pack(anchor="w", pady=(8, 16))
+
+        origin_text = (
+            "Nacio en la clase de Algebra Lineal como laboratorio vivo: construir, probar y visualizar algoritmos reales "
+            "para que cualquier persona pueda entenderlos y aplicarlos sin perder precision academica."
+        )
+        tk.Label(
+            card,
+            text=origin_text,
+            font=self.fonts["body"],
+            fg=self.palette["text"],
+            bg=self.palette["panel"],
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 16))
+
+        highlights = tk.Frame(card, bg=self.palette["panel"])
+        highlights.pack(fill="x", pady=(0, 12))
+        for title, desc in [
+            ("Resolucion guiada", "Sistemas de ecuaciones lineales con pasos visibles y resultados claros."),
+            ("Operadores de matrices", "Suma, producto, inversas y mas en un panel ordenado."),
+            ("Metodos numericos", "Biseccion y compania con trazabilidad de iteraciones."),
+        ]:
+            block = tk.Frame(highlights, bg=self.palette["card"], padx=14, pady=12)
+            block.pack(side="left", expand=True, fill="both", padx=6)
+            tk.Label(block, text=title, font=self.fonts["label"], fg=self.palette["accent_soft"], bg=self.palette["card"]).pack(anchor="w")
+            tk.Label(block, text=desc, font=self.fonts["body"], fg=self.palette["text"], bg=self.palette["card"], wraplength=240, justify="left").pack(anchor="w", pady=(4, 0))
+
+        tk.Label(card, text="Equipo creador", font=self.fonts["label"], fg=self.palette["accent_soft"], bg=self.palette["panel"]).pack(anchor="w", pady=(10, 4))
+        names_frame = tk.Frame(card, bg=self.palette["panel"])
+        names_frame.pack(anchor="w", fill="x", pady=(0, 10))
+        for name in [
+            "ALICIA MASSIEL ESTRADA ACEVEDO",
+            "STEPHANY DAIANA FLORES BALTODANO",
+            "ENRIQUE JOSE TALENO NUNEZ",
+        ]:
+            row = tk.Frame(names_frame, bg=self.palette["panel"])
+            row.pack(anchor="w", pady=2, fill="x")
+            badge = tk.Canvas(row, width=10, height=10, bg=self.palette["panel"], highlightthickness=0)
+            badge.create_oval(1, 1, 9, 9, fill=self.palette["accent"], outline=self.palette["accent"])
+            badge.pack(side="left", padx=(0, 8))
+            tk.Label(row, text=name, font=self.fonts["body"], fg=self.palette["text"], bg=self.palette["panel"]).pack(side="left")
+
+        tk.Label(
+            card,
+            text="Objetivo: dominar algoritmos de algebra lineal mientras se comparte una herramienta accesible y vistosa para resolverlos rapido.",
+            font=self.fonts["body"],
+            fg=self.palette["muted"],
+            bg=self.palette["panel"],
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 18))
+
+        ttk.Button(card, text="Entrar a CalcuGebra", style='Dark.TButton', command=self._show_main_app).pack(anchor="w", pady=(6, 0))
+
+    def _paint_start_hero(self, width, height):
+        """Dibuja hero con plano cartesiano y parabola."""
+        canvas = self.hero_canvas
+        canvas.delete("all")
+        stripes = ["#132035", "#0f172a", "#0b1220"]
+        stripe_h = max(1, height // len(stripes))
+        for i, color in enumerate(stripes):
+            canvas.create_rectangle(0, i * stripe_h, width, (i + 1) * stripe_h, fill=color, outline="")
+
+        canvas.create_oval(width * 0.05, height * 0.25, width * 0.55, height * 1.05, fill=self.palette["card_alt"], outline=self.palette["card_alt"])
+        canvas.create_polygon(
+            width * 0.12, height * 0.7,
+            width * 0.55, height * 0.32,
+            width * 0.96, height * 0.9,
+            width * 0.14, height * 0.98,
+            fill=self.palette["card"],
+            outline="",
+            smooth=True,
+        )
+
+        plane_x = width * 0.62
+        plane_y = height * 0.2
+        plane_w = width * 0.3
+        plane_h = height * 0.55
+        grid_color = self.palette["accent_soft"]
+        canvas.create_rectangle(plane_x, plane_y, plane_x + plane_w, plane_y + plane_h, outline=self.palette["outline"], width=2, fill=self.palette["panel"])
+        for i in range(1, 5):
+            gx = plane_x + (plane_w / 5) * i
+            canvas.create_line(gx, plane_y, gx, plane_y + plane_h, fill=grid_color, dash=(2, 4))
+        for i in range(1, 5):
+            gy = plane_y + (plane_h / 5) * i
+            canvas.create_line(plane_x, gy, plane_x + plane_w, gy, fill=grid_color, dash=(2, 4))
+        canvas.create_line(plane_x, plane_y + plane_h / 2, plane_x + plane_w, plane_y + plane_h / 2, fill=self.palette["accent"], width=2)
+        canvas.create_line(plane_x + plane_w / 2, plane_y, plane_x + plane_w / 2, plane_y + plane_h, fill=self.palette["accent"], width=2)
+        points = []
+        for t in range(-40, 41, 3):
+            nx = t / 40
+            px = plane_x + (nx + 1) * (plane_w / 2)
+            py = plane_y + plane_h - ((nx ** 2) * plane_h * 0.7 + plane_h * 0.08)
+            points.append(px)
+            points.append(py)
+        canvas.create_line(points, fill=self.palette["accent_soft"], width=3, smooth=True)
+
+        spark_color = self.palette["accent_soft"]
+        for dx, dy, r in [(0.74, 0.16, 8), (0.68, 0.34, 6), (0.84, 0.46, 7), (0.9, 0.26, 5)]:
+            cx = width * dx
+            cy = height * dy
+            canvas.create_oval(cx - r, cy - r, cx + r, cy + r, fill=spark_color, outline=spark_color)
+            canvas.create_line(cx - r * 1.4, cy, cx + r * 1.4, cy, fill=spark_color, width=2)
+            canvas.create_line(cx, cy - r * 1.4, cx, cy + r * 1.4, fill=spark_color, width=2)
+
+        canvas.create_text(width * 0.08, height * 0.25, text="CalcuGebra", anchor="w", font=self.fonts["hero"], fill=self.palette["text"])
+        canvas.create_text(
+            width * 0.08,
+            height * 0.42,
+            text="Algebra lineal con actitud: matrices, resolucion de sistemas lineales y metodos numericos listos para explorar.",
+            anchor="w",
+            font=self.fonts["label"],
+            fill=self.palette["accent"],
+            width=width * 0.6,
+        )
+        canvas.create_text(
+            width * 0.08,
+            height * 0.58,
+            text="Hecho en clase como proyecto vivo para aprender haciendo y compartirlo con mas personas.",
+            anchor="w",
+            font=self.fonts["body"],
+            fill=self.palette["text"],
+            width=width * 0.55,
+        )
+
+    def _show_main_app(self):
+        """Cerrar portada y mostrar tabs."""
+        try:
+            if hasattr(self, 'start_frame') and self.start_frame.winfo_exists():
+                self.start_frame.destroy()
+        except Exception:
+            pass
+        try:
+            self.root.unbind_all("<MouseWheel>")
+            self.root.unbind_all("<Button-4>")
+            self.root.unbind_all("<Button-5>")
+        except Exception:
+            pass
+        if not self.notebook.winfo_ismapped():
+            self.notebook.pack(expand=True, fill='both', padx=10, pady=10)
 
     def create_calculator_widgets(self, parent_frame):
         """Crea todos los widgets para la pestaña del solucionador de sistemas."""
