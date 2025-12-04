@@ -24,6 +24,19 @@ import numpy as np
 from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 
 
+def _normalize_expr(expr_str: str) -> str:
+    """Convierte ecuaciones generales a forma f(x)=0 y aplica saneo bÁsico."""
+    expr = expr_str.strip()
+    # Si viene como "f(x)=..." u otro identificador, quedarnos con la parte derecha
+    m = re.match(r"^\s*[A-Za-z_]\w*\s*\(x\)\s*=(.*)", expr, re.S)
+    if m:
+        expr = m.group(1)
+    if "=" in expr:
+        left, right = expr.split("=", 1)
+        expr = f"({left}) - ({right})"
+    return expr
+
+
 class _NumToFraction(ast.NodeTransformer):
     def visit_Constant(self, node: ast.Constant):
         # convert only float literals to Fraction; keep ints as int so operations like x**3 keep integer exponent
@@ -57,7 +70,7 @@ def _to_callable(f: Any):
         return wrapper
 
     if isinstance(f, str):
-        expr = f.strip()
+        expr = _normalize_expr(f)
         # normalize common user syntax:
         # caret for power, brackets to parentheses, spanish 'sen' -> 'sin', ln -> log
         expr = expr.replace('^', '**')
@@ -358,7 +371,8 @@ class MetodoBiseccion:
 
         Útil para la interfaz de graficado que espera un callable vectorizable.
         """
-        txt = expr_str.replace('^', '**')
+        txt = _normalize_expr(expr_str)
+        txt = txt.replace('^', '**')
         # Multiplicación implícita por espacios: "2 3", "3 x", "(x+1) 2" -> agrega '*'
         txt = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', txt)
         # implícita: 2x -> 2*x, 3(x+1) -> 3*(x+1), (x+1)x -> (x+1)*x

@@ -1263,6 +1263,14 @@ class MatrixCRUDApp:
         except Exception as e:
             raise ValueError(f"No se pudo interpretar el número: '{s}' ({e})")
 
+    def _num_normalize_expr(self, expr: str) -> str:
+        """Convierte ecuaciones 'algo = algo' a forma restada para los solvers."""
+        txt = (expr or "").strip()
+        if "=" in txt:
+            left, right = txt.split("=", 1)
+            txt = f"({left})-({right})"
+        return txt
+
     def _num_to_float_from_str(self, s):
         from fractions import Fraction as _F
         if s is None:
@@ -1631,7 +1639,7 @@ class MatrixCRUDApp:
             allowed = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
             allowed.update({'pi': math.pi, 'e': math.e})
             def fnum(x):
-                safe_expr = expr.replace('^','**')
+                safe_expr = self._num_normalize_expr(expr).replace('^','**')
                 safe_expr = re.sub(r'(?<=[0-9A-Za-z\)\]])\s+(?=[0-9A-Za-z\(\[])', '*', safe_expr)
                 return eval(safe_expr, {'__builtins__': {}}, {**allowed, 'x': x})
 
@@ -1856,7 +1864,7 @@ class MatrixCRUDApp:
         method = self.num_method_var.get()
         expr = self.num_expr_entry.get().strip()
         if not expr:
-            messagebox.showerror("Error", "Debes ingresar una expresión f(x).")
+            messagebox.showerror("Error", "Debes ingresar una expresion o ecuacion en x.")
             return None
         try:
             tol = MetodoBiseccion.parse_tolerance(self.num_tol_entry.get())
