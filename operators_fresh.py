@@ -1,6 +1,7 @@
 ﻿import tkinter as tk
 from tkinter import ttk, messagebox
 import matrices
+import persistencia
 
 
 def _default_palette():
@@ -327,6 +328,7 @@ class DualOperatorsWindow:
         ttk.Button(actions, text="Sumar seleccion", command=self._sum_selected, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=(0, 4))
         ttk.Button(actions, text="Restar secuencia", command=self._sub_selected, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=4)
         ttk.Button(actions, text="Multiplicar secuencia", command=self._mul_selected, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=4)
+        ttk.Button(actions, text="Eliminar seleccion", command=self._delete_selected_panels, style=self.styles.get("button", "")).pack(side=tk.LEFT, padx=(8,0))
 
         self.selection_list = tk.Listbox(
             listbox_card,
@@ -451,6 +453,7 @@ class DualOperatorsWindow:
         panel.frame.pack(anchor="n", fill=tk.X, pady=4)
         self.panels.append(panel)
         self._refresh_selectors()
+        return panel
 
     def _bind_global_scroll(self):
         """Permite hacer scroll con rueda desde cualquier zona."""
@@ -595,6 +598,32 @@ class DualOperatorsWindow:
         except Exception as e:
             messagebox.showerror("Producto", str(e))
 
+    def _delete_selected_panels(self):
+        """Elimina las matrices seleccionadas de la bandeja y renumera las restantes."""
+        try:
+            idxs = sorted(self._selected_indices(), reverse=True)
+        except Exception as e:
+            messagebox.showwarning("Eliminar", str(e))
+            return
+        for idx in idxs:
+            try:
+                panel = self.panels.pop(idx)
+                panel.frame.destroy()
+            except Exception:
+                pass
+        self._renumber_panels()
+        self._refresh_selectors()
+
+    def _renumber_panels(self):
+        """Actualiza los nombres visibles tras eliminar/agregar."""
+        for idx, panel in enumerate(self.panels):
+            new_name = f"Matriz {chr(ord('A') + idx)}"
+            try:
+                panel.title = new_name
+                panel.frame.configure(text=new_name)
+            except Exception:
+                pass
+
     # ---- salida ----
     def _show_result(self, text, matrix=None, steps=None):
         if matrix is not None:
@@ -670,8 +699,27 @@ class DualOperatorsWindow:
         if not self.last_result_matrix:
             messagebox.showwarning("Resultado", "No hay matriz resultante para guardar.")
             return
-        self._add_panel()
-        self.panels[-1].set_matrix(self.last_result_matrix)
+        panel = self._add_panel()
+        panel.set_matrix(self.last_result_matrix)
+        self._persist_result_matrix(self.last_result_matrix)
+
+    def _persist_result_matrix(self, matrix_data):
+        """Guarda la matriz resultante en almacenamiento para reutilizarla en otras pestañas."""
+        try:
+            if not matrix_data:
+                return
+            todas = persistencia.cargar_todas_matrices()
+            idx = 1
+            name = f"OP{idx}"
+            while name in todas:
+                idx += 1
+                name = f"OP{idx}"
+            filas = len(matrix_data)
+            cols = len(matrix_data[0]) if matrix_data and matrix_data[0] is not None else 0
+            payload = {"nombre": name, "filas": filas, "columnas": cols, "datos": matrix_data}
+            persistencia.guardar_matriz(name, payload)
+        except Exception as e:
+            messagebox.showwarning("Guardar matriz", f"No se pudo guardar la matriz en archivo: {e}")
 
 
 def launch_new_operator_window(root):
