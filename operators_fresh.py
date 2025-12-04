@@ -35,12 +35,14 @@ def _format_matrix_for_display(matrix):
 class MatrixPanel:
     """Panel individual con cuadrÃ­cula y operaciones bÃ¡sicas."""
 
-    def __init__(self, parent, title, on_result, styles=None, palette=None, fonts=None):
+    def __init__(self, parent, title, on_result, styles=None, palette=None, fonts=None, on_remove=None):
         self.on_result = on_result
         self.title = title
         self.styles = styles or {}
         self.palette = palette or _default_palette()
         self.fonts = fonts or {}
+        self.on_remove = on_remove
+        self.title_var = tk.StringVar(value=title)
         self.frame = ttk.LabelFrame(parent, text=title, padding=8, style=self.styles.get("labelframe", ""))
         self.rows_var = tk.IntVar(value=3)
         self.cols_var = tk.IntVar(value=3)
@@ -49,6 +51,21 @@ class MatrixPanel:
 
         header = ttk.Frame(self.frame, style=self.styles.get("card", ""))
         header.grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 6))
+        ttk.Label(header, textvariable=self.title_var, style=self.styles.get("label", "")).pack(side=tk.LEFT, padx=(0, 12))
+        remove_style = self.styles.get("iconbutton", self.styles.get("button", ""))
+        self.remove_btn = ttk.Button(
+            header,
+            text="X",
+            width=3,
+            command=self._handle_remove,
+            style=remove_style,
+        )
+        if not self.on_remove:
+            try:
+                self.remove_btn.state(["disabled"])
+            except Exception:
+                pass
+        self.remove_btn.pack(side=tk.RIGHT, padx=(6, 0))
         ttk.Label(header, text="Filas:", style=self.styles.get("label", "")).pack(side=tk.LEFT, padx=(0, 4))
         tk.Spinbox(
             header,
@@ -103,6 +120,19 @@ class MatrixPanel:
             highlightbackground=self.palette["outline"],
         ).grid(row=1, column=1, sticky="w", padx=2, pady=2)
         ttk.Button(ops, text="Independencia", command=self._independence, style=self.styles.get("button", "")).grid(row=2, column=0, columnspan=3, sticky="ew", padx=2, pady=(6, 2))
+
+    def _handle_remove(self):
+        """Delegado para el botón de eliminar en cada panel."""
+        if self.on_remove:
+            self.on_remove()
+
+    def set_on_remove(self, callback):
+        """Permite registrar el callback de borrado después de crear el panel."""
+        self.on_remove = callback
+        try:
+            self.remove_btn.state(["!disabled"])
+        except Exception:
+            pass
 
     def _rebuild(self):
         rows = max(1, int(self.rows_var.get()))
@@ -425,6 +455,7 @@ class DualOperatorsWindow:
             "title": "Ops.Title.TLabel",
             "cardtitle": "Ops.CardTitle.TLabel",
             "button": "Ops.Button.TButton",
+            "iconbutton": "Ops.Icon.TButton",
             "combo": "Ops.TCombobox",
             "entry": "Ops.Entry.TEntry",
             "scrollbar": "Ops.Vertical.TScrollbar",
@@ -439,6 +470,8 @@ class DualOperatorsWindow:
         style.configure(styles["cardtitle"], background=p["card"], foreground=p["accent"], font=self.fonts.get("title"))
         style.configure(styles["button"], background=p["card"], foreground=p["text"], font=self.fonts.get("label"), borderwidth=0, padding=(10, 6))
         style.map(styles["button"], background=[("active", p["accent"])], foreground=[("active", p["background"])])
+        style.configure(styles["iconbutton"], background=p["card"], foreground=p["accent"], font=self.fonts.get("label"), borderwidth=0, padding=(6, 2))
+        style.map(styles["iconbutton"], background=[("active", p["accent"])], foreground=[("active", p["background"])])
         style.configure(styles["combo"], fieldbackground=p["input"], background=p["input"], foreground=p["text"])
         style.configure(styles["entry"], fieldbackground=p["input"], background=p["input"], foreground=p["text"])
         # Scrollbar discreta (casi invisible) para integrarse al panel
@@ -449,7 +482,8 @@ class DualOperatorsWindow:
     def _add_panel(self):
         name = chr(ord("A") + len(self.panels))
         parent = self._container_left if len(self.panels) % 2 == 0 else self._container_right
-        panel = MatrixPanel(parent, f"Matriz {name}", self._show_result, styles=self.styles, palette=self.palette, fonts=self.fonts)
+        panel = MatrixPanel(parent, f"Matriz {name}", self._show_result, styles=self.styles, palette=self.palette, fonts=self.fonts, on_remove=None)
+        panel.set_on_remove(lambda p=panel: self._remove_panel(p))
         panel.frame.pack(anchor="n", fill=tk.X, pady=4)
         self.panels.append(panel)
         self._refresh_selectors()
@@ -614,6 +648,20 @@ class DualOperatorsWindow:
         self._renumber_panels()
         self._refresh_selectors()
 
+    def _remove_panel(self, panel):
+        """Elimina un panel individual (botón propio de la tarjeta)."""
+        try:
+            idx = self.panels.index(panel)
+        except ValueError:
+            return
+        try:
+            panel.frame.destroy()
+        except Exception:
+            pass
+        self.panels.pop(idx)
+        self._renumber_panels()
+        self._refresh_selectors()
+
     def _renumber_panels(self):
         """Actualiza los nombres visibles tras eliminar/agregar."""
         for idx, panel in enumerate(self.panels):
@@ -621,6 +669,8 @@ class DualOperatorsWindow:
             try:
                 panel.title = new_name
                 panel.frame.configure(text=new_name)
+                if hasattr(panel, "title_var"):
+                    panel.title_var.set(new_name)
             except Exception:
                 pass
 
